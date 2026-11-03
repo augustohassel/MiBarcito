@@ -80,6 +80,33 @@ describe('Dominio Bebida', () => {
       expect(errores.volumenRestanteMl).toBe('El volumen restante es obligatorio');
     });
 
+    it('valida que la categoría exista cuando se especifica la lista de categorías válidas', () => {
+      const categoriasDisponibles = ['destilado', 'licor', 'vino'];
+      const erroresValido = validarBebida(
+        {
+          nombre: 'Gin',
+          marca: 'Beefeater',
+          categoria: 'destilado',
+          volumenTotalMl: 750,
+          volumenRestanteMl: 500,
+        },
+        categoriasDisponibles
+      );
+      expect(erroresValido.categoria).toBeUndefined();
+
+      const erroresInvalido = validarBebida(
+        {
+          nombre: 'Gin',
+          marca: 'Beefeater',
+          categoria: 'categoria-inexistente',
+          volumenTotalMl: 750,
+          volumenRestanteMl: 500,
+        },
+        categoriasDisponibles
+      );
+      expect(erroresInvalido.categoria).toBe('Debe seleccionar una categoría válida');
+    });
+
     it('caso de falla / borde: bloquea volumenRestanteMl mayor que volumenTotalMl', () => {
       const errores = validarBebida({
         nombre: 'Whisky Jameson',

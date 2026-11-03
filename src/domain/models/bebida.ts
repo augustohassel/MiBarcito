@@ -1,15 +1,8 @@
 /**
- * Categorías principales de bebidas según el dominio de MiBarcito
+ * Categorías de bebidas según el dominio de MiBarcito.
+ * Ahora dinamizadas a través de la entidad Categoria y el repositorio correspondiente.
  */
-export type CategoriaBebida =
-  | 'destilado'
-  | 'licor'
-  | 'vino'
-  | 'cerveza'
-  | 'aperitivo_bitter'
-  | 'mixer_sin_alcohol'
-  | 'syrup_endulzante'
-  | 'otro';
+export type CategoriaBebida = string;
 
 export const CATEGORIAS_BEBIDA: { value: CategoriaBebida; label: string }[] = [
   { value: 'destilado', label: 'Destilado' },
@@ -49,8 +42,12 @@ export type ErroresValidacionBebida = Partial<Record<keyof Bebida | 'general', s
 /**
  * Función pura para validar datos de una bebida.
  * Previene inconsistencias, volúmenes incoherentes y graduación fuera de rango.
+ * Acepta opcionalmente la lista de IDs de categorías válidas disponibles en el sistema.
  */
-export function validarBebida(datos: Partial<Bebida>): ErroresValidacionBebida {
+export function validarBebida(
+  datos: Partial<Bebida>,
+  categoriasValidas?: string[]
+): ErroresValidacionBebida {
   const errores: ErroresValidacionBebida = {};
 
   // Validaciones obligatorias de texto
@@ -62,7 +59,9 @@ export function validarBebida(datos: Partial<Bebida>): ErroresValidacionBebida {
     errores.marca = 'La marca es obligatoria';
   }
 
-  if (!datos.categoria || !CATEGORIAS_BEBIDA.some((c) => c.value === datos.categoria)) {
+  if (!datos.categoria || datos.categoria.trim().length === 0) {
+    errores.categoria = 'Debe seleccionar una categoría válida';
+  } else if (categoriasValidas && !categoriasValidas.includes(datos.categoria)) {
     errores.categoria = 'Debe seleccionar una categoría válida';
   }
 

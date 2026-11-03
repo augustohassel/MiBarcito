@@ -1,0 +1,321 @@
+import React, { useState } from 'react';
+import { useCategorias } from '../context/InventoryContext';
+import {
+  Categoria,
+  CATEGORIA_COMODIN_ID,
+  validarCategoria,
+  puedeEliminarCategoria,
+} from '../domain/models/categoria';
+import { Bebida } from '../domain/models/bebida';
+import { ConfirmModal } from './ConfirmModal';
+
+export interface CategoriasConfigProps {
+  bebidas: Bebida[];
+}
+
+export const CategoriasConfig: React.FC<CategoriasConfigProps> = ({ bebidas }) => {
+  const { categorias, guardarCategoria, eliminarCategoria } = useCategorias();
+
+  // Estado para crear nueva categoría
+  const [nuevoNombre, setNuevoNombre] = useState('');
+  const [errorCrear, setErrorCrear] = useState<string | null>(null);
+
+  // Estado para editar categoría
+  const [categoriaEnEdicionId, setCategoriaEnEdicionId] = useState<string | null>(null);
+  const [nombreEnEdicion, setNombreEnEdicion] = useState('');
+  const [errorEditar, setErrorEditar] = useState<string | null>(null);
+
+  // Estado para eliminar
+  const [categoriaAEliminar, setCategoriaAEliminar] = useState<Categoria | null>(null);
+  const [mensajeBloqueoEliminacion, setMensajeBloqueoEliminacion] = useState<string | null>(null);
+
+  // Cantidad de bebidas por categoría
+  const getCantidadBebidas = (catId: string): number => {
+    return bebidas.filter((b) => b.categoria === catId).length;
+  };
+
+  // Handler: Crear nueva categoría
+  const handleCrearCategoria = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorCrear(null);
+
+    const errores = validarCategoria({ nombre: nuevoNombre }, categorias);
+    if (errores.nombre) {
+      setErrorCrear(errores.nombre);
+      return;
+    }
+
+    const ahora = new Date().toISOString();
+    const id = `cat-${crypto.randomUUID().slice(0, 8)}`;
+    const maxOrden = categorias.reduce((max, c) => Math.max(max, c.orden || 0), 0);
+
+    const nuevaCategoria: Categoria = {
+      id,
+      nombre: nuevoNombre.trim(),
+      esPredeterminada: false,
+      orden: maxOrden + 1,
+      fechaCreacion: ahora,
+      fechaActualizacion: ahora,
+    };
+
+    try {
+      await guardarCategoria(nuevaCategoria);
+      setNuevoNombre('');
+    } catch (err) {
+      setErrorCrear('Ocurrió un error al guardar la categoría');
+      console.error(err);
+    }
+  };
+
+  // Handler: Iniciar edición
+  const handleIniciarEditar = (categoria: Categoria) => {
+    setCategoriaEnEdicionId(categoria.id);
+    setNombreEnEdicion(categoria.nombre);
+    setErrorEditar(null);
+  };
+
+  // Handler: Guardar edición
+  const handleGuardarEdicion = async (categoria: Categoria) => {
+    setErrorEditar(null);
+
+    const errores = validarCategoria(
+      { id: categoria.id, nombre: nombreEnEdicion },
+      categorias
+    );
+    if (errores.nombre) {
+      setErrorEditar(errores.nombre);
+      return;
+    }
+
+    const categoriaActualizada: Categoria = {
+      ...categoria,
+      nombre: nombreEnEdicion.trim(),
+      fechaActualizacion: new Date().toISOString(),
+    };
+
+    try {
+      await guardarCategoria(categoriaActualizada);
+      setCategoriaEnEdicionId(null);
+      setNombreEnEdicion('');
+    } catch (err) {
+      setErrorEditar('Ocurrió un error al actualizar la categoría');
+      console.error(err);
+    }
+  };
+
+  const handleCancelarEdicion = () => {
+    setCategoriaEnEdicionId(null);
+    setNombreEnEdicion('');
+    setErrorEditar(null);
+  };
+
+  // Handler: Solicitar eliminación
+  const handleSolicitarEliminar = (categoria: Categoria) => {
+    setMensajeBloqueoEliminacion(null);
+    const cantidadEnUso = getCantidadBebidas(categoria.id);
+    const validacion = puedeEliminarCategoria(categoria.id, cantidadEnUso);
+
+    if (!validacion.puede) {
+      setMensajeBloqueoEliminacion(validacion.motivo || 'No se puede eliminar la categoría');
+      return;
+    }
+
+    setCategoriaAEliminar(categoria);
+  };
+
+  // Handler: Confirmar eliminación
+  const handleConfirmarEliminar = async () => {
+    if (!categoriaAEliminar) return;
+
+    try {
+      const resultado = await eliminarCategoria(categoriaAEliminar.id);
+      if (!resultado.ok) {
+        setMensajeBloqueoEliminacion(resultado.motivo || 'No se pudo eliminar la categoría');
+      }
+    } catch (err) {
+      console.error(err);
+      setMensajeBloqueoEliminacion('Ocurrió un error al eliminar la categoría');
+    } finally {
+      setCategoriaAEliminar(null);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Explicación de la solapa */}
+      <div>
+        <h4 className="text-sm font-semibold text-slate-200">
+          Gestión de Categorías de Bebidas
+        </h4>
+        <p className="text-xs text-slate-400 mt-1">
+          Personalizá las categorías disponibles para clasificar y filtrar las botellas de tu
+          despensa. Las categorías predeterminadas pueden renombrarse y solo la categoría "Otro" es
+          inmutable.
+        </p>
+      </div>
+
+      {/* Alerta de bloqueo de eliminación */}
+      {mensajeBloqueoEliminacion && (
+        <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs flex items-start justify-between gap-2">
+          <span>⚠️ {mensajeBloqueoEliminacion}</span>
+          <button
+            onClick={() => setMensajeBloqueoEliminacion(null)}
+            className="text-amber-400 hover:text-amber-200 font-bold ml-2 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Formulario: Nueva Categoría */}
+      <form
+        onSubmit={handleCrearCategoria}
+        className="p-3.5 bg-slate-950/60 rounded-xl border border-slate-800 flex flex-col gap-2"
+      >
+        <span className="text-xs font-semibold text-slate-300">Nueva Categoría</span>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={nuevoNombre}
+            onChange={(e) => {
+              setNuevoNombre(e.target.value);
+              if (errorCrear) setErrorCrear(null);
+            }}
+            placeholder="Ej: Tequila, Bitter Artesanal..."
+            aria-label="Nombre de nueva categoría"
+            className="flex-1 bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+          />
+          <button
+            type="submit"
+            className="px-3.5 py-1.5 text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-xl transition-colors cursor-pointer whitespace-nowrap"
+          >
+            + Agregar
+          </button>
+        </div>
+        {errorCrear && (
+          <p className="text-xs text-rose-400 mt-0.5">{errorCrear}</p>
+        )}
+      </form>
+
+      {/* Listado de Categorías */}
+      <div className="flex flex-col gap-2">
+        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          Categorías Disponibles ({categorias.length})
+        </span>
+
+        <div className="flex flex-col gap-2 max-h-72 overflow-y-auto pr-1">
+          {categorias.map((cat) => {
+            const enEdicion = categoriaEnEdicionId === cat.id;
+            const cantidadBebidas = getCantidadBebidas(cat.id);
+            const esComodin = cat.id === CATEGORIA_COMODIN_ID;
+
+            return (
+              <div
+                key={cat.id}
+                className="flex items-center justify-between p-2.5 bg-slate-950/40 rounded-xl border border-slate-800/80 gap-2"
+              >
+                {enEdicion ? (
+                  <div className="flex flex-1 flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={nombreEnEdicion}
+                        onChange={(e) => {
+                          setNombreEnEdicion(e.target.value);
+                          if (errorEditar) setErrorEditar(null);
+                        }}
+                        aria-label="Editar nombre de categoría"
+                        className="flex-1 bg-slate-900 border border-sky-500 rounded-lg px-2.5 py-1 text-xs text-slate-100 focus:outline-none"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleGuardarEdicion(cat)}
+                        className="px-2.5 py-1 text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors cursor-pointer"
+                        title="Guardar nombre"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelarEdicion}
+                        className="px-2 py-1 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors cursor-pointer"
+                        title="Cancelar"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    {errorEditar && (
+                      <span className="text-xs text-rose-400">{errorEditar}</span>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 flex-wrap min-w-0">
+                      <span className="text-xs sm:text-sm font-medium text-slate-200 truncate">
+                        {cat.nombre}
+                      </span>
+                      {cat.esPredeterminada ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-400 border border-slate-700/60">
+                          Predeterminada
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          Personalizada
+                        </span>
+                      )}
+                      <span className="text-[11px] text-slate-500">
+                        ({cantidadBebidas} {cantidadBebidas === 1 ? 'botella' : 'botellas'})
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleIniciarEditar(cat)}
+                        className="px-2 py-1 text-xs font-medium text-slate-300 hover:text-sky-300 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                        title="Renombrar categoría"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSolicitarEliminar(cat)}
+                        disabled={esComodin}
+                        className={`px-2 py-1 text-xs font-medium rounded-lg transition-colors ${
+                          esComodin
+                            ? 'text-slate-600 cursor-not-allowed opacity-50'
+                            : 'text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 cursor-pointer'
+                        }`}
+                        title={
+                          esComodin
+                            ? "La categoría 'Otro' es el comodín reservado del sistema y no puede eliminarse."
+                            : 'Eliminar categoría'
+                        }
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Modal de confirmación de eliminación */}
+      <ConfirmModal
+        isOpen={Boolean(categoriaAEliminar)}
+        titulo="Eliminar Categoría"
+        mensaje={`¿Estás seguro de que deseás eliminar la categoría "${categoriaAEliminar?.nombre}"? Esta acción no se puede deshacer.`}
+        textoConfirmar="Sí, eliminar"
+        textoCancelar="Cancelar"
+        variante="peligro"
+        onConfirm={handleConfirmarEliminar}
+        onCancel={() => setCategoriaAEliminar(null)}
+      />
+    </div>
+  );
+};
+

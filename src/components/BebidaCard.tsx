@@ -1,4 +1,5 @@
 import React from 'react';
+import { useCategoriasOpcional } from '../context/InventoryContext';
 import {
   Bebida,
   ajustarVolumenRapido,
@@ -24,8 +25,12 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
 }) => {
   const porcentaje = calcularPorcentajeRestante(bebida);
   const bajoStock = estaEnAlertaStockBajo(bebida);
+  const categoriasCtx = useCategoriasOpcional();
+  const categoriaObj = categoriasCtx?.categorias.find((c) => c.id === bebida.categoria);
   const categoriaLabel =
-    CATEGORIAS_BEBIDA.find((c) => c.value === bebida.categoria)?.label || bebida.categoria;
+    categoriaObj?.nombre ||
+    CATEGORIAS_BEBIDA.find((c) => c.value === bebida.categoria)?.label ||
+    bebida.categoria;
 
   const handleModificarVolumen = (deltaMl: number) => {
     const nuevoVolumen = ajustarVolumenRapido(

@@ -47,4 +47,19 @@ Este documento reúne la terminología, entidades de negocio y conceptos funcion
 - **Alcance / Propósito**: Destacar botellas predilectas o de uso frecuente y habilitar filtrado rápido prioritario en la vista de inventario.
 - **Lo que NO es**: No modifica las reglas de alerta de stock bajo ni las cantidades disponibles de la botella.
 
+---
+
+### Categoría de Bebida
+- **Definición**: Clasificación taxonómica dinámica (`Categoria`) utilizada para catalogar las bebidas del bar hogareño según su naturaleza o rol en coctelería (ej. destilado, licor, vino, cerveza, aperitivo/bitter, etc.).
+- **Alcance / Propósito**: Permite filtrar y segmentar el inventario en la despensa, facilitando la búsqueda y la preparación de recetas. Soporta categorías predeterminadas del sistema y categorías personalizadas creadas por el usuario, con protección permanente de la categoría comodín (*"Otro"*) y bloqueo de eliminación si tiene bebidas asignadas.
+- **Lo que NO es**: No es un atributo inmutable fijado en código; es una entidad gestionable desde el sector de configuración y persistida localmente.
+
+---
+
+### Sector de Configuración
+- **Definición**: Panel centralizado accesible mediante el icono de engranaje (⚙️) en el encabezado principal de la aplicación.
+- **Alcance / Propósito**: Permite gestionar los parámetros maestros de la aplicación (iniciando por la gestión dinámica de categorías de bebidas) y está preparado arquitectónicamente para alojar futuras solapas como respaldo, exportación y sincronización en la nube.
+- **Lo que NO es**: No es una pantalla de carga de stock de botellas individuales ni de recetas.
+
+
 

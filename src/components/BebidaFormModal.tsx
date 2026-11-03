@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useCategoriasOpcional } from '../context/InventoryContext';
 import {
   Bebida,
   CategoriaBebida,
@@ -45,6 +46,13 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
   onSave,
   onClose,
 }) => {
+  const categoriasCtx = useCategoriasOpcional();
+  const opcionesCategorias = useMemo(() => {
+    return categoriasCtx && categoriasCtx.categorias.length > 0
+      ? categoriasCtx.categorias.map((c) => ({ value: c.id, label: c.nombre }))
+      : CATEGORIAS_BEBIDA;
+  }, [categoriasCtx?.categorias]);
+
   const [formData, setFormData] = useState<BebidaFormValues>(VALORES_INICIALES);
   const [errores, setErrores] = useState<ErroresValidacionBebida>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -64,7 +72,10 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
         esFavorito: bebidaAEditar.esFavorito ?? false,
       });
     } else {
-      setFormData(VALORES_INICIALES);
+      setFormData({
+        ...VALORES_INICIALES,
+        categoria: opcionesCategorias[0]?.value || 'destilado',
+      });
     }
     setErrores({});
   }, [bebidaAEditar, isOpen]);
@@ -90,7 +101,10 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
 
     // Limpiar error del campo modificado si ya no aplica
     if (errores[campo as keyof ErroresValidacionBebida]) {
-      const nuevosErrores = validarBebida(updated);
+      const nuevosErrores = validarBebida(
+        updated,
+        opcionesCategorias.map((c) => c.value)
+      );
       setErrores((prevErr) => ({
         ...prevErr,
         [campo]: nuevosErrores[campo as keyof ErroresValidacionBebida],
@@ -104,7 +118,10 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const resultadoErrores = validarBebida(formData);
+    const resultadoErrores = validarBebida(
+      formData,
+      opcionesCategorias.map((c) => c.value)
+    );
 
     if (Object.keys(resultadoErrores).length > 0) {
       setErrores(resultadoErrores);
@@ -218,7 +235,7 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
                   errores.categoria ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-800'
                 }`}
               >
-                {CATEGORIAS_BEBIDA.map((cat) => (
+                {opcionesCategorias.map((cat) => (
                   <option key={cat.value} value={cat.value}>
                     {cat.label}
                   </option>
