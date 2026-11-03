@@ -11,7 +11,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'pwa-192x192.svg', 'pwa-512x512.svg'],
+      includeAssets: ['pwa-192x192.svg', 'pwa-512x512.svg'],
       manifest: {
         name: 'MiBarcito - Gestión de Despensa y Recetario',
         short_name: 'MiBarcito',
