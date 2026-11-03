@@ -38,28 +38,28 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-on-surface/50 backdrop-blur-xs animate-in fade-in duration-150"
     >
       <div
-        className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 text-slate-100 flex flex-col gap-4"
+        className="w-full max-w-md bg-surface-container border border-outline rounded-2xl shadow-xl p-6 text-on-surface flex flex-col gap-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3">
           {variante === 'peligro' ? (
-            <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center font-bold text-lg">
+            <div className="w-10 h-10 rounded-xl bg-status-rose/15 border border-status-rose/30 text-status-rose flex items-center justify-center font-bold text-lg">
               ⚠️
             </div>
           ) : (
-            <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center font-bold text-lg">
+            <div className="w-10 h-10 rounded-xl bg-primary-container border border-outline text-primary flex items-center justify-center font-bold text-lg">
               ℹ️
             </div>
           )}
-          <h3 id="confirm-modal-title" className="text-lg font-semibold text-white">
+          <h3 id="confirm-modal-title" className="text-lg font-semibold text-on-surface">
             {titulo}
           </h3>
         </div>
 
-        <p className="text-sm text-slate-300 leading-relaxed">
+        <p className="text-sm text-on-surface-variant leading-relaxed">
           {mensaje}
         </p>
 
@@ -67,17 +67,17 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 text-xs sm:text-sm font-medium text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 rounded-xl transition-colors cursor-pointer"
+            className="px-4 py-2 text-xs sm:text-sm font-medium text-on-surface bg-surface-container-high hover:bg-surface border border-outline rounded-xl transition-colors cursor-pointer"
           >
             {textoCancelar}
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className={`px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl transition-colors cursor-pointer shadow-md ${
+            className={`px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl transition-colors cursor-pointer shadow-xs ${
               variante === 'peligro'
-                ? 'bg-rose-600 hover:bg-rose-500 text-white'
-                : 'bg-sky-500 hover:bg-sky-400 text-slate-950'
+                ? 'bg-status-rose hover:bg-status-rose/90 text-white'
+                : 'bg-primary hover:bg-primary-hover text-on-primary'
             }`}
           >
             {textoConfirmar}
@@ -87,4 +87,3 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
     </div>
   );
 };
-

@@ -34,21 +34,21 @@ export const ConfiguracionModal: React.FC<ConfiguracionModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="config-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-on-surface/50 backdrop-blur-xs animate-in fade-in duration-150"
     >
       <div
-        className="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 text-slate-100 flex flex-col gap-5 max-h-[90vh] overflow-hidden"
+        className="w-full max-w-xl bg-surface-container border border-outline rounded-2xl shadow-xl p-6 text-on-surface flex flex-col gap-5 max-h-[90vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header del Modal */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="flex items-center justify-between border-b border-outline pb-3">
           <div className="flex items-center gap-2.5">
             <span className="text-xl">⚙️</span>
             <div>
-              <h3 id="config-modal-title" className="text-lg font-bold text-white">
+              <h3 id="config-modal-title" className="text-lg font-bold text-on-surface">
                 Configuración del Bar
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-on-surface-variant">
                 Parámetros maestros y personalización de tu despensa
               </p>
             </div>
@@ -56,21 +56,21 @@ export const ConfiguracionModal: React.FC<ConfiguracionModalProps> = ({
           <button
             onClick={onClose}
             aria-label="Cerrar configuración"
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer"
           >
             ✕
           </button>
         </div>
 
         {/* Barra de Pestañas (Tabs) */}
-        <div className="flex border-b border-slate-800 gap-2">
+        <div className="flex border-b border-outline gap-2">
           <button
             type="button"
             onClick={() => setActiveTab('categorias')}
             className={`pb-2.5 px-3 text-xs sm:text-sm font-semibold transition-colors border-b-2 flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'categorias'
-                ? 'border-sky-400 text-sky-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-on-surface-variant hover:text-on-surface'
             }`}
           >
             <span>🏷️</span>
@@ -81,13 +81,13 @@ export const ConfiguracionModal: React.FC<ConfiguracionModalProps> = ({
             onClick={() => setActiveTab('respaldo')}
             className={`pb-2.5 px-3 text-xs sm:text-sm font-semibold transition-colors border-b-2 flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'respaldo'
-                ? 'border-sky-400 text-sky-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-on-surface-variant hover:text-on-surface'
             }`}
           >
             <span>💾</span>
             <span>Respaldo & Nube</span>
-            <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.2 rounded-full border border-slate-700">
+            <span className="text-[10px] bg-surface-container-high text-on-surface-variant px-1.5 py-0.2 rounded-full border border-outline">
               Pronto
             </span>
           </button>
@@ -97,12 +97,12 @@ export const ConfiguracionModal: React.FC<ConfiguracionModalProps> = ({
         <div className="flex-1 overflow-y-auto pr-1">
           {activeTab === 'categorias' && <CategoriasConfig bebidas={bebidas} />}
           {activeTab === 'respaldo' && (
-            <div className="text-center py-12 text-slate-400 flex flex-col items-center gap-2">
+            <div className="text-center py-12 text-on-surface-variant flex flex-col items-center gap-2">
               <span className="text-3xl">☁️</span>
-              <p className="text-sm font-medium text-slate-300">
+              <p className="text-sm font-medium text-on-surface">
                 Copia de Seguridad y Sincronización en la Nube
               </p>
-              <p className="text-xs text-slate-500 max-w-sm">
+              <p className="text-xs text-on-surface-variant max-w-sm">
                 Esta sección permitirá exportar e importar tu inventario en formato JSON/CSV y
                 sincronizar con Google Cloud en próximas versiones.
               </p>
@@ -113,4 +113,3 @@ export const ConfiguracionModal: React.FC<ConfiguracionModalProps> = ({
     </div>
   );
 };
-

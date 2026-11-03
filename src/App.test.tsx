@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import App from './App';
 import { InventoryProvider } from './context/InventoryContext';
@@ -10,6 +10,8 @@ describe('App Component - Gestión de Despensa e Inventario', () => {
   let mockCatRepo: InMemoryCategoriaRepository;
 
   beforeEach(() => {
+    localStorage.clear();
+    document.documentElement.classList.remove('dark');
     mockRepo = new InMemoryInventoryRepository();
     mockCatRepo = new InMemoryCategoriaRepository();
   });
@@ -28,6 +30,33 @@ describe('App Component - Gestión de Despensa e Inventario', () => {
     await waitFor(() => {
       expect(screen.getByText(/Tu bar está vacío por ahora/i)).toBeInTheDocument();
     });
+  });
+
+  it('permite alternar entre Modo Claro y Modo Oscuro mediante el botón de la cabecera', async () => {
+    render(
+      <InventoryProvider repository={mockRepo}>
+        <App />
+      </InventoryProvider>
+    );
+
+    // Inicia en modo claro por defecto
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
+    const btnTema = screen.getByRole('button', { name: /Cambiar a modo oscuro/i });
+    expect(btnTema).toBeInTheDocument();
+
+    // Alternar a modo oscuro
+    act(() => {
+      fireEvent.click(btnTema);
+    });
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+    expect(screen.getByRole('button', { name: /Cambiar a modo claro/i })).toBeInTheDocument();
+
+    // Alternar nuevamente a modo claro
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: /Cambiar a modo claro/i }));
+    });
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
+    expect(screen.getByRole('button', { name: /Cambiar a modo oscuro/i })).toBeInTheDocument();
   });
 
   it('permite agregar una botella de prueba y actualizar las métricas', async () => {

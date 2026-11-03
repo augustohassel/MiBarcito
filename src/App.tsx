@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useInventoryRepository } from './context/InventoryContext';
+import { useTheme } from './hooks/useTheme';
 import {
   Bebida,
   estaEnAlertaStockBajo,
@@ -23,6 +24,7 @@ const FILTROS_DEFAULT: FiltrosEstado = {
 
 export function App() {
   const repository = useInventoryRepository();
+  const { theme, toggleTheme } = useTheme();
   const [bebidas, setBebidas] = useState<Bebida[]>([]);
   const [loading, setLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -166,42 +168,56 @@ export function App() {
   const valorTotalEstimado = bebidas.reduce((acc, b) => acc + (b.precioEstimado || 0), 0);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-surface text-on-surface flex flex-col font-sans transition-colors duration-200">
       {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur sticky top-0 z-10 px-4 py-3 sm:px-6">
+      <header className="border-b border-outline bg-surface-container/90 backdrop-blur sticky top-0 z-10 px-4 py-3 sm:px-6">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img
               src="/pwa-192x192.svg"
               alt="Logo MiBarcito"
-              className="w-9 h-9 rounded-xl shadow-md border border-slate-700/50"
+              className="w-9 h-9 rounded-xl shadow-xs border border-outline"
             />
             <div>
-              <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-sky-400 to-indigo-400 bg-clip-text text-transparent">
+              <h1 className="text-xl font-bold tracking-tight text-primary">
                 MiBarcito
               </h1>
-              <p className="text-xs text-slate-400">Gestión de Despensa & Coctelería</p>
+              <p className="text-xs text-on-surface-variant">Gestión de Despensa & Coctelería</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             {isOffline ? (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-status-amber/15 text-status-amber border border-status-amber/30">
                 ● Modo Offline
               </span>
             ) : (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-status-emerald/15 text-status-emerald border border-status-emerald/30">
                 ● En línea
               </span>
             )}
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-500/10 text-sky-300 border border-sky-500/20">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-container text-on-primary-container border border-outline-variant">
               PWA Ready
             </span>
+
+            {/* Botón de Alternancia Claro / Oscuro */}
+            <button
+              onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+              title={theme === 'dark' ? 'Modo Claro' : 'Modo Oscuro'}
+              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline transition-colors flex items-center gap-1.5 text-xs font-medium cursor-pointer shadow-xs"
+            >
+              <span aria-hidden="true">{theme === 'dark' ? '☀️' : '🌙'}</span>
+              <span className="hidden sm:inline">
+                {theme === 'dark' ? 'Claro' : 'Oscuro'}
+              </span>
+            </button>
+
             <button
               onClick={() => setIsConfigOpen(true)}
               aria-label="Abrir Configuración"
               title="Configuración de Parámetros y Categorías"
-              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors flex items-center gap-1.5 text-xs font-medium cursor-pointer shadow-sm ml-1"
+              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline transition-colors flex items-center gap-1.5 text-xs font-medium cursor-pointer shadow-xs ml-0.5"
             >
               <span>⚙️</span>
               <span className="hidden sm:inline">Configuración</span>
@@ -214,38 +230,38 @@ export function App() {
       <main className="max-w-5xl mx-auto w-full px-4 py-6 sm:px-6 flex-1 flex flex-col gap-6">
         {/* Métricas rápidas del bar */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-          <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800/80">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+          <div className="p-4 rounded-xl bg-surface-container border border-outline shadow-xs">
+            <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
               Total Bebidas
             </span>
-            <p className="text-2xl font-bold text-sky-400 mt-1">{bebidas.length}</p>
+            <p className="text-2xl font-bold text-primary mt-1">{bebidas.length}</p>
           </div>
 
-          <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800/80">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+          <div className="p-4 rounded-xl bg-surface-container border border-outline shadow-xs">
+            <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
               Favoritos
             </span>
-            <p className="text-2xl font-bold text-amber-400 mt-1">{favoritosCount}</p>
+            <p className="text-2xl font-bold text-status-amber mt-1">{favoritosCount}</p>
           </div>
 
-          <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800/80">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+          <div className="p-4 rounded-xl bg-surface-container border border-outline shadow-xs">
+            <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
               Alertas Stock Bajo
             </span>
             <p
               className={`text-2xl font-bold mt-1 ${
-                bajoStockCount > 0 ? 'text-amber-400' : 'text-slate-400'
+                bajoStockCount > 0 ? 'text-status-amber' : 'text-on-surface-variant'
               }`}
             >
               {bajoStockCount}
             </p>
           </div>
 
-          <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800/80">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+          <div className="p-4 rounded-xl bg-surface-container border border-outline shadow-xs">
+            <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
               Valor Estimado
             </span>
-            <p className="text-lg sm:text-xl font-bold text-emerald-400 mt-1.5 truncate">
+            <p className="text-lg sm:text-xl font-bold text-status-emerald mt-1.5 truncate">
               ${valorTotalEstimado.toLocaleString('es-AR')}
             </p>
           </div>
@@ -261,27 +277,27 @@ export function App() {
 
         {/* Acciones principales de inventario */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-base font-semibold text-slate-200">
+          <h2 className="text-base font-semibold text-on-surface">
             Despensa ({bebidasFiltradas.length})
           </h2>
           <div className="flex gap-2">
             <button
               onClick={handleAbrirCrear}
-              className="px-3.5 py-2 text-xs sm:text-sm font-semibold bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-xl transition-colors shadow-md cursor-pointer flex items-center gap-1.5"
+              className="px-3.5 py-2 text-xs sm:text-sm font-semibold bg-primary hover:bg-primary-hover text-on-primary rounded-xl transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
             >
               <span>+</span>
               <span>Nueva Bebida</span>
             </button>
             <button
               onClick={handleAgregarMuestra}
-              className="px-3 py-2 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors border border-slate-700 cursor-pointer"
+              className="px-3 py-2 text-xs font-medium bg-surface-container hover:bg-surface-container-high text-on-surface rounded-xl transition-colors border border-outline cursor-pointer"
             >
               + Botella de Prueba
             </button>
             {bebidas.length > 0 && (
               <button
                 onClick={handleLimpiar}
-                className="px-3 py-2 text-xs font-medium bg-slate-900 hover:bg-rose-950/40 text-slate-400 hover:text-rose-300 rounded-xl transition-colors border border-slate-800 cursor-pointer"
+                className="px-3 py-2 text-xs font-medium bg-surface-container hover:bg-status-rose/10 text-on-surface-variant hover:text-status-rose rounded-xl transition-colors border border-outline cursor-pointer"
               >
                 Limpiar Despensa
               </button>
@@ -291,32 +307,32 @@ export function App() {
 
         {/* Grid de Bebidas o Estados Vacíos */}
         {loading ? (
-          <div className="text-center py-16 text-slate-500 text-sm">
+          <div className="text-center py-16 text-on-surface-variant text-sm">
             Cargando inventario local...
           </div>
         ) : bebidas.length === 0 ? (
-          <div className="border border-dashed border-slate-800 rounded-2xl p-12 text-center text-slate-400 flex flex-col items-center gap-3">
+          <div className="border border-dashed border-outline rounded-2xl p-12 text-center text-on-surface-variant flex flex-col items-center gap-3 bg-surface-container/40">
             <span className="text-4xl">🍸</span>
-            <p className="text-base font-medium text-slate-300">Tu bar está vacío por ahora.</p>
-            <p className="text-xs text-slate-500 max-w-sm">
+            <p className="text-base font-medium text-on-surface">Tu bar está vacío por ahora.</p>
+            <p className="text-xs text-on-surface-variant max-w-sm">
               Hacé clic en "Nueva Bebida" para registrar tus botellas manualmente o en "+ Botella de Prueba" para verificar la despensa.
             </p>
             <button
               onClick={handleAbrirCrear}
-              className="mt-2 px-4 py-2 text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-xl shadow cursor-pointer transition-colors"
+              className="mt-2 px-4 py-2 text-xs font-semibold bg-primary hover:bg-primary-hover text-on-primary rounded-xl shadow-xs cursor-pointer transition-colors"
             >
               + Registrar Primer Botella
             </button>
           </div>
         ) : bebidasFiltradas.length === 0 ? (
-          <div className="border border-slate-800 rounded-2xl p-10 text-center text-slate-400 flex flex-col items-center gap-3 bg-slate-900/40">
+          <div className="border border-outline rounded-2xl p-10 text-center text-on-surface-variant flex flex-col items-center gap-3 bg-surface-container/60">
             <span className="text-3xl">🔍</span>
-            <p className="text-sm font-medium text-slate-300">
+            <p className="text-sm font-medium text-on-surface">
               No se encontraron botellas con los filtros actuales.
             </p>
             <button
               onClick={() => setFiltros(FILTROS_DEFAULT)}
-              className="px-3 py-1.5 text-xs font-medium text-sky-400 hover:text-sky-300 border border-sky-500/30 rounded-xl cursor-pointer"
+              className="px-3 py-1.5 text-xs font-medium text-primary hover:text-primary-hover border border-outline rounded-xl cursor-pointer bg-surface-container"
             >
               Restablecer filtros
             </button>
@@ -363,8 +379,8 @@ export function App() {
       />
 
       {/* Footer */}
-      <footer className="border-t border-slate-800/80 px-4 py-4 text-center text-xs text-slate-500">
-        MiBarcito • Gestión de Despensa & Coctelería • ADR-001
+      <footer className="border-t border-outline px-4 py-4 text-center text-xs text-on-surface-variant">
+        MiBarcito • Gestión de Despensa & Coctelería • Google Material 3
       </footer>
     </div>
   );

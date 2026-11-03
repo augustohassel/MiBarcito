@@ -61,5 +61,12 @@ Este documento reúne la terminología, entidades de negocio y conceptos funcion
 - **Alcance / Propósito**: Permite gestionar los parámetros maestros de la aplicación (iniciando por la gestión dinámica de categorías de bebidas) y está preparado arquitectónicamente para alojar futuras solapas como respaldo, exportación y sincronización en la nube.
 - **Lo que NO es**: No es una pantalla de carga de stock de botellas individuales ni de recetas.
 
+---
+
+### Tema Visual (Modo Claro / Modo Oscuro)
+- **Definición**: Identidad visual semántica inspirada en Google Material 3 que adopta un modelo mental binario y determinístico (`'light' | 'dark'`), independiente de la configuración del sistema operativo.
+- **Alcance / Propósito**: Garantizar legibilidad, contraste y confort visual tanto en entornos iluminados como nocturnos mediante tokens semánticos sobre Tailwind CSS v4, alternancia rápida con botón en el encabezado, persistencia local (`mibarcito_theme`) y prevención de parpadeo (FOUC).
+- **Lo que NO es**: No es un selector multitema con colores personalizados ni una sincronización dependiente de `prefers-color-scheme`.
+
 
 
