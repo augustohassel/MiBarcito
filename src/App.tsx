@@ -81,44 +81,20 @@ export function App() {
 
   const handleGuardarBebida = async (datos: BebidaFormValues) => {
     const ahora = new Date().toISOString();
+    const id = datos.id ?? crypto.randomUUID();
+    const original = datos.id ? bebidas.find((b) => b.id === datos.id) : undefined;
+    const fechaCreacion = original?.fechaCreacion || ahora;
 
-    if (datos.id) {
-      // Edición de botella existente
-      const original = bebidas.find((b) => b.id === datos.id);
-      const actualizada: Bebida = {
-        id: datos.id,
-        nombre: datos.nombre.trim(),
-        marca: datos.marca.trim(),
-        categoria: datos.categoria,
-        volumenTotalMl: datos.volumenTotalMl,
-        volumenRestanteMl: datos.volumenRestanteMl,
-        graduacionAlcoholica: datos.graduacionAlcoholica,
-        precioEstimado: datos.precioEstimado,
-        stockMinimoMl: datos.stockMinimoMl,
-        esFavorito: datos.esFavorito,
-        fechaCreacion: original?.fechaCreacion || ahora,
-        fechaActualizacion: ahora,
-      };
-      await repository.save(actualizada);
-    } else {
-      // Alta de nueva botella
-      const nueva: Bebida = {
-        id: crypto.randomUUID(),
-        nombre: datos.nombre.trim(),
-        marca: datos.marca.trim(),
-        categoria: datos.categoria,
-        volumenTotalMl: datos.volumenTotalMl,
-        volumenRestanteMl: datos.volumenRestanteMl,
-        graduacionAlcoholica: datos.graduacionAlcoholica,
-        precioEstimado: datos.precioEstimado,
-        stockMinimoMl: datos.stockMinimoMl,
-        esFavorito: datos.esFavorito,
-        fechaCreacion: ahora,
-        fechaActualizacion: ahora,
-      };
-      await repository.save(nueva);
-    }
+    const bebidaAGuardar: Bebida = {
+      ...datos,
+      id,
+      nombre: datos.nombre.trim(),
+      marca: datos.marca.trim(),
+      fechaCreacion,
+      fechaActualizacion: ahora,
+    };
 
+    await repository.save(bebidaAGuardar);
     await loadBebidas();
   };
 

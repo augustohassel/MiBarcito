@@ -85,18 +85,17 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
     campo: keyof BebidaFormValues,
     valor: string | number | boolean | undefined
   ) => {
-    setFormData((prev) => {
-      const updated = { ...prev, [campo]: valor };
-      // Limpiar error del campo modificado si ya no aplica
-      if (errores[campo as keyof ErroresValidacionBebida]) {
-        const nuevosErrores = validarBebida(updated);
-        setErrores((prevErr) => ({
-          ...prevErr,
-          [campo]: nuevosErrores[campo as keyof ErroresValidacionBebida],
-        }));
-      }
-      return updated;
-    });
+    const updated: BebidaFormValues = { ...formData, [campo]: valor };
+    setFormData(updated);
+
+    // Limpiar error del campo modificado si ya no aplica
+    if (errores[campo as keyof ErroresValidacionBebida]) {
+      const nuevosErrores = validarBebida(updated);
+      setErrores((prevErr) => ({
+        ...prevErr,
+        [campo]: nuevosErrores[campo as keyof ErroresValidacionBebida],
+      }));
+    }
   };
 
   const handleLlenar100 = () => {
