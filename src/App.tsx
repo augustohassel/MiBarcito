@@ -121,13 +121,7 @@ export function App() {
 
   // Filtrado de recetas en Recetario
   const recetasFiltradasEvaluadas = useMemo(() => {
-    const todasEvaluaciones = [
-      ...clasificacionRecetas.armarHoy,
-      ...clasificacionRecetas.casiListos,
-      ...clasificacionRecetas.otras,
-    ];
-
-    return todasEvaluaciones.filter((item) => {
+    return clasificacionRecetas.todas.filter((item) => {
       // Filtro por búsqueda de texto (nombre de receta o nombre de ingredientes)
       if (busquedaReceta.trim().length > 0) {
         const busqNorm = normalizarTexto(busquedaReceta);
@@ -310,13 +304,7 @@ export function App() {
   // Evaluación para modal de detalle
   const evaluacionRecetaDetalle = useMemo(() => {
     if (!recetaDetalle) return null;
-    return (
-      [
-        ...clasificacionRecetas.armarHoy,
-        ...clasificacionRecetas.casiListos,
-        ...clasificacionRecetas.otras,
-      ].find((e) => e.receta.id === recetaDetalle.id) || null
-    );
+    return clasificacionRecetas.todas.find((e) => e.receta.id === recetaDetalle.id) || null;
   }, [recetaDetalle, clasificacionRecetas]);
 
   return (

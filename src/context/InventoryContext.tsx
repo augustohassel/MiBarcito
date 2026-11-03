@@ -173,35 +173,40 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
       _receta: Receta,
       descuentos: { botellaId: string; cantidadMl: number }[]
     ): Promise<{ ok: boolean; motivo?: string }> => {
-      const botellasModificadas: { id: string; nuevoVolumen: number }[] = [];
-
+      // 1. Consolidar requerimientos agrupados por botellaId
+      const consolidado = new Map<string, number>();
       for (const desc of descuentos) {
         if (desc.cantidadMl <= 0) continue;
-        const botella = await repoInstance.getById(desc.botellaId);
+        const actual = consolidado.get(desc.botellaId) || 0;
+        consolidado.set(desc.botellaId, actual + desc.cantidadMl);
+      }
+
+      const botellasAActualizar: { botella: any; nuevoVolumen: number }[] = [];
+
+      // 2. Validar stock acumulado disponible
+      for (const [botellaId, totalMl] of consolidado.entries()) {
+        const botella = await repoInstance.getById(botellaId);
         if (!botella) {
           return { ok: false, motivo: `La botella no fue encontrada en el inventario.` };
         }
-        if (botella.volumenRestanteMl < desc.cantidadMl) {
+        if (botella.volumenRestanteMl < totalMl) {
           return {
             ok: false,
-            motivo: `Stock insuficiente en ${botella.nombre} (${botella.marca}). Disponible: ${botella.volumenRestanteMl} ml, Requerido: ${desc.cantidadMl} ml.`,
+            motivo: `Stock insuficiente en ${botella.nombre} (${botella.marca}). Disponible: ${botella.volumenRestanteMl} ml, Requerido total: ${totalMl} ml.`,
           };
         }
-        botellasModificadas.push({
-          id: botella.id,
-          nuevoVolumen: Math.max(0, botella.volumenRestanteMl - desc.cantidadMl),
+        botellasAActualizar.push({
+          botella,
+          nuevoVolumen: Math.max(0, botella.volumenRestanteMl - totalMl),
         });
       }
 
-      // Aplicar descuentos atómicos
-      for (const item of botellasModificadas) {
-        const b = await repoInstance.getById(item.id);
-        if (b) {
-          await repoInstance.save({
-            ...b,
-            volumenRestanteMl: item.nuevoVolumen,
-          });
-        }
+      // 3. Persistir sin re-consultas redundantes
+      for (const item of botellasAActualizar) {
+        await repoInstance.save({
+          ...item.botella,
+          volumenRestanteMl: item.nuevoVolumen,
+        });
       }
 
       return { ok: true };

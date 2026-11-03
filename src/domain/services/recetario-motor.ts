@@ -189,6 +189,7 @@ export interface ClasificacionRecetario {
   armarHoy: EvaluacionReceta[];
   casiListos: EvaluacionReceta[];
   otras: EvaluacionReceta[];
+  todas: EvaluacionReceta[];
   totalRecetas: number;
   totalArmables: number;
 }
@@ -226,6 +227,7 @@ export function clasificarRecetas(
     armarHoy,
     casiListos,
     otras,
+    todas: [...armarHoy, ...casiListos, ...otras],
     totalRecetas: recetas.length,
     totalArmables: armarHoy.length,
   };
