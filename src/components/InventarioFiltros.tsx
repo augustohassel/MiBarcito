@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { useCategoriasOpcional } from '../context/InventoryContext';
 import {
   Bebida,
   CategoriaBebida,
@@ -90,6 +91,13 @@ export const InventarioFiltros: React.FC<InventarioFiltrosProps> = ({
   totalResultados,
   totalBebidas,
 }) => {
+  const categoriasCtx = useCategoriasOpcional();
+  const listaCategorias = useMemo(() => {
+    return categoriasCtx && categoriasCtx.categorias.length > 0
+      ? categoriasCtx.categorias.map((c) => ({ value: c.id, label: c.nombre }))
+      : CATEGORIAS_BEBIDA;
+  }, [categoriasCtx?.categorias]);
+
   const handleBusquedaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange({ ...filtros, busqueda: e.target.value });
   };
@@ -199,7 +207,7 @@ export const InventarioFiltros: React.FC<InventarioFiltrosProps> = ({
         >
           Todas
         </button>
-        {CATEGORIAS_BEBIDA.map((cat) => (
+        {listaCategorias.map((cat) => (
           <button
             key={cat.value}
             type="button"
