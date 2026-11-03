@@ -3,12 +3,15 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import App from './App';
 import { InventoryProvider } from './context/InventoryContext';
 import { InMemoryInventoryRepository } from './infrastructure/storage/in-memory-inventory-repository';
+import { InMemoryCategoriaRepository } from './infrastructure/storage/in-memory-categoria-repository';
 
 describe('App Component - Gestión de Despensa e Inventario', () => {
   let mockRepo: InMemoryInventoryRepository;
+  let mockCatRepo: InMemoryCategoriaRepository;
 
   beforeEach(() => {
     mockRepo = new InMemoryInventoryRepository();
+    mockCatRepo = new InMemoryCategoriaRepository();
   });
 
   it('renderiza la interfaz base de MiBarcito con métricas y controles iniciales', async () => {
@@ -195,6 +198,44 @@ describe('App Component - Gestión de Despensa e Inventario', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Tu bar está vacío por ahora/i)).toBeInTheDocument();
+    });
+  });
+
+  it('permite abrir el modal de configuración desde el botón del Header y gestionar categorías', async () => {
+    render(
+      <InventoryProvider repository={mockRepo} categoriaRepository={mockCatRepo}>
+        <App />
+      </InventoryProvider>
+    );
+
+    // Botón de configuración en el Header
+    const btnConfig = screen.getByRole('button', { name: /Abrir Configuración/i });
+    expect(btnConfig).toBeInTheDocument();
+    fireEvent.click(btnConfig);
+
+    // Modal abierto
+    expect(screen.getByText('Configuración del Bar')).toBeInTheDocument();
+    expect(screen.getByText('Gestión de Categorías de Bebidas')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByText('Destilado')).toBeInTheDocument();
+    });
+
+    // Crear nueva categoría "Tequila Añejo"
+    const inputCat = screen.getByLabelText('Nombre de nueva categoría');
+    fireEvent.change(inputCat, { target: { value: 'Tequila Añejo' } });
+    fireEvent.click(screen.getByRole('button', { name: /\+ Agregar/i }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Tequila Añejo').length).toBeGreaterThanOrEqual(1);
+    });
+
+    // Cerrar configuración
+    fireEvent.click(screen.getByLabelText('Cerrar configuración'));
+
+    // Verificar que la nueva categoría aparece reactivamente en las píldoras de filtro
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Tequila Añejo' })).toBeInTheDocument();
     });
   });
 });

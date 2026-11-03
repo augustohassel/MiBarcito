@@ -7,6 +7,7 @@ import {
 import { BebidaCard } from './components/BebidaCard';
 import { BebidaFormModal, BebidaFormValues } from './components/BebidaFormModal';
 import { ConfirmModal } from './components/ConfirmModal';
+import { ConfiguracionModal } from './components/ConfiguracionModal';
 import {
   FiltrosEstado,
   filtrarYOrdenarBebidas,
@@ -31,6 +32,7 @@ export function App() {
 
   // Estados de modales
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [bebidaAEditar, setBebidaAEditar] = useState<Bebida | null>(null);
   const [bebidaAEliminar, setBebidaAEliminar] = useState<Bebida | null>(null);
 
@@ -195,6 +197,15 @@ export function App() {
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-500/10 text-sky-300 border border-sky-500/20">
               PWA Ready
             </span>
+            <button
+              onClick={() => setIsConfigOpen(true)}
+              aria-label="Abrir Configuración"
+              title="Configuración de Parámetros y Categorías"
+              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors flex items-center gap-1.5 text-xs font-medium cursor-pointer shadow-sm ml-1"
+            >
+              <span>⚙️</span>
+              <span className="hidden sm:inline">Configuración</span>
+            </button>
           </div>
         </div>
       </header>
@@ -343,6 +354,12 @@ export function App() {
         variante="peligro"
         onConfirm={handleConfirmarEliminar}
         onCancel={() => setBebidaAEliminar(null)}
+      />
+
+      <ConfiguracionModal
+        isOpen={isConfigOpen}
+        onClose={() => setIsConfigOpen(false)}
+        bebidas={bebidas}
       />
 
       {/* Footer */}
