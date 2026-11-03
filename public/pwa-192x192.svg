@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <rect width="192" height="192" rx="36" fill="#0f172a"/>
+  <!-- Cocktail glass icon -->
+  <path d="M56 52 L136 52 L96 102 L96 142 L120 142 L120 152 L72 152 L72 142 L96 142 L96 102 Z" fill="#38bdf8" stroke="#38bdf8" stroke-width="2" stroke-linejoin="round"/>
+  <!-- Drink garnish / olive / accent -->
+  <circle cx="120" cy="58" r="6" fill="#f59e0b"/>
+  <line x1="84" y1="42" x2="124" y2="62" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+  <!-- Text initials or logo touch -->
+  <text x="96" y="176" text-anchor="middle" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600">MiBarcito</text>
+</svg>
+
