@@ -17,9 +17,36 @@ Este documento reúne la terminología, entidades de negocio y conceptos funcion
 
 ---
 
-### Trago / Cóctel (Receta)
-- **Definición**: Fórmula de preparación compuesta por una lista de ingredientes (bebidas y medidas requeridas), cristalería recomendada, método de preparación y paso a paso.
-- **Alcance / Propósito**: Servir de guía culinaria y sugerir opciones de elaboración según las existencias actuales de la despensa.
+### Trago / Cóctel (Receta / RecetaTrago)
+- **Definición**: Fórmula de preparación compuesta por una lista de ingredientes (bebidas y medidas requeridas en ml), cristalería recomendada, método de preparación (directo, batido, refrescado, etc.), paso a paso y metadatos de autoría (`esPropia`) y favoritismo (`esFavorito`).
+- **Alcance / Propósito**: Servir de guía culinaria, permitir la creación de recetas propias y sugerir opciones de elaboración según las existencias actuales de la despensa.
+
+---
+
+### Receta Propia (de Autor) vs. Catálogo Clásico
+- **Definición**: Distinción de autoría y mutabilidad en las recetas del bar hogareño mediante la bandera booleana `esPropia`.
+- **Alcance / Propósito**: Las recetas de catálogo clásico (`esPropia: false`) son fórmulas predeterminadas del sistema (ej. Negroni, Gin Tonic, Old Fashioned) de solo lectura, protegidas contra eliminación o edición directa accidental, pero permitiendo marcarlas como favoritas o clonarlas mediante el botón *"Duplicar a mis recetas"*. Las recetas de autor (`esPropia: true`) admiten CRUD completo (creación, edición y borrado) por parte del usuario.
+
+---
+
+### Motor de Recomendación Dinámico
+- **Definición**: Algoritmo reactivo en tiempo real (`recetario-motor.ts`) que evalúa cada ingrediente de una receta frente a las botellas presentes en la despensa considerando coincidencia semántica de marca/nombre/alternativas y nivel de stock disponible en mililitros.
+- **Alcance / Propósito**: Clasifica el recetario en tres sectores prioritarios:
+  1. **"¿Qué puedo armar hoy?"**: Cócteles donde el 100% de los ingredientes líquidos necesarios están presentes con `volumenRestanteMl >= medidaRequerida`.
+  2. **"Casi listos"**: Fórmulas a las que les falta únicamente 1 o 2 ingredientes para estar completas, destacando con precisión qué botellas faltan adquirir.
+  3. **"Catálogo general"**: Cócteles con más de 2 insumos faltantes.
+
+---
+
+### Deducción Atómica de Stock y Protección Anti-Saldo Negativo
+- **Definición**: Regla de consistencia transaccional ejecutada al confirmar la acción *"Preparar Cóctel"*, donde el sistema deduce exactamente los mililitros consumidos del `volumenRestanteMl` de cada botella seleccionada.
+- **Alcance / Propósito**: Si el volumen requerido de al menos un ingrediente excede las existencias reales en la despensa, la acción se bloquea de forma preventiva en la interfaz y en el repositorio, garantizando que ninguna botella quede con saldo negativo (`volumenRestanteMl < 0`). Si el usuario posee múltiples botellas compatibles, el diálogo le permite elegir explícitamente cuál consumir.
+
+---
+
+### Clasificación de Ingredientes (Bebida vs. Guarnición / Insumo)
+- **Definición**: Tipificación semántica (`tipo: 'bebida' | 'guarnicion_insumo'`) para diferenciar botellas que forman parte del inventario físico medible en mililitros de insumos frescos o de despensa general (hielo, azúcar, ramas de menta, frutas, sal).
+- **Alcance / Propósito**: Los insumos de tipo `guarnicion_insumo` se detallan en el paso a paso pero no descuentan stock en ml ni bloquean la receta en *"¿Qué puedo armar hoy?"*.
 
 ---
 
@@ -67,6 +94,3 @@ Este documento reúne la terminología, entidades de negocio y conceptos funcion
 - **Definición**: Identidad visual semántica inspirada en Google Material 3 que adopta un modelo mental binario y determinístico (`'light' | 'dark'`), independiente de la configuración del sistema operativo.
 - **Alcance / Propósito**: Garantizar legibilidad, contraste y confort visual tanto en entornos iluminados como nocturnos mediante tokens semánticos sobre Tailwind CSS v4, alternancia rápida con botón en el encabezado, persistencia local (`mibarcito_theme`) y prevención de parpadeo (FOUC).
 - **Lo que NO es**: No es un selector multitema con colores personalizados ni una sincronización dependiente de `prefers-color-scheme`.
-
-
-
