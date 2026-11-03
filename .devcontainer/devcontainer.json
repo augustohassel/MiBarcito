@@ -27,7 +27,7 @@
     "GITHUB_PERSONAL_ACCESS_TOKEN": "${localEnv:GITHUB_PERSONAL_ACCESS_TOKEN}",
     "GEMINI_API_KEY": "${localEnv:GEMINI_API_KEY}"
   },
-  "forwardPorts": [3000, 5173],
+  "forwardPorts": [3000, 5173, 4173],
   "portsAttributes": {
     "3000": {
       "label": "App Dev Server (Next.js)",
@@ -35,6 +35,10 @@
     },
     "5173": {
       "label": "App Dev Server (Vite)",
+      "onAutoForward": "notify"
+    },
+    "4173": {
+      "label": "App Preview Server (Vite)",
       "onAutoForward": "notify"
     }
   },
