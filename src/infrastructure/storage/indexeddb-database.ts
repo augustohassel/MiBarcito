@@ -1,6 +1,7 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { Bebida } from '../../domain/models/bebida';
 import { Categoria, CATEGORIAS_PREDETERMINADAS } from '../../domain/models/categoria';
+import { Receta, RECETAS_PREDETERMINADAS } from '../../domain/models/receta';
 
 export interface MiBarcitoDB extends DBSchema {
   bebidas: {
@@ -19,17 +20,27 @@ export interface MiBarcitoDB extends DBSchema {
       'by-orden': number;
     };
   };
+  recetas: {
+    key: string;
+    value: Receta;
+    indexes: {
+      'by-nombre': string;
+      'by-propia': string;
+      'by-favorito': string;
+    };
+  };
 }
 
 export const DB_NAME = 'mibarcito_db';
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 export const STORE_BEBIDAS = 'bebidas';
 export const STORE_CATEGORIAS = 'categorias';
+export const STORE_RECETAS = 'recetas';
 
 let dbPromise: Promise<IDBPDatabase<MiBarcitoDB>> | null = null;
 
 /**
- * Obtiene la conexión centralizada a IndexedDB (v2).
+ * Obtiene la conexión centralizada a IndexedDB (v3).
  * Maneja la creación y migración segura de ObjectStores y el seeding inicial.
  */
 export function getDatabase(): Promise<IDBPDatabase<MiBarcitoDB>> {
@@ -54,6 +65,19 @@ export function getDatabase(): Promise<IDBPDatabase<MiBarcitoDB>> {
             catStore.put(cat);
           }
         }
+
+        // v3: Store de recetas y siembra de recetas predeterminadas
+        if (!db.objectStoreNames.contains(STORE_RECETAS)) {
+          const storeRecetas = db.createObjectStore(STORE_RECETAS, { keyPath: 'id' });
+          storeRecetas.createIndex('by-nombre', 'nombre');
+          storeRecetas.createIndex('by-propia', 'esPropia');
+          storeRecetas.createIndex('by-favorito', 'esFavorito');
+
+          const recStore = transaction.objectStore(STORE_RECETAS);
+          for (const rec of RECETAS_PREDETERMINADAS) {
+            recStore.put(rec);
+          }
+        }
       },
     });
   }
@@ -66,4 +90,3 @@ export function getDatabase(): Promise<IDBPDatabase<MiBarcitoDB>> {
 export function resetDatabasePromiseForTests(): void {
   dbPromise = null;
 }
-

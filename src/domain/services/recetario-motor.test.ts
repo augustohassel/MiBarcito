@@ -1,0 +1,213 @@
+import { describe, it, expect } from 'vitest';
+import {
+  normalizarTexto,
+  esBotellaCompatible,
+  evaluarIngrediente,
+  evaluarReceta,
+  clasificarRecetas,
+  validarDescuentoPreparacion,
+} from './recetario-motor';
+import { Bebida } from '../models/bebida';
+import { IngredienteReceta, RECETAS_PREDETERMINADAS } from '../models/receta';
+
+describe('Motor de Recomendación de Tragos (recetario-motor)', () => {
+  const ginBombay: Bebida = {
+    id: 'bebida-1',
+    nombre: 'London Dry Gin',
+    marca: 'Bombay Sapphire',
+    categoria: 'destilado',
+    volumenTotalMl: 750,
+    volumenRestanteMl: 500,
+    precioEstimado: 25000,
+    esFavorito: true,
+    fechaCreacion: '2026-11-01T00:00:00.000Z',
+    fechaActualizacion: '2026-11-01T00:00:00.000Z',
+  };
+
+  const campari: Bebida = {
+    id: 'bebida-2',
+    nombre: 'Bitter',
+    marca: 'Campari',
+    categoria: 'aperitivo_bitter',
+    volumenTotalMl: 750,
+    volumenRestanteMl: 300,
+    precioEstimado: 12000,
+    esFavorito: false,
+    fechaCreacion: '2026-11-01T00:00:00.000Z',
+    fechaActualizacion: '2026-11-01T00:00:00.000Z',
+  };
+
+  const vermutRosso: Bebida = {
+    id: 'bebida-3',
+    nombre: 'Rosso',
+    marca: 'Carpano',
+    categoria: 'aperitivo_bitter',
+    volumenTotalMl: 1000,
+    volumenRestanteMl: 200,
+    precioEstimado: 9000,
+    esFavorito: false,
+    fechaCreacion: '2026-11-01T00:00:00.000Z',
+    fechaActualizacion: '2026-11-01T00:00:00.000Z',
+  };
+
+  const tonica: Bebida = {
+    id: 'bebida-4',
+    nombre: 'Agua Tónica',
+    marca: 'Paso de los Toros',
+    categoria: 'mixer_sin_alcohol',
+    volumenTotalMl: 1500,
+    volumenRestanteMl: 1000,
+    precioEstimado: 2000,
+    esFavorito: false,
+    fechaCreacion: '2026-11-01T00:00:00.000Z',
+    fechaActualizacion: '2026-11-01T00:00:00.000Z',
+  };
+
+  describe('normalizarTexto', () => {
+    it('elimina mayúsculas, diacríticos y espacios duplicados', () => {
+      expect(normalizarTexto('  Cón  Acento  Y  MAYÚSCULAS  ')).toBe('con acento y mayusculas');
+    });
+  });
+
+  describe('esBotellaCompatible', () => {
+    it('reconoce compatibilidad por marca o nombre', () => {
+      const ingGin: IngredienteReceta = { nombre: 'Gin', tipo: 'bebida', cantidadMl: 50 };
+      expect(esBotellaCompatible(ginBombay, ingGin)).toBe(true);
+
+      const ingCampari: IngredienteReceta = { nombre: 'Campari', tipo: 'bebida', cantidadMl: 30 };
+      expect(esBotellaCompatible(campari, ingCampari)).toBe(true);
+    });
+
+    it('reconoce compatibilidad por alternativas semánticas', () => {
+      const ingBitter: IngredienteReceta = {
+        nombre: 'Bitter Rojo',
+        tipo: 'bebida',
+        cantidadMl: 30,
+        alternativas: ['Campari', 'Aperitivo / Bitter'],
+      };
+      expect(esBotellaCompatible(campari, ingBitter)).toBe(true);
+    });
+
+    it('retorna false si el tipo es guarnición o insumo', () => {
+      const ingHielo: IngredienteReceta = { nombre: 'Hielo', tipo: 'guarnicion_insumo' };
+      expect(esBotellaCompatible(ginBombay, ingHielo)).toBe(false);
+    });
+
+    it('retorna false si no hay coincidencia semántica', () => {
+      const ingWhisky: IngredienteReceta = { nombre: 'Whisky', tipo: 'bebida', cantidadMl: 50 };
+      expect(esBotellaCompatible(ginBombay, ingWhisky)).toBe(false);
+    });
+  });
+
+  describe('evaluarIngrediente', () => {
+    it('marca disponible un ingrediente de tipo guarnición sin chequear botellas', () => {
+      const ing: IngredienteReceta = { nombre: 'Rodaja de naranja', tipo: 'guarnicion_insumo' };
+      const evalRes = evaluarIngrediente(ing, []);
+      expect(evalRes.disponible).toBe(true);
+    });
+
+    it('marca disponible si hay botella compatible con stock suficiente', () => {
+      const ing: IngredienteReceta = { nombre: 'Gin', cantidadMl: 50, tipo: 'bebida' };
+      const evalRes = evaluarIngrediente(ing, [ginBombay]);
+      expect(evalRes.disponible).toBe(true);
+      expect(evalRes.botellaSugerida?.id).toBe(ginBombay.id);
+    });
+
+    it('detecta stock_insuficiente si la botella compatible no alcanza el volumen requerido', () => {
+      const ginPocoStock: Bebida = { ...ginBombay, volumenRestanteMl: 20 };
+      const ing: IngredienteReceta = { nombre: 'Gin', cantidadMl: 50, tipo: 'bebida' };
+      const evalRes = evaluarIngrediente(ing, [ginPocoStock]);
+      expect(evalRes.disponible).toBe(false);
+      expect(evalRes.motivo).toBe('stock_insuficiente');
+      expect(evalRes.volumenDisponibleMl).toBe(20);
+    });
+
+    it('detecta sin_botella si no existe ninguna botella compatible', () => {
+      const ing: IngredienteReceta = { nombre: 'Tequila', cantidadMl: 50, tipo: 'bebida' };
+      const evalRes = evaluarIngrediente(ing, [ginBombay]);
+      expect(evalRes.disponible).toBe(false);
+      expect(evalRes.motivo).toBe('sin_botella');
+    });
+  });
+
+  describe('evaluarReceta y clasificarRecetas', () => {
+    const recetaNegroni = RECETAS_PREDETERMINADAS.find((r) => r.id === 'receta-negroni')!;
+    const recetaGinTonic = RECETAS_PREDETERMINADAS.find((r) => r.id === 'receta-gin-tonic')!;
+    const recetaOldFashioned = RECETAS_PREDETERMINADAS.find((r) => r.id === 'receta-old-fashioned')!;
+
+    it('clasifica en "armar_hoy" cuando el 100% de ingredientes requeridos tienen stock', () => {
+      // Con ginBombay, campari y vermutRosso, Negroni debe poder armarse al 100%
+      const evaluacion = evaluarReceta(recetaNegroni, [ginBombay, campari, vermutRosso]);
+      expect(evaluacion.puedePreparar).toBe(true);
+      expect(evaluacion.seccion).toBe('armar_hoy');
+      expect(evaluacion.cantidadFaltantes).toBe(0);
+    });
+
+    it('clasifica en "casi_listos" si falta 1 o 2 ingredientes', () => {
+      // Solo tenemos gin y campari; falta vermut (1 ingrediente)
+      const evaluacion = evaluarReceta(recetaNegroni, [ginBombay, campari]);
+      expect(evaluacion.puedePreparar).toBe(false);
+      expect(evaluacion.seccion).toBe('casi_listos');
+      expect(evaluacion.cantidadFaltantes).toBe(1);
+      expect(evaluacion.ingredientesFaltantes[0].ingrediente.nombre).toBe('Vermut Rosso');
+    });
+
+    it('clasifica en "otras" si faltan más de 2 ingredientes', () => {
+      // Negroni requiere 3 bebidas: Gin, Campari y Vermut Rosso. Con la despensa vacía, faltan 3
+      const evaluacion = evaluarReceta(recetaNegroni, []);
+      expect(evaluacion.puedePreparar).toBe(false);
+      expect(evaluacion.seccion).toBe('otras');
+      expect(evaluacion.cantidadFaltantes).toBe(3);
+    });
+
+    it('clasificarRecetas segrega correctamente las recetas del catálogo en sus secciones', () => {
+      const despensa = [ginBombay, campari, vermutRosso, tonica];
+      const resultado = clasificarRecetas([recetaNegroni, recetaGinTonic, recetaOldFashioned], despensa);
+
+      // Negroni y Gin Tonic están completos
+      expect(resultado.armarHoy.map((e) => e.receta.nombre)).toEqual(
+        expect.arrayContaining(['Gin Tonic', 'Negroni'])
+      );
+      expect(resultado.totalArmables).toBe(2);
+
+      // Old Fashioned no tiene Whisky ni Angostura
+      expect(resultado.casiListos.length + resultado.otras.length).toBe(1);
+    });
+  });
+
+  describe('validarDescuentoPreparacion (Caso borde crítico)', () => {
+    const recetaNegroni = RECETAS_PREDETERMINADAS.find((r) => r.id === 'receta-negroni')!;
+
+    it('aprueba la preparación si todas las botellas tienen volumen suficiente', () => {
+      const seleccion = [
+        { ingredienteNombre: 'Gin', botella: ginBombay, cantidadMl: 30 },
+        { ingredienteNombre: 'Campari', botella: campari, cantidadMl: 30 },
+        { ingredienteNombre: 'Vermut Rosso', botella: vermutRosso, cantidadMl: 30 },
+      ];
+      const res = validarDescuentoPreparacion(recetaNegroni, seleccion);
+      expect(res.valido).toBe(true);
+    });
+
+    it('bloquea la preparación si una botella no tiene suficiente stock (evita saldo negativo)', () => {
+      const vermutVacio: Bebida = { ...vermutRosso, volumenRestanteMl: 10 };
+      const seleccion = [
+        { ingredienteNombre: 'Gin', botella: ginBombay, cantidadMl: 30 },
+        { ingredienteNombre: 'Campari', botella: campari, cantidadMl: 30 },
+        { ingredienteNombre: 'Vermut Rosso', botella: vermutVacio, cantidadMl: 30 },
+      ];
+      const res = validarDescuentoPreparacion(recetaNegroni, seleccion);
+      expect(res.valido).toBe(false);
+      expect(res.motivo).toContain('Stock insuficiente para Rosso (Carpano)');
+      expect(res.motivo).toContain('Disponible: 10 ml, Requerido: 30 ml');
+    });
+
+    it('bloquea si la cantidad a descontar es <= 0', () => {
+      const seleccion = [
+        { ingredienteNombre: 'Gin', botella: ginBombay, cantidadMl: 0 },
+      ];
+      const res = validarDescuentoPreparacion(recetaNegroni, seleccion);
+      expect(res.valido).toBe(false);
+    });
+  });
+});
+

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useInventoryRepository } from './context/InventoryContext';
+import { useInventoryRepository, useRecetas } from './context/InventoryContext';
 import { useTheme } from './hooks/useTheme';
 import {
   Bebida,
   estaEnAlertaStockBajo,
 } from './domain/models/bebida';
+import { Receta, clonarRecetaParaAutor } from './domain/models/receta';
+import { clasificarRecetas, normalizarTexto } from './domain/services/recetario-motor';
 import { BebidaCard } from './components/BebidaCard';
 import { BebidaFormModal, BebidaFormValues } from './components/BebidaFormModal';
 import { ConfirmModal } from './components/ConfirmModal';
@@ -14,6 +16,11 @@ import {
   filtrarYOrdenarBebidas,
   InventarioFiltros,
 } from './components/InventarioFiltros';
+import { RecetaCard } from './components/RecetaCard';
+import { RecetarioFiltros, FiltroSeccionRecetario } from './components/RecetarioFiltros';
+import { RecetaFormModal } from './components/RecetaFormModal';
+import { RecetaDetalleModal } from './components/RecetaDetalleModal';
+import { PrepararTragoModal } from './components/PrepararTragoModal';
 
 const FILTROS_DEFAULT: FiltrosEstado = {
   busqueda: '',
@@ -24,19 +31,45 @@ const FILTROS_DEFAULT: FiltrosEstado = {
 
 export function App() {
   const repository = useInventoryRepository();
+  const {
+    recetas,
+    loadingRecetas,
+    guardarReceta,
+    eliminarReceta,
+    toggleFavoritoReceta,
+    prepararTrago,
+  } = useRecetas();
+
   const { theme, toggleTheme } = useTheme();
   const [bebidas, setBebidas] = useState<Bebida[]>([]);
   const [loading, setLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
-  // Filtros y ordenamiento
+  // Navegación principal de solapas
+  const [tabActiva, setTabActiva] = useState<'despensa' | 'recetario'>('despensa');
+
+  // Filtros de Despensa
   const [filtros, setFiltros] = useState<FiltrosEstado>(FILTROS_DEFAULT);
 
-  // Estados de modales
+  // Filtros de Recetario
+  const [busquedaReceta, setBusquedaReceta] = useState('');
+  const [filtroSeccionReceta, setFiltroSeccionReceta] = useState<FiltroSeccionRecetario>('todas');
+
+  // Estados de Modales de Despensa
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [bebidaAEditar, setBebidaAEditar] = useState<Bebida | null>(null);
   const [bebidaAEliminar, setBebidaAEliminar] = useState<Bebida | null>(null);
+
+  // Estados de Modales de Recetario
+  const [isRecetaFormOpen, setIsRecetaFormOpen] = useState(false);
+  const [recetaAEditar, setRecetaAEditar] = useState<Receta | null>(null);
+  const [recetaAEliminar, setRecetaAEliminar] = useState<Receta | null>(null);
+  const [recetaDetalle, setRecetaDetalle] = useState<Receta | null>(null);
+  const [recetaAPreparar, setRecetaAPreparar] = useState<Receta | null>(null);
+
+  // Toast de notificación
+  const [toastMensaje, setToastMensaje] = useState<string | null>(null);
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -67,12 +100,59 @@ export function App() {
     loadBebidas();
   }, [repository]);
 
-  // Lista procesada reactivamente con filtros y ordenamiento
+  // Mensaje toast con autodescarte
+  useEffect(() => {
+    if (!toastMensaje) return;
+    const timer = setTimeout(() => {
+      setToastMensaje(null);
+    }, 4500);
+    return () => clearTimeout(timer);
+  }, [toastMensaje]);
+
+  // Lista procesada reactivamente con filtros y ordenamiento de Despensa
   const bebidasFiltradas = useMemo(() => {
     return filtrarYOrdenarBebidas(bebidas, filtros);
   }, [bebidas, filtros]);
 
-  // Handlers de CRUD
+  // Clasificación algorítmica del Recetario en tiempo real
+  const clasificacionRecetas = useMemo(() => {
+    return clasificarRecetas(recetas, bebidas);
+  }, [recetas, bebidas]);
+
+  // Filtrado de recetas en Recetario
+  const recetasFiltradasEvaluadas = useMemo(() => {
+    return clasificacionRecetas.todas.filter((item) => {
+      // Filtro por búsqueda de texto (nombre de receta o nombre de ingredientes)
+      if (busquedaReceta.trim().length > 0) {
+        const busqNorm = normalizarTexto(busquedaReceta);
+        const coincideNombre = normalizarTexto(item.receta.nombre).includes(busqNorm);
+        const coincideIngrediente = item.receta.ingredientes.some((ing) =>
+          normalizarTexto(ing.nombre).includes(busqNorm)
+        );
+        if (!coincideNombre && !coincideIngrediente) {
+          return false;
+        }
+      }
+
+      // Filtro por sección o categoría
+      if (filtroSeccionReceta === 'armar_hoy') {
+        return item.seccion === 'armar_hoy';
+      }
+      if (filtroSeccionReceta === 'casi_listos') {
+        return item.seccion === 'casi_listos';
+      }
+      if (filtroSeccionReceta === 'favoritas') {
+        return item.receta.esFavorito;
+      }
+      if (filtroSeccionReceta === 'propias') {
+        return item.receta.esPropia;
+      }
+
+      return true;
+    });
+  }, [clasificacionRecetas, busquedaReceta, filtroSeccionReceta]);
+
+  // Handlers de CRUD de Bebidas
   const handleAbrirCrear = () => {
     setBebidaAEditar(null);
     setIsFormOpen(true);
@@ -162,14 +242,91 @@ export function App() {
     await loadBebidas();
   };
 
+  // Handlers de Recetas
+  const handleAbrirCrearReceta = () => {
+    setRecetaAEditar(null);
+    setIsRecetaFormOpen(true);
+  };
+
+  const handleAbrirEditarReceta = (receta: Receta) => {
+    setRecetaAEditar(receta);
+    setIsRecetaFormOpen(true);
+  };
+
+  const handleGuardarReceta = async (recetaData: Receta) => {
+    await guardarReceta(recetaData);
+    setToastMensaje(
+      recetaAEditar
+        ? `Receta "${recetaData.nombre}" actualizada.`
+        : `¡Receta "${recetaData.nombre}" creada con éxito!`
+    );
+  };
+
+  const handleSolicitarEliminarReceta = (receta: Receta) => {
+    setRecetaAEliminar(receta);
+  };
+
+  const handleConfirmarEliminarReceta = async () => {
+    if (!recetaAEliminar) return;
+    const res = await eliminarReceta(recetaAEliminar.id);
+    if (res.ok) {
+      setToastMensaje(`Receta "${recetaAEliminar.nombre}" eliminada.`);
+      setRecetaAEliminar(null);
+    } else {
+      alert(res.motivo || 'No se pudo eliminar la receta');
+    }
+  };
+
+  const handleDuplicarReceta = async (receta: Receta) => {
+    const clon = clonarRecetaParaAutor(receta);
+    await guardarReceta(clon);
+    setToastMensaje(`Receta copiada a tus recetas de autor: "${clon.nombre}"`);
+  };
+
+  const handleConfirmarPreparacionTrago = async (
+    receta: Receta,
+    descuentos: { botellaId: string; cantidadMl: number }[]
+  ): Promise<{ ok: boolean; motivo?: string }> => {
+    const res = await prepararTrago(receta, descuentos);
+    if (res.ok) {
+      await loadBebidas();
+      setToastMensaje(`🍸 ¡${receta.nombre} preparado! Se descontó el volumen de tu despensa.`);
+      setRecetaAPreparar(null);
+    }
+    return res;
+  };
+
   // Métricas
   const bajoStockCount = bebidas.filter(estaEnAlertaStockBajo).length;
   const favoritosCount = bebidas.filter((b) => b.esFavorito).length;
   const valorTotalEstimado = bebidas.reduce((acc, b) => acc + (b.precioEstimado || 0), 0);
 
+  // Evaluación para modal de detalle
+  const evaluacionRecetaDetalle = useMemo(() => {
+    if (!recetaDetalle) return null;
+    return clasificacionRecetas.todas.find((e) => e.receta.id === recetaDetalle.id) || null;
+  }, [recetaDetalle, clasificacionRecetas]);
+
   return (
     <div className="min-h-screen bg-surface text-on-surface flex flex-col font-sans transition-colors duration-200">
-      {/* Header */}
+      {/* Toast Notification */}
+      {toastMensaje && (
+        <div
+          data-testid="toast-notificacion"
+          className="fixed bottom-5 right-5 z-50 bg-on-surface text-surface px-4 py-3 rounded-2xl shadow-lg border border-outline flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 text-xs font-medium"
+        >
+          <span>{toastMensaje}</span>
+          <button
+            type="button"
+            onClick={() => setToastMensaje(null)}
+            className="opacity-70 hover:opacity-100"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Header Principal */}
       <header className="border-b border-outline bg-surface-container/90 backdrop-blur sticky top-0 z-10 px-4 py-3 sm:px-6">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -200,7 +357,7 @@ export function App() {
               PWA Ready
             </span>
 
-            {/* Botón de Alternancia Claro / Oscuro */}
+            {/* Alternancia Claro / Oscuro */}
             <button
               onClick={toggleTheme}
               aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
@@ -226,134 +383,304 @@ export function App() {
         </div>
       </header>
 
+      {/* Selector de Solapas Principal (Despensa | Recetario) */}
+      <nav aria-label="Navegación principal" className="border-b border-outline bg-surface-container px-4 sm:px-6">
+        <div className="max-w-5xl mx-auto flex items-center gap-1 pt-2" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tabActiva === 'despensa'}
+            onClick={() => setTabActiva('despensa')}
+            data-testid="tab-despensa"
+            className={`px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-t-xl transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
+              tabActiva === 'despensa'
+                ? 'border-primary text-primary bg-surface/50'
+                : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
+            }`}
+          >
+            <span>🍾 Despensa & Stock</span>
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-surface-container-high border border-outline">
+              {bebidas.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tabActiva === 'recetario'}
+            onClick={() => setTabActiva('recetario')}
+            data-testid="tab-recetario"
+            className={`px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-t-xl transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
+              tabActiva === 'recetario'
+                ? 'border-primary text-primary bg-surface/50'
+                : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
+            }`}
+          >
+            <span>🍸 Recetario Dinámico</span>
+            {clasificacionRecetas.totalArmables > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-status-emerald text-white font-bold">
+                {clasificacionRecetas.totalArmables} armables
+              </span>
+            )}
+          </button>
+        </div>
+      </nav>
+
       {/* Main Content */}
       <main className="max-w-5xl mx-auto w-full px-4 py-6 sm:px-6 flex-1 flex flex-col gap-6">
-        {/* Métricas rápidas del bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-          <div className="p-4 rounded-xl bg-surface-container border border-outline shadow-xs">
-            <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
-              Total Bebidas
-            </span>
-            <p className="text-2xl font-bold text-primary mt-1">{bebidas.length}</p>
-          </div>
+        {/* ================= VISTA DE DESPENSA ================= */}
+        {tabActiva === 'despensa' && (
+          <>
+            {/* Métricas rápidas del bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+              <div className="p-4 rounded-xl bg-surface-container border border-outline shadow-xs">
+                <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
+                  Total Bebidas
+                </span>
+                <p className="text-2xl font-bold text-primary mt-1">{bebidas.length}</p>
+              </div>
 
-          <div className="p-4 rounded-xl bg-surface-container border border-outline shadow-xs">
-            <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
-              Favoritos
-            </span>
-            <p className="text-2xl font-bold text-status-amber mt-1">{favoritosCount}</p>
-          </div>
+              <div className="p-4 rounded-xl bg-surface-container border border-outline shadow-xs">
+                <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
+                  Favoritos
+                </span>
+                <p className="text-2xl font-bold text-status-amber mt-1">{favoritosCount}</p>
+              </div>
 
-          <div className="p-4 rounded-xl bg-surface-container border border-outline shadow-xs">
-            <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
-              Alertas Stock Bajo
-            </span>
-            <p
-              className={`text-2xl font-bold mt-1 ${
-                bajoStockCount > 0 ? 'text-status-amber' : 'text-on-surface-variant'
-              }`}
-            >
-              {bajoStockCount}
-            </p>
-          </div>
+              <div className="p-4 rounded-xl bg-surface-container border border-outline shadow-xs">
+                <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
+                  Alertas Stock Bajo
+                </span>
+                <p
+                  className={`text-2xl font-bold mt-1 ${
+                    bajoStockCount > 0 ? 'text-status-amber' : 'text-on-surface-variant'
+                  }`}
+                >
+                  {bajoStockCount}
+                </p>
+              </div>
 
-          <div className="p-4 rounded-xl bg-surface-container border border-outline shadow-xs">
-            <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
-              Valor Estimado
-            </span>
-            <p className="text-lg sm:text-xl font-bold text-status-emerald mt-1.5 truncate">
-              ${valorTotalEstimado.toLocaleString('es-AR')}
-            </p>
-          </div>
-        </div>
+              <div className="p-4 rounded-xl bg-surface-container border border-outline shadow-xs">
+                <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
+                  Valor Estimado
+                </span>
+                <p className="text-lg sm:text-xl font-bold text-status-emerald mt-1.5 truncate">
+                  ${valorTotalEstimado.toLocaleString('es-AR')}
+                </p>
+              </div>
+            </div>
 
-        {/* Barra de Filtros, Búsqueda y Ordenamiento */}
-        <InventarioFiltros
-          filtros={filtros}
-          onChange={setFiltros}
-          totalResultados={bebidasFiltradas.length}
-          totalBebidas={bebidas.length}
-        />
+            {/* Barra de Filtros, Búsqueda y Ordenamiento */}
+            <InventarioFiltros
+              filtros={filtros}
+              onChange={setFiltros}
+              totalResultados={bebidasFiltradas.length}
+              totalBebidas={bebidas.length}
+            />
 
-        {/* Acciones principales de inventario */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-base font-semibold text-on-surface">
-            Despensa ({bebidasFiltradas.length})
-          </h2>
-          <div className="flex gap-2">
-            <button
-              onClick={handleAbrirCrear}
-              className="px-3.5 py-2 text-xs sm:text-sm font-semibold bg-primary hover:bg-primary-hover text-on-primary rounded-xl transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
-            >
-              <span>+</span>
-              <span>Nueva Bebida</span>
-            </button>
-            <button
-              onClick={handleAgregarMuestra}
-              className="px-3 py-2 text-xs font-medium bg-surface-container hover:bg-surface-container-high text-on-surface rounded-xl transition-colors border border-outline cursor-pointer"
-            >
-              + Botella de Prueba
-            </button>
-            {bebidas.length > 0 && (
-              <button
-                onClick={handleLimpiar}
-                className="px-3 py-2 text-xs font-medium bg-surface-container hover:bg-status-rose/10 text-on-surface-variant hover:text-status-rose rounded-xl transition-colors border border-outline cursor-pointer"
-              >
-                Limpiar Despensa
-              </button>
+            {/* Acciones principales de inventario */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-base font-semibold text-on-surface">
+                Despensa ({bebidasFiltradas.length})
+              </h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleAbrirCrear}
+                  className="px-3.5 py-2 text-xs sm:text-sm font-semibold bg-primary hover:bg-primary-hover text-on-primary rounded-xl transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>+</span>
+                  <span>Nueva Bebida</span>
+                </button>
+                <button
+                  onClick={handleAgregarMuestra}
+                  className="px-3 py-2 text-xs font-medium bg-surface-container hover:bg-surface-container-high text-on-surface rounded-xl transition-colors border border-outline cursor-pointer"
+                >
+                  + Botella de Prueba
+                </button>
+                {bebidas.length > 0 && (
+                  <button
+                    onClick={handleLimpiar}
+                    className="px-3 py-2 text-xs font-medium bg-surface-container hover:bg-status-rose/10 text-on-surface-variant hover:text-status-rose rounded-xl transition-colors border border-outline cursor-pointer"
+                  >
+                    Limpiar Despensa
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Grid de Bebidas o Estados Vacíos */}
+            {loading ? (
+              <div className="text-center py-16 text-on-surface-variant text-sm">
+                Cargando inventario local...
+              </div>
+            ) : bebidas.length === 0 ? (
+              <div className="border border-dashed border-outline rounded-2xl p-12 text-center text-on-surface-variant flex flex-col items-center gap-3 bg-surface-container/40">
+                <span className="text-4xl">🍸</span>
+                <p className="text-base font-medium text-on-surface">Tu bar está vacío por ahora.</p>
+                <p className="text-xs text-on-surface-variant max-w-sm">
+                  Hacé clic en "Nueva Bebida" para registrar tus botellas manualmente o en "+ Botella de Prueba" para verificar la despensa.
+                </p>
+                <button
+                  onClick={handleAbrirCrear}
+                  className="mt-2 px-4 py-2 text-xs font-semibold bg-primary hover:bg-primary-hover text-on-primary rounded-xl shadow-xs cursor-pointer transition-colors"
+                >
+                  + Registrar Primer Botella
+                </button>
+              </div>
+            ) : bebidasFiltradas.length === 0 ? (
+              <div className="border border-outline rounded-2xl p-10 text-center text-on-surface-variant flex flex-col items-center gap-3 bg-surface-container/60">
+                <span className="text-3xl">🔍</span>
+                <p className="text-sm font-medium text-on-surface">
+                  No se encontraron botellas con los filtros actuales.
+                </p>
+                <button
+                  onClick={() => setFiltros(FILTROS_DEFAULT)}
+                  className="px-3 py-1.5 text-xs font-medium text-primary hover:text-primary-hover border border-outline rounded-xl cursor-pointer bg-surface-container"
+                >
+                  Restablecer filtros
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {bebidasFiltradas.map((item) => (
+                  <BebidaCard
+                    key={item.id}
+                    bebida={item}
+                    onEditar={handleAbrirEditar}
+                    onEliminar={handleSolicitarEliminar}
+                    onToggleFavorito={handleToggleFavorito}
+                    onAjustarVolumen={handleAjustarVolumen}
+                  />
+                ))}
+              </div>
             )}
-          </div>
-        </div>
+          </>
+        )}
 
-        {/* Grid de Bebidas o Estados Vacíos */}
-        {loading ? (
-          <div className="text-center py-16 text-on-surface-variant text-sm">
-            Cargando inventario local...
-          </div>
-        ) : bebidas.length === 0 ? (
-          <div className="border border-dashed border-outline rounded-2xl p-12 text-center text-on-surface-variant flex flex-col items-center gap-3 bg-surface-container/40">
-            <span className="text-4xl">🍸</span>
-            <p className="text-base font-medium text-on-surface">Tu bar está vacío por ahora.</p>
-            <p className="text-xs text-on-surface-variant max-w-sm">
-              Hacé clic en "Nueva Bebida" para registrar tus botellas manualmente o en "+ Botella de Prueba" para verificar la despensa.
-            </p>
-            <button
-              onClick={handleAbrirCrear}
-              className="mt-2 px-4 py-2 text-xs font-semibold bg-primary hover:bg-primary-hover text-on-primary rounded-xl shadow-xs cursor-pointer transition-colors"
-            >
-              + Registrar Primer Botella
-            </button>
-          </div>
-        ) : bebidasFiltradas.length === 0 ? (
-          <div className="border border-outline rounded-2xl p-10 text-center text-on-surface-variant flex flex-col items-center gap-3 bg-surface-container/60">
-            <span className="text-3xl">🔍</span>
-            <p className="text-sm font-medium text-on-surface">
-              No se encontraron botellas con los filtros actuales.
-            </p>
-            <button
-              onClick={() => setFiltros(FILTROS_DEFAULT)}
-              className="px-3 py-1.5 text-xs font-medium text-primary hover:text-primary-hover border border-outline rounded-xl cursor-pointer bg-surface-container"
-            >
-              Restablecer filtros
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {bebidasFiltradas.map((item) => (
-              <BebidaCard
-                key={item.id}
-                bebida={item}
-                onEditar={handleAbrirEditar}
-                onEliminar={handleSolicitarEliminar}
-                onToggleFavorito={handleToggleFavorito}
-                onAjustarVolumen={handleAjustarVolumen}
-              />
-            ))}
-          </div>
+        {/* ================= VISTA DE RECETARIO DINÁMICO ================= */}
+        {tabActiva === 'recetario' && (
+          <>
+            {/* Métricas rápidas de recetas */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+              <div className="p-4 rounded-xl bg-surface-container border border-outline shadow-xs">
+                <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
+                  Total Recetas
+                </span>
+                <p className="text-2xl font-bold text-primary mt-1">{recetas.length}</p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-surface-container border border-status-emerald/40 shadow-xs bg-status-emerald/5">
+                <span className="text-xs font-medium text-status-emerald uppercase tracking-wider">
+                  🍸 Armables Hoy
+                </span>
+                <p className="text-2xl font-bold text-status-emerald mt-1">
+                  {clasificacionRecetas.armarHoy.length}
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-surface-container border border-status-amber/40 shadow-xs bg-status-amber/5">
+                <span className="text-xs font-medium text-status-amber uppercase tracking-wider">
+                  ⏳ Casi Listos
+                </span>
+                <p className="text-2xl font-bold text-status-amber mt-1">
+                  {clasificacionRecetas.casiListos.length}
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-surface-container border border-outline shadow-xs">
+                <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
+                  Mis Recetas Propias
+                </span>
+                <p className="text-2xl font-bold text-on-surface mt-1">
+                  {recetas.filter((r) => r.esPropia).length}
+                </p>
+              </div>
+            </div>
+
+            {/* Barra de Filtros del Recetario */}
+            <RecetarioFiltros
+              busqueda={busquedaReceta}
+              onBusquedaChange={setBusquedaReceta}
+              filtroActivo={filtroSeccionReceta}
+              onFiltroChange={setFiltroSeccionReceta}
+              conteoArmables={clasificacionRecetas.armarHoy.length}
+              conteoCasiListos={clasificacionRecetas.casiListos.length}
+              conteoTotal={recetas.length}
+            />
+
+            {/* Acciones del Recetario */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+              <h2 className="text-base font-semibold text-on-surface">
+                {filtroSeccionReceta === 'armar_hoy'
+                  ? '🍸 ¿Qué puedo armar hoy? (100% disponibles)'
+                  : filtroSeccionReceta === 'casi_listos'
+                  ? '⏳ Casi listos (Faltan 1 o 2 insumos)'
+                  : filtroSeccionReceta === 'favoritas'
+                  ? '⭐ Recetas Favoritas'
+                  : filtroSeccionReceta === 'propias'
+                  ? '✨ Mis Recetas de Autor'
+                  : 'Catálogo de Cócteles'} ({recetasFiltradasEvaluadas.length})
+              </h2>
+
+              <button
+                type="button"
+                onClick={handleAbrirCrearReceta}
+                data-testid="btn-nueva-receta"
+                className="px-3.5 py-2 text-xs sm:text-sm font-semibold bg-primary hover:bg-primary-hover text-on-primary rounded-xl transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
+              >
+                <span>+</span>
+                <span>Nueva Receta de Autor</span>
+              </button>
+            </div>
+
+            {/* Listado de Recetas */}
+            {loadingRecetas ? (
+              <div className="text-center py-16 text-on-surface-variant text-sm">
+                Cargando recetario y evaluando existencias del bar...
+              </div>
+            ) : recetasFiltradasEvaluadas.length === 0 ? (
+              <div className="border border-outline rounded-2xl p-10 text-center text-on-surface-variant flex flex-col items-center gap-3 bg-surface-container/60">
+                <span className="text-3xl">🍸</span>
+                <p className="text-sm font-medium text-on-surface">
+                  No se encontraron recetas con los filtros actuales.
+                </p>
+                {filtroSeccionReceta === 'armar_hoy' && bebidas.length === 0 && (
+                  <p className="text-xs text-on-surface-variant max-w-sm">
+                    Actualmente tu despensa está vacía. Añadí botellas en la pestaña "Despensa" para ver qué cócteles podés armar.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBusquedaReceta('');
+                    setFiltroSeccionReceta('todas');
+                  }}
+                  className="px-3 py-1.5 text-xs font-medium text-primary hover:text-primary-hover border border-outline rounded-xl cursor-pointer bg-surface-container"
+                >
+                  Ver todas las recetas
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {recetasFiltradasEvaluadas.map((evalItem) => (
+                  <RecetaCard
+                    key={evalItem.receta.id}
+                    evaluacion={evalItem}
+                    onVerDetalle={(r) => setRecetaDetalle(r)}
+                    onPreparar={(r) => setRecetaAPreparar(r)}
+                    onToggleFavorito={toggleFavoritoReceta}
+                    onEditar={handleAbrirEditarReceta}
+                    onEliminar={handleSolicitarEliminarReceta}
+                    onDuplicar={handleDuplicarReceta}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </main>
 
-      {/* Modales */}
+      {/* Modales de Despensa */}
       <BebidaFormModal
         isOpen={isFormOpen}
         bebidaAEditar={bebidaAEditar}
@@ -378,6 +705,47 @@ export function App() {
         bebidas={bebidas}
       />
 
+      {/* Modales de Recetario */}
+      <RecetaFormModal
+        isOpen={isRecetaFormOpen}
+        onClose={() => setIsRecetaFormOpen(false)}
+        onSave={handleGuardarReceta}
+        recetaAEditar={recetaAEditar}
+      />
+
+      <RecetaDetalleModal
+        isOpen={Boolean(recetaDetalle)}
+        receta={recetaDetalle}
+        evaluacion={evaluacionRecetaDetalle}
+        onClose={() => setRecetaDetalle(null)}
+        onPreparar={(r) => {
+          setRecetaDetalle(null);
+          setRecetaAPreparar(r);
+        }}
+        onToggleFavorito={toggleFavoritoReceta}
+        onEditar={handleAbrirEditarReceta}
+        onDuplicar={handleDuplicarReceta}
+      />
+
+      <PrepararTragoModal
+        isOpen={Boolean(recetaAPreparar)}
+        receta={recetaAPreparar}
+        bebidasEnDespensa={bebidas}
+        onClose={() => setRecetaAPreparar(null)}
+        onConfirmarPreparacion={handleConfirmarPreparacionTrago}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(recetaAEliminar)}
+        titulo="Eliminar Receta de Autor"
+        mensaje={`¿Estás seguro de que deseás eliminar la receta "${recetaAEliminar?.nombre}"? Esta acción no se puede deshacer.`}
+        textoConfirmar="Sí, eliminar"
+        textoCancelar="Cancelar"
+        variante="peligro"
+        onConfirm={handleConfirmarEliminarReceta}
+        onCancel={() => setRecetaAEliminar(null)}
+      />
+
       {/* Footer */}
       <footer className="border-t border-outline px-4 py-4 text-center text-xs text-on-surface-variant">
         MiBarcito • Gestión de Despensa & Coctelería • Google Material 3
@@ -385,4 +753,5 @@ export function App() {
     </div>
   );
 }
+
 export default App;

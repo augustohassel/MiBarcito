@@ -4,6 +4,9 @@ import { createInventoryRepository } from '../infrastructure/storage/inventory-r
 import { ICategoriaRepository } from '../domain/repositories/categoria-repository.interface';
 import { createCategoriaRepository } from '../infrastructure/storage/categoria-repository-factory';
 import { Categoria, puedeEliminarCategoria } from '../domain/models/categoria';
+import { IRecetaRepository } from '../domain/repositories/receta-repository.interface';
+import { createRecetaRepository } from '../infrastructure/storage/receta-repository-factory';
+import { Receta } from '../domain/models/receta';
 
 export interface CategoriaContextType {
   categoriaRepository: ICategoriaRepository;
@@ -14,7 +17,21 @@ export interface CategoriaContextType {
   eliminarCategoria: (id: string) => Promise<{ ok: boolean; motivo?: string }>;
 }
 
-export interface InventoryContextType extends CategoriaContextType {
+export interface RecetaContextType {
+  recetaRepository: IRecetaRepository;
+  recetas: Receta[];
+  loadingRecetas: boolean;
+  recargarRecetas: () => Promise<void>;
+  guardarReceta: (receta: Receta) => Promise<void>;
+  eliminarReceta: (id: string) => Promise<{ ok: boolean; motivo?: string }>;
+  toggleFavoritoReceta: (id: string) => Promise<void>;
+  prepararTrago: (
+    receta: Receta,
+    descuentos: { botellaId: string; cantidadMl: number }[]
+  ) => Promise<{ ok: boolean; motivo?: string }>;
+}
+
+export interface InventoryContextType extends CategoriaContextType, RecetaContextType {
   repository: IInventoryRepository;
 }
 
@@ -24,12 +41,14 @@ export interface InventoryProviderProps {
   children: React.ReactNode;
   repository?: IInventoryRepository;
   categoriaRepository?: ICategoriaRepository;
+  recetaRepository?: IRecetaRepository;
 }
 
 export const InventoryProvider: React.FC<InventoryProviderProps> = ({
   children,
   repository,
   categoriaRepository,
+  recetaRepository,
 }) => {
   const repoInstance = useMemo(
     () => repository ?? createInventoryRepository(),
@@ -41,8 +60,18 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
     [categoriaRepository]
   );
 
+  const recetaRepoInstance = useMemo(
+    () => recetaRepository ?? createRecetaRepository(),
+    [recetaRepository]
+  );
+
+  // Estados de Categorías
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [loadingCategorias, setLoadingCategorias] = useState(true);
+
+  // Estados de Recetas
+  const [recetas, setRecetas] = useState<Receta[]>([]);
+  const [loadingRecetas, setLoadingRecetas] = useState(true);
 
   const recargarCategorias = useCallback(async () => {
     try {
@@ -57,9 +86,23 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
     }
   }, [catRepoInstance]);
 
+  const recargarRecetas = useCallback(async () => {
+    try {
+      setLoadingRecetas(true);
+      await recetaRepoInstance.seedDefaults();
+      const list = await recetaRepoInstance.getAll();
+      setRecetas(list);
+    } catch (err) {
+      console.error('Error al cargar recetas:', err);
+    } finally {
+      setLoadingRecetas(false);
+    }
+  }, [recetaRepoInstance]);
+
   useEffect(() => {
     recargarCategorias();
-  }, [recargarCategorias]);
+    recargarRecetas();
+  }, [recargarCategorias, recargarRecetas]);
 
   const guardarCategoria = useCallback(
     async (categoria: Categoria) => {
@@ -71,7 +114,6 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
 
   const eliminarCategoria = useCallback(
     async (id: string): Promise<{ ok: boolean; motivo?: string }> => {
-      // Verificar si hay bebidas en la despensa que utilicen esta categoría
       const bebidas = await repoInstance.getAll();
       const cantidadEnUso = bebidas.filter((b) => b.categoria === id).length;
 
@@ -87,24 +129,125 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
     [catRepoInstance, repoInstance, recargarCategorias]
   );
 
+  const guardarReceta = useCallback(
+    async (receta: Receta) => {
+      await recetaRepoInstance.save(receta);
+      await recargarRecetas();
+    },
+    [recetaRepoInstance, recargarRecetas]
+  );
+
+  const eliminarReceta = useCallback(
+    async (id: string): Promise<{ ok: boolean; motivo?: string }> => {
+      const receta = await recetaRepoInstance.getById(id);
+      if (!receta) {
+        return { ok: false, motivo: 'La receta no existe' };
+      }
+      if (!receta.esPropia) {
+        return {
+          ok: false,
+          motivo: 'Las recetas predeterminadas del catálogo clásico no pueden ser eliminadas.',
+        };
+      }
+      await recetaRepoInstance.delete(id);
+      await recargarRecetas();
+      return { ok: true };
+    },
+    [recetaRepoInstance, recargarRecetas]
+  );
+
+  const toggleFavoritoReceta = useCallback(
+    async (id: string) => {
+      await recetaRepoInstance.toggleFavorito(id);
+      await recargarRecetas();
+    },
+    [recetaRepoInstance, recargarRecetas]
+  );
+
+  /**
+   * Descuenta stock de forma atómica y segura al preparar un trago.
+   * Valida que ninguna botella quede con saldo negativo antes de guardar.
+   */
+  const prepararTrago = useCallback(
+    async (
+      _receta: Receta,
+      descuentos: { botellaId: string; cantidadMl: number }[]
+    ): Promise<{ ok: boolean; motivo?: string }> => {
+      // 1. Consolidar requerimientos agrupados por botellaId
+      const consolidado = new Map<string, number>();
+      for (const desc of descuentos) {
+        if (desc.cantidadMl <= 0) continue;
+        const actual = consolidado.get(desc.botellaId) || 0;
+        consolidado.set(desc.botellaId, actual + desc.cantidadMl);
+      }
+
+      const botellasAActualizar: { botella: any; nuevoVolumen: number }[] = [];
+
+      // 2. Validar stock acumulado disponible
+      for (const [botellaId, totalMl] of consolidado.entries()) {
+        const botella = await repoInstance.getById(botellaId);
+        if (!botella) {
+          return { ok: false, motivo: `La botella no fue encontrada en el inventario.` };
+        }
+        if (botella.volumenRestanteMl < totalMl) {
+          return {
+            ok: false,
+            motivo: `Stock insuficiente en ${botella.nombre} (${botella.marca}). Disponible: ${botella.volumenRestanteMl} ml, Requerido total: ${totalMl} ml.`,
+          };
+        }
+        botellasAActualizar.push({
+          botella,
+          nuevoVolumen: Math.max(0, botella.volumenRestanteMl - totalMl),
+        });
+      }
+
+      // 3. Persistir sin re-consultas redundantes
+      for (const item of botellasAActualizar) {
+        await repoInstance.save({
+          ...item.botella,
+          volumenRestanteMl: item.nuevoVolumen,
+        });
+      }
+
+      return { ok: true };
+    },
+    [repoInstance]
+  );
+
   const contextValue = useMemo(
     () => ({
       repository: repoInstance,
       categoriaRepository: catRepoInstance,
+      recetaRepository: recetaRepoInstance,
       categorias,
       loadingCategorias,
       recargarCategorias,
       guardarCategoria,
       eliminarCategoria,
+      recetas,
+      loadingRecetas,
+      recargarRecetas,
+      guardarReceta,
+      eliminarReceta,
+      toggleFavoritoReceta,
+      prepararTrago,
     }),
     [
       repoInstance,
       catRepoInstance,
+      recetaRepoInstance,
       categorias,
       loadingCategorias,
       recargarCategorias,
       guardarCategoria,
       eliminarCategoria,
+      recetas,
+      loadingRecetas,
+      recargarRecetas,
+      guardarReceta,
+      eliminarReceta,
+      toggleFavoritoReceta,
+      prepararTrago,
     ]
   );
 
@@ -131,6 +274,14 @@ export function useCategoriaRepository(): ICategoriaRepository {
   return context.categoriaRepository;
 }
 
+export function useRecetaRepository(): IRecetaRepository {
+  const context = useContext(InventoryContext);
+  if (!context) {
+    throw new Error('useRecetaRepository debe ser utilizado dentro de un InventoryProvider');
+  }
+  return context.recetaRepository;
+}
+
 export function useCategorias(): CategoriaContextType {
   const context = useContext(InventoryContext);
   if (!context) {
@@ -143,6 +294,23 @@ export function useCategorias(): CategoriaContextType {
     recargarCategorias: context.recargarCategorias,
     guardarCategoria: context.guardarCategoria,
     eliminarCategoria: context.eliminarCategoria,
+  };
+}
+
+export function useRecetas(): RecetaContextType {
+  const context = useContext(InventoryContext);
+  if (!context) {
+    throw new Error('useRecetas debe ser utilizado dentro de un InventoryProvider');
+  }
+  return {
+    recetaRepository: context.recetaRepository,
+    recetas: context.recetas,
+    loadingRecetas: context.loadingRecetas,
+    recargarRecetas: context.recargarRecetas,
+    guardarReceta: context.guardarReceta,
+    eliminarReceta: context.eliminarReceta,
+    toggleFavoritoReceta: context.toggleFavoritoReceta,
+    prepararTrago: context.prepararTrago,
   };
 }
 
