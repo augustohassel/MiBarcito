@@ -53,10 +53,10 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
   return (
     <div
       data-testid={`bebida-card-${bebida.id}`}
-      className={`p-5 rounded-2xl bg-slate-900/70 border transition-all duration-200 flex flex-col justify-between gap-4 shadow-lg hover:border-slate-700/80 ${
+      className={`p-5 rounded-2xl bg-surface-container border transition-all duration-200 flex flex-col justify-between gap-4 shadow-xs hover:border-primary/40 ${
         bajoStock
-          ? 'border-amber-500/40 bg-gradient-to-b from-amber-500/5 to-slate-900/80'
-          : 'border-slate-800'
+          ? 'border-status-amber/50 bg-gradient-to-b from-status-amber/10 to-surface-container'
+          : 'border-outline'
       }`}
     >
       {/* Encabezado: Nombre, Marca, Favorito y Badges */}
@@ -64,19 +64,19 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-800 text-sky-300 border border-slate-700">
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-surface-container-high text-primary border border-outline">
                 {categoriaLabel}
               </span>
               {bajoStock && (
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-status-amber/20 text-status-amber border border-status-amber/30 flex items-center gap-1">
                   ⚠️ Stock Bajo
                 </span>
               )}
             </div>
-            <h3 className="text-base font-bold text-white mt-1.5 truncate" title={bebida.nombre}>
+            <h3 className="text-base font-bold text-on-surface mt-1.5 truncate" title={bebida.nombre}>
               {bebida.nombre}
             </h3>
-            <p className="text-xs text-slate-400 truncate" title={bebida.marca}>
+            <p className="text-xs text-on-surface-variant truncate" title={bebida.marca}>
               {bebida.marca}
             </p>
           </div>
@@ -87,8 +87,8 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
             onClick={() => onToggleFavorito(bebida)}
             className={`p-1.5 rounded-xl transition-colors cursor-pointer text-base ${
               bebida.esFavorito
-                ? 'text-amber-400 hover:text-amber-300 bg-amber-500/10 border border-amber-500/20'
-                : 'text-slate-500 hover:text-slate-300 bg-slate-800/40 border border-slate-800'
+                ? 'text-status-amber hover:text-status-amber/80 bg-status-amber/15 border border-status-amber/30'
+                : 'text-on-surface-variant hover:text-on-surface bg-surface border border-outline'
             }`}
             aria-label={bebida.esFavorito ? 'Quitar de favoritos' : 'Agregar a favoritos'}
             title={bebida.esFavorito ? 'Quitar de favoritos' : 'Agregar a favoritos'}
@@ -100,18 +100,18 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
         {/* Barra de progreso de volumen */}
         <div className="mt-4">
           <div className="flex items-center justify-between text-xs mb-1.5">
-            <span className="text-slate-400">Nivel de botella</span>
-            <span className="font-semibold text-slate-200">
+            <span className="text-on-surface-variant">Nivel de botella</span>
+            <span className="font-semibold text-on-surface">
               {bebida.volumenRestanteMl} / {bebida.volumenTotalMl} ml ({porcentaje}%)
             </span>
           </div>
 
-          <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+          <div className="w-full h-2.5 bg-surface-container-high rounded-full overflow-hidden border border-outline">
             <div
               className={`h-full transition-all duration-300 rounded-full ${
                 bajoStock
-                  ? 'bg-gradient-to-r from-amber-500 to-rose-500'
-                  : 'bg-gradient-to-r from-sky-500 to-indigo-500'
+                  ? 'bg-gradient-to-r from-status-amber to-status-rose'
+                  : 'bg-primary'
               }`}
               style={{ width: `${porcentaje}%` }}
             />
@@ -119,14 +119,14 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
         </div>
 
         {/* Ajuste rápido de volumen */}
-        <div className="mt-3 flex items-center justify-between gap-2 pt-2 border-t border-slate-800/60">
-          <span className="text-[11px] text-slate-400">Ajuste rápido:</span>
+        <div className="mt-3 flex items-center justify-between gap-2 pt-2 border-t border-outline/70">
+          <span className="text-[11px] text-on-surface-variant">Ajuste rápido:</span>
           <div className="flex items-center gap-1.5">
             <button
               type="button"
               disabled={bebida.volumenRestanteMl <= 0}
               onClick={() => handleModificarVolumen(-50)}
-              className="px-2 py-0.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              className="px-2 py-0.5 text-xs font-semibold rounded-lg bg-surface-container-high hover:bg-surface text-on-surface border border-outline transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               title="Restar 50 ml"
             >
               -50 ml
@@ -135,7 +135,7 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
               type="button"
               disabled={bebida.volumenRestanteMl >= bebida.volumenTotalMl}
               onClick={() => handleModificarVolumen(50)}
-              className="px-2 py-0.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              className="px-2 py-0.5 text-xs font-semibold rounded-lg bg-surface-container-high hover:bg-surface text-on-surface border border-outline transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               title="Sumar 50 ml"
             >
               +50 ml
@@ -143,7 +143,7 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
             <button
               type="button"
               onClick={() => handleSetVolumenFijo(100)}
-              className="px-1.5 py-0.5 text-[10px] font-medium rounded-lg bg-slate-950 hover:bg-slate-800 text-sky-400 border border-slate-800 transition-colors cursor-pointer"
+              className="px-1.5 py-0.5 text-[10px] font-medium rounded-lg bg-surface hover:bg-surface-container-high text-primary border border-outline transition-colors cursor-pointer"
               title="Llenar al 100%"
             >
               100%
@@ -152,16 +152,16 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
         </div>
 
         {/* Metadatos adicionales (Graduación, Precio, Alerta) */}
-        <div className="grid grid-cols-2 gap-2 mt-3 pt-2 text-[11px] text-slate-400 border-t border-slate-800/40">
+        <div className="grid grid-cols-2 gap-2 mt-3 pt-2 text-[11px] text-on-surface-variant border-t border-outline/50">
           <div>
-            <span className="text-slate-500">Graduación: </span>
-            <span className="text-slate-300 font-medium">
+            <span className="text-on-surface-variant opacity-80">Graduación: </span>
+            <span className="text-on-surface font-medium">
               {bebida.graduacionAlcoholica !== undefined ? `${bebida.graduacionAlcoholica}% ABV` : 'N/D'}
             </span>
           </div>
           <div>
-            <span className="text-slate-500">Precio est.: </span>
-            <span className="text-slate-300 font-medium">
+            <span className="text-on-surface-variant opacity-80">Precio est.: </span>
+            <span className="text-on-surface font-medium">
               {bebida.precioEstimado !== undefined
                 ? `$${bebida.precioEstimado.toLocaleString('es-AR')}`
                 : 'N/D'}
@@ -171,11 +171,11 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
       </div>
 
       {/* Acciones de Edición y Eliminación */}
-      <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800/60">
+      <div className="flex items-center justify-end gap-2 pt-2 border-t border-outline/70">
         <button
           type="button"
           onClick={() => onEditar(bebida)}
-          className="px-3 py-1 text-xs font-medium text-slate-300 hover:text-white bg-slate-800/70 hover:bg-slate-700 border border-slate-700/80 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+          className="px-3 py-1 text-xs font-medium text-on-surface hover:text-primary bg-surface-container-high hover:bg-surface border border-outline rounded-xl transition-colors cursor-pointer flex items-center gap-1"
         >
           <span>✏️</span>
           <span>Editar</span>
@@ -183,7 +183,7 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
         <button
           type="button"
           onClick={() => onEliminar(bebida)}
-          className="px-3 py-1 text-xs font-medium text-rose-300 hover:text-rose-200 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+          className="px-3 py-1 text-xs font-medium text-status-rose hover:bg-status-rose/15 bg-status-rose/10 border border-status-rose/30 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
         >
           <span>🗑️</span>
           <span>Eliminar</span>
@@ -192,4 +192,3 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
     </div>
   );
 };
-

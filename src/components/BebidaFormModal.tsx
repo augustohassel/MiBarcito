@@ -147,23 +147,23 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="bebida-form-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-on-surface/50 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-150"
     >
       <div
-        className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 text-slate-100 my-8 flex flex-col gap-5 max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-lg bg-surface-container border border-outline rounded-2xl shadow-xl p-6 text-on-surface my-8 flex flex-col gap-5 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="flex items-center justify-between border-b border-outline pb-3">
           <div className="flex items-center gap-2">
             <span className="text-xl">🍾</span>
-            <h2 id="bebida-form-title" className="text-lg font-bold text-white">
+            <h2 id="bebida-form-title" className="text-lg font-bold text-on-surface">
               {esEdicion ? 'Editar Bebida' : 'Agregar Nueva Bebida'}
             </h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+            className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg hover:bg-surface-container-high transition-colors cursor-pointer"
             aria-label="Cerrar modal"
           >
             ✕
@@ -171,7 +171,7 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
         </div>
 
         {errores.general && (
-          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
+          <div className="p-3 rounded-xl bg-status-rose/10 border border-status-rose/30 text-status-rose text-xs">
             {errores.general}
           </div>
         )}
@@ -180,7 +180,7 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
           {/* Nombre y Marca */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="nombre" className="block text-xs font-medium text-slate-300 mb-1">
+              <label htmlFor="nombre" className="block text-xs font-medium text-on-surface-variant mb-1">
                 Nombre de la Bebida *
               </label>
               <input
@@ -190,17 +190,17 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
                 placeholder="Ej. London Dry, Black Label"
                 value={formData.nombre}
                 onChange={(e) => handleChange('nombre', e.target.value)}
-                className={`w-full px-3 py-2 bg-slate-950 border rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors ${
-                  errores.nombre ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-800'
+                className={`w-full px-3 py-2 bg-surface border rounded-xl text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary transition-colors ${
+                  errores.nombre ? 'border-status-rose ring-1 ring-status-rose' : 'border-outline'
                 }`}
               />
               {errores.nombre && (
-                <p className="text-rose-400 text-xs mt-1">{errores.nombre}</p>
+                <p className="text-status-rose text-xs mt-1">{errores.nombre}</p>
               )}
             </div>
 
             <div>
-              <label htmlFor="marca" className="block text-xs font-medium text-slate-300 mb-1">
+              <label htmlFor="marca" className="block text-xs font-medium text-on-surface-variant mb-1">
                 Marca / Destilería *
               </label>
               <input
@@ -210,12 +210,12 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
                 placeholder="Ej. Bombay, Johnnie Walker"
                 value={formData.marca}
                 onChange={(e) => handleChange('marca', e.target.value)}
-                className={`w-full px-3 py-2 bg-slate-950 border rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors ${
-                  errores.marca ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-800'
+                className={`w-full px-3 py-2 bg-surface border rounded-xl text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary transition-colors ${
+                  errores.marca ? 'border-status-rose ring-1 ring-status-rose' : 'border-outline'
                 }`}
               />
               {errores.marca && (
-                <p className="text-rose-400 text-xs mt-1">{errores.marca}</p>
+                <p className="text-status-rose text-xs mt-1">{errores.marca}</p>
               )}
             </div>
           </div>
@@ -223,7 +223,7 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
           {/* Categoría y Favorito */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
             <div>
-              <label htmlFor="categoria" className="block text-xs font-medium text-slate-300 mb-1">
+              <label htmlFor="categoria" className="block text-xs font-medium text-on-surface-variant mb-1">
                 Categoría *
               </label>
               <select
@@ -231,8 +231,8 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
                 name="categoria"
                 value={formData.categoria}
                 onChange={(e) => handleChange('categoria', e.target.value as CategoriaBebida)}
-                className={`w-full px-3 py-2 bg-slate-950 border rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors ${
-                  errores.categoria ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-800'
+                className={`w-full px-3 py-2 bg-surface border rounded-xl text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-colors ${
+                  errores.categoria ? 'border-status-rose ring-1 ring-status-rose' : 'border-outline'
                 }`}
               >
                 {opcionesCategorias.map((cat) => (
@@ -242,17 +242,17 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
                 ))}
               </select>
               {errores.categoria && (
-                <p className="text-rose-400 text-xs mt-1">{errores.categoria}</p>
+                <p className="text-status-rose text-xs mt-1">{errores.categoria}</p>
               )}
             </div>
 
             <div className="flex items-center gap-2 pt-5">
-              <label className="flex items-center gap-2 text-sm text-slate-200 cursor-pointer select-none">
+              <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={formData.esFavorito}
                   onChange={(e) => handleChange('esFavorito', e.target.checked)}
-                  className="w-4 h-4 rounded text-sky-500 bg-slate-950 border-slate-800 focus:ring-sky-500 focus:ring-offset-slate-900"
+                  className="w-4 h-4 rounded text-primary bg-surface border-outline focus:ring-primary"
                 />
                 <span>⭐ Marcar como Favorito</span>
               </label>
@@ -260,9 +260,9 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
           </div>
 
           {/* Volúmenes */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 rounded-xl bg-slate-950/50 border border-slate-800/80">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 rounded-xl bg-surface border border-outline">
             <div>
-              <label htmlFor="volumenTotalMl" className="block text-xs font-medium text-slate-300 mb-1">
+              <label htmlFor="volumenTotalMl" className="block text-xs font-medium text-on-surface-variant mb-1">
                 Capacidad Total (ml) *
               </label>
               <input
@@ -274,24 +274,24 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
                 placeholder="750"
                 value={formData.volumenTotalMl || ''}
                 onChange={(e) => handleChange('volumenTotalMl', parseFloat(e.target.value) || 0)}
-                className={`w-full px-3 py-2 bg-slate-950 border rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors ${
-                  errores.volumenTotalMl ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-800'
+                className={`w-full px-3 py-2 bg-surface-container border rounded-xl text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-colors ${
+                  errores.volumenTotalMl ? 'border-status-rose ring-1 ring-status-rose' : 'border-outline'
                 }`}
               />
               {errores.volumenTotalMl && (
-                <p className="text-rose-400 text-xs mt-1">{errores.volumenTotalMl}</p>
+                <p className="text-status-rose text-xs mt-1">{errores.volumenTotalMl}</p>
               )}
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label htmlFor="volumenRestanteMl" className="block text-xs font-medium text-slate-300">
+                <label htmlFor="volumenRestanteMl" className="block text-xs font-medium text-on-surface-variant">
                   Volumen Restante (ml) *
                 </label>
                 <button
                   type="button"
                   onClick={handleLlenar100}
-                  className="text-[11px] text-sky-400 hover:text-sky-300 underline cursor-pointer"
+                  className="text-[11px] text-primary hover:underline cursor-pointer"
                 >
                   Lleno 100%
                 </button>
@@ -308,12 +308,12 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
                   const val = e.target.value === '' ? undefined : parseFloat(e.target.value);
                   handleChange('volumenRestanteMl', val);
                 }}
-                className={`w-full px-3 py-2 bg-slate-950 border rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors ${
-                  errores.volumenRestanteMl ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-800'
+                className={`w-full px-3 py-2 bg-surface-container border rounded-xl text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-colors ${
+                  errores.volumenRestanteMl ? 'border-status-rose ring-1 ring-status-rose' : 'border-outline'
                 }`}
               />
               {errores.volumenRestanteMl && (
-                <p className="text-rose-400 text-xs mt-1">{errores.volumenRestanteMl}</p>
+                <p className="text-status-rose text-xs mt-1">{errores.volumenRestanteMl}</p>
               )}
             </div>
           </div>
@@ -321,7 +321,7 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
           {/* Graduación, Precio, Stock Mínimo */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label htmlFor="graduacionAlcoholica" className="block text-xs font-medium text-slate-300 mb-1">
+              <label htmlFor="graduacionAlcoholica" className="block text-xs font-medium text-on-surface-variant mb-1">
                 Graduación (% ABV)
               </label>
               <input
@@ -337,17 +337,17 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
                   const val = e.target.value === '' ? undefined : parseFloat(e.target.value);
                   handleChange('graduacionAlcoholica', val);
                 }}
-                className={`w-full px-3 py-2 bg-slate-950 border rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors ${
-                  errores.graduacionAlcoholica ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-800'
+                className={`w-full px-3 py-2 bg-surface border rounded-xl text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-colors ${
+                  errores.graduacionAlcoholica ? 'border-status-rose ring-1 ring-status-rose' : 'border-outline'
                 }`}
               />
               {errores.graduacionAlcoholica && (
-                <p className="text-rose-400 text-xs mt-1">{errores.graduacionAlcoholica}</p>
+                <p className="text-status-rose text-xs mt-1">{errores.graduacionAlcoholica}</p>
               )}
             </div>
 
             <div>
-              <label htmlFor="precioEstimado" className="block text-xs font-medium text-slate-300 mb-1">
+              <label htmlFor="precioEstimado" className="block text-xs font-medium text-on-surface-variant mb-1">
                 Precio Est. ($)
               </label>
               <input
@@ -362,17 +362,17 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
                   const val = e.target.value === '' ? undefined : parseFloat(e.target.value);
                   handleChange('precioEstimado', val);
                 }}
-                className={`w-full px-3 py-2 bg-slate-950 border rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors ${
-                  errores.precioEstimado ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-800'
+                className={`w-full px-3 py-2 bg-surface border rounded-xl text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-colors ${
+                  errores.precioEstimado ? 'border-status-rose ring-1 ring-status-rose' : 'border-outline'
                 }`}
               />
               {errores.precioEstimado && (
-                <p className="text-rose-400 text-xs mt-1">{errores.precioEstimado}</p>
+                <p className="text-status-rose text-xs mt-1">{errores.precioEstimado}</p>
               )}
             </div>
 
             <div>
-              <label htmlFor="stockMinimoMl" className="block text-xs font-medium text-slate-300 mb-1">
+              <label htmlFor="stockMinimoMl" className="block text-xs font-medium text-on-surface-variant mb-1">
                 Alerta Bajo (ml)
               </label>
               <input
@@ -387,30 +387,30 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
                   const val = e.target.value === '' ? undefined : parseFloat(e.target.value);
                   handleChange('stockMinimoMl', val);
                 }}
-                className={`w-full px-3 py-2 bg-slate-950 border rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors ${
-                  errores.stockMinimoMl ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-800'
+                className={`w-full px-3 py-2 bg-surface border rounded-xl text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-colors ${
+                  errores.stockMinimoMl ? 'border-status-rose ring-1 ring-status-rose' : 'border-outline'
                 }`}
               />
               {errores.stockMinimoMl && (
-                <p className="text-rose-400 text-xs mt-1">{errores.stockMinimoMl}</p>
+                <p className="text-status-rose text-xs mt-1">{errores.stockMinimoMl}</p>
               )}
             </div>
           </div>
 
           {/* Botones de acción */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800 mt-2">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-outline mt-2">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 text-xs sm:text-sm font-medium text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 rounded-xl transition-colors cursor-pointer"
+              className="px-4 py-2 text-xs sm:text-sm font-medium text-on-surface bg-surface-container-high hover:bg-surface border border-outline rounded-xl transition-colors cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 shadow-md transition-colors cursor-pointer disabled:opacity-50"
+              className="px-5 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-primary hover:bg-primary-hover text-on-primary shadow-xs transition-colors cursor-pointer disabled:opacity-50"
             >
               {isSubmitting ? 'Guardando...' : esEdicion ? 'Guardar Cambios' : 'Crear Bebida'}
             </button>
@@ -420,4 +420,3 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
     </div>
   );
 };
-

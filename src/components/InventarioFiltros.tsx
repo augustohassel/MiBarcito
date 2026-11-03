@@ -129,12 +129,12 @@ export const InventarioFiltros: React.FC<InventarioFiltrosProps> = ({
     filtros.soloFavoritos;
 
   return (
-    <div className="flex flex-col gap-3 p-4 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-md">
+    <div className="flex flex-col gap-3 p-4 rounded-2xl bg-surface-container border border-outline shadow-xs">
       {/* Buscador y Controles Superiores */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         {/* Input Buscador */}
         <div className="relative flex-1">
-          <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 pointer-events-none text-sm">
+          <span className="absolute inset-y-0 left-3 flex items-center text-on-surface-variant pointer-events-none text-sm">
             🔍
           </span>
           <input
@@ -142,13 +142,13 @@ export const InventarioFiltros: React.FC<InventarioFiltrosProps> = ({
             value={filtros.busqueda}
             onChange={handleBusquedaChange}
             placeholder="Buscar por nombre o marca..."
-            className="w-full pl-9 pr-8 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors"
+            className="w-full pl-9 pr-8 py-2 bg-surface border border-outline rounded-xl text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
           />
           {filtros.busqueda && (
             <button
               type="button"
               onClick={() => onChange({ ...filtros, busqueda: '' })}
-              className="absolute inset-y-0 right-2.5 flex items-center text-slate-400 hover:text-white text-xs cursor-pointer"
+              className="absolute inset-y-0 right-2.5 flex items-center text-on-surface-variant hover:text-on-surface text-xs cursor-pointer"
               aria-label="Limpiar búsqueda"
             >
               ✕
@@ -163,32 +163,32 @@ export const InventarioFiltros: React.FC<InventarioFiltrosProps> = ({
             onClick={handleToggleFavoritos}
             className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border ${
               filtros.soloFavoritos
-                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm'
-                : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
+                ? 'bg-status-amber/20 text-status-amber border-status-amber/40 shadow-xs'
+                : 'bg-surface text-on-surface-variant border-outline hover:text-on-surface'
             }`}
           >
             <span>{filtros.soloFavoritos ? '⭐' : '☆'}</span>
             <span>Solo Favoritos</span>
           </button>
 
-          <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5">
-            <label htmlFor="orden-select" className="text-xs text-slate-400 whitespace-nowrap">
+          <div className="flex items-center gap-1.5 bg-surface border border-outline rounded-xl px-2.5 py-1.5">
+            <label htmlFor="orden-select" className="text-xs text-on-surface-variant whitespace-nowrap">
               Ordenar:
             </label>
             <select
               id="orden-select"
               value={filtros.orden}
               onChange={handleOrdenChange}
-              className="bg-transparent text-xs text-white focus:outline-none cursor-pointer pr-1"
+              className="bg-transparent text-xs text-on-surface focus:outline-none cursor-pointer pr-1"
             >
-              <option value="nombre_asc" className="bg-slate-900">Nombre (A - Z)</option>
-              <option value="nombre_desc" className="bg-slate-900">Nombre (Z - A)</option>
-              <option value="volumen_desc" className="bg-slate-900">Volumen restante (Mayor)</option>
-              <option value="volumen_asc" className="bg-slate-900">Volumen restante (Menor)</option>
-              <option value="precio_desc" className="bg-slate-900">Precio (Mayor)</option>
-              <option value="precio_asc" className="bg-slate-900">Precio (Menor)</option>
-              <option value="fecha_desc" className="bg-slate-900">Fecha de alta (Más reciente)</option>
-              <option value="fecha_asc" className="bg-slate-900">Fecha de alta (Más antiguo)</option>
+              <option value="nombre_asc">Nombre (A - Z)</option>
+              <option value="nombre_desc">Nombre (Z - A)</option>
+              <option value="volumen_desc">Volumen restante (Mayor)</option>
+              <option value="volumen_asc">Volumen restante (Menor)</option>
+              <option value="precio_desc">Precio (Mayor)</option>
+              <option value="precio_asc">Precio (Menor)</option>
+              <option value="fecha_desc">Fecha de alta (Más reciente)</option>
+              <option value="fecha_asc">Fecha de alta (Más antiguo)</option>
             </select>
           </div>
         </div>
@@ -201,8 +201,8 @@ export const InventarioFiltros: React.FC<InventarioFiltrosProps> = ({
           onClick={() => handleCategoriaChange('todas')}
           className={`px-3 py-1 rounded-full whitespace-nowrap font-medium transition-colors cursor-pointer border ${
             filtros.categoria === 'todas'
-              ? 'bg-sky-500 text-slate-950 border-sky-400 font-semibold shadow-sm'
-              : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+              ? 'bg-primary text-on-primary border-primary font-semibold shadow-xs'
+              : 'bg-surface text-on-surface-variant border-outline hover:text-on-surface'
           }`}
         >
           Todas
@@ -214,8 +214,8 @@ export const InventarioFiltros: React.FC<InventarioFiltrosProps> = ({
             onClick={() => handleCategoriaChange(cat.value)}
             className={`px-3 py-1 rounded-full whitespace-nowrap font-medium transition-colors cursor-pointer border ${
               filtros.categoria === cat.value
-                ? 'bg-sky-500 text-slate-950 border-sky-400 font-semibold shadow-sm'
-                : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                ? 'bg-primary text-on-primary border-primary font-semibold shadow-xs'
+                : 'bg-surface text-on-surface-variant border-outline hover:text-on-surface'
             }`}
           >
             {cat.label}
@@ -224,15 +224,15 @@ export const InventarioFiltros: React.FC<InventarioFiltrosProps> = ({
       </div>
 
       {/* Conteo de Resultados y botón limpiar */}
-      <div className="flex items-center justify-between text-xs text-slate-400 pt-1 border-t border-slate-800/60">
+      <div className="flex items-center justify-between text-xs text-on-surface-variant pt-1 border-t border-outline/70">
         <span>
-          Mostrando <strong className="text-white">{totalResultados}</strong> de {totalBebidas} botellas
+          Mostrando <strong className="text-on-surface">{totalResultados}</strong> de {totalBebidas} botellas
         </span>
         {hayFiltrosActivos && (
           <button
             type="button"
             onClick={handleLimpiarFiltros}
-            className="text-sky-400 hover:text-sky-300 underline cursor-pointer"
+            className="text-primary hover:text-primary-hover underline cursor-pointer"
           >
             Restablecer filtros
           </button>
@@ -241,4 +241,3 @@ export const InventarioFiltros: React.FC<InventarioFiltrosProps> = ({
     </div>
   );
 };
-
