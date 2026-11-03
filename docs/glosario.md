@@ -40,3 +40,11 @@ Este documento reúne la terminología, entidades de negocio y conceptos funcion
 - **Definición**: Reporte consolidado que estima el valor financiero del inventario completo a partir del costo registrado de compra o precios actualizados periódicamente.
 - **Alcance / Propósito**: Permitir al usuario entender la inversión económica y valor monetario de su despensa a lo largo del tiempo.
 
+---
+
+### Bebida Favorita
+- **Definición**: Marcador booleano (`esFavorito`) asignado a una bebida de la despensa por decisión del usuario.
+- **Alcance / Propósito**: Destacar botellas predilectas o de uso frecuente y habilitar filtrado rápido prioritario en la vista de inventario.
+- **Lo que NO es**: No modifica las reglas de alerta de stock bajo ni las cantidades disponibles de la botella.
+
+
