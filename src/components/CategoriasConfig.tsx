@@ -144,10 +144,10 @@ export const CategoriasConfig: React.FC<CategoriasConfigProps> = ({ bebidas }) =
     <div className="flex flex-col gap-6">
       {/* Explicación de la solapa */}
       <div>
-        <h4 className="text-sm font-semibold text-slate-200">
+        <h4 className="text-sm font-semibold text-on-surface">
           Gestión de Categorías de Bebidas
         </h4>
-        <p className="text-xs text-slate-400 mt-1">
+        <p className="text-xs text-on-surface-variant mt-1">
           Personalizá las categorías disponibles para clasificar y filtrar las botellas de tu
           despensa. Las categorías predeterminadas pueden renombrarse y solo la categoría "Otro" es
           inmutable.
@@ -156,11 +156,11 @@ export const CategoriasConfig: React.FC<CategoriasConfigProps> = ({ bebidas }) =
 
       {/* Alerta de bloqueo de eliminación */}
       {mensajeBloqueoEliminacion && (
-        <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs flex items-start justify-between gap-2">
+        <div className="p-3 rounded-xl bg-status-amber/15 border border-status-amber/30 text-status-amber text-xs flex items-start justify-between gap-2">
           <span>⚠️ {mensajeBloqueoEliminacion}</span>
           <button
             onClick={() => setMensajeBloqueoEliminacion(null)}
-            className="text-amber-400 hover:text-amber-200 font-bold ml-2 cursor-pointer"
+            className="text-status-amber font-bold ml-2 cursor-pointer"
           >
             ✕
           </button>
@@ -170,9 +170,9 @@ export const CategoriasConfig: React.FC<CategoriasConfigProps> = ({ bebidas }) =
       {/* Formulario: Nueva Categoría */}
       <form
         onSubmit={handleCrearCategoria}
-        className="p-3.5 bg-slate-950/60 rounded-xl border border-slate-800 flex flex-col gap-2"
+        className="p-3.5 bg-surface rounded-xl border border-outline flex flex-col gap-2"
       >
-        <span className="text-xs font-semibold text-slate-300">Nueva Categoría</span>
+        <span className="text-xs font-semibold text-on-surface">Nueva Categoría</span>
         <div className="flex gap-2">
           <input
             type="text"
@@ -183,23 +183,23 @@ export const CategoriasConfig: React.FC<CategoriasConfigProps> = ({ bebidas }) =
             }}
             placeholder="Ej: Tequila, Bitter Artesanal..."
             aria-label="Nombre de nueva categoría"
-            className="flex-1 bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+            className="flex-1 bg-surface-container border border-outline rounded-xl px-3 py-1.5 text-xs sm:text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:ring-1 focus:ring-primary"
           />
           <button
             type="submit"
-            className="px-3.5 py-1.5 text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-xl transition-colors cursor-pointer whitespace-nowrap"
+            className="px-3.5 py-1.5 text-xs font-semibold bg-primary hover:bg-primary-hover text-on-primary rounded-xl transition-colors cursor-pointer whitespace-nowrap"
           >
             + Agregar
           </button>
         </div>
         {errorCrear && (
-          <p className="text-xs text-rose-400 mt-0.5">{errorCrear}</p>
+          <p className="text-xs text-status-rose mt-0.5">{errorCrear}</p>
         )}
       </form>
 
       {/* Listado de Categorías */}
       <div className="flex flex-col gap-2">
-        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+        <span className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
           Categorías Disponibles ({categorias.length})
         </span>
 
@@ -212,7 +212,7 @@ export const CategoriasConfig: React.FC<CategoriasConfigProps> = ({ bebidas }) =
             return (
               <div
                 key={cat.id}
-                className="flex items-center justify-between p-2.5 bg-slate-950/40 rounded-xl border border-slate-800/80 gap-2"
+                className="flex items-center justify-between p-2.5 bg-surface rounded-xl border border-outline gap-2"
               >
                 {enEdicion ? (
                   <div className="flex flex-1 flex-col gap-1">
@@ -225,13 +225,13 @@ export const CategoriasConfig: React.FC<CategoriasConfigProps> = ({ bebidas }) =
                           if (errorEditar) setErrorEditar(null);
                         }}
                         aria-label="Editar nombre de categoría"
-                        className="flex-1 bg-slate-900 border border-sky-500 rounded-lg px-2.5 py-1 text-xs text-slate-100 focus:outline-none"
+                        className="flex-1 bg-surface-container border border-primary rounded-lg px-2.5 py-1 text-xs text-on-surface focus:outline-none"
                         autoFocus
                       />
                       <button
                         type="button"
                         onClick={() => handleGuardarEdicion(cat)}
-                        className="px-2.5 py-1 text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors cursor-pointer"
+                        className="px-2.5 py-1 text-xs font-medium bg-status-emerald hover:bg-status-emerald/90 text-white rounded-lg transition-colors cursor-pointer"
                         title="Guardar nombre"
                       >
                         ✓
@@ -239,32 +239,32 @@ export const CategoriasConfig: React.FC<CategoriasConfigProps> = ({ bebidas }) =
                       <button
                         type="button"
                         onClick={handleCancelarEdicion}
-                        className="px-2 py-1 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors cursor-pointer"
+                        className="px-2 py-1 text-xs font-medium bg-surface-container-high hover:bg-surface text-on-surface rounded-lg transition-colors cursor-pointer"
                         title="Cancelar"
                       >
                         ✕
                       </button>
                     </div>
                     {errorEditar && (
-                      <span className="text-xs text-rose-400">{errorEditar}</span>
+                      <span className="text-xs text-status-rose">{errorEditar}</span>
                     )}
                   </div>
                 ) : (
                   <>
                     <div className="flex items-center gap-2 flex-wrap min-w-0">
-                      <span className="text-xs sm:text-sm font-medium text-slate-200 truncate">
+                      <span className="text-xs sm:text-sm font-medium text-on-surface truncate">
                         {cat.nombre}
                       </span>
                       {cat.esPredeterminada ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-400 border border-slate-700/60">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-surface-container-high text-on-surface-variant border border-outline">
                           Predeterminada
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-status-emerald/15 text-status-emerald border border-status-emerald/30">
                           Personalizada
                         </span>
                       )}
-                      <span className="text-[11px] text-slate-500">
+                      <span className="text-[11px] text-on-surface-variant">
                         ({cantidadBebidas} {cantidadBebidas === 1 ? 'botella' : 'botellas'})
                       </span>
                     </div>
@@ -273,7 +273,7 @@ export const CategoriasConfig: React.FC<CategoriasConfigProps> = ({ bebidas }) =
                       <button
                         type="button"
                         onClick={() => handleIniciarEditar(cat)}
-                        className="px-2 py-1 text-xs font-medium text-slate-300 hover:text-sky-300 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                        className="px-2 py-1 text-xs font-medium text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded-lg transition-colors cursor-pointer"
                         title="Renombrar categoría"
                       >
                         ✏️
@@ -284,8 +284,8 @@ export const CategoriasConfig: React.FC<CategoriasConfigProps> = ({ bebidas }) =
                         disabled={esComodin}
                         className={`px-2 py-1 text-xs font-medium rounded-lg transition-colors ${
                           esComodin
-                            ? 'text-slate-600 cursor-not-allowed opacity-50'
-                            : 'text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 cursor-pointer'
+                            ? 'text-on-surface-variant/40 cursor-not-allowed opacity-50'
+                            : 'text-on-surface-variant hover:text-status-rose hover:bg-status-rose/10 cursor-pointer'
                         }`}
                         title={
                           esComodin
@@ -318,4 +318,3 @@ export const CategoriasConfig: React.FC<CategoriasConfigProps> = ({ bebidas }) =
     </div>
   );
 };
-
