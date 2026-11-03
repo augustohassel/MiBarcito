@@ -1,0 +1,43 @@
+{
+  "name": "MiBarcito Dev Container",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
+  },
+  "workspaceFolder": "/workspaces/MiBarcito",
+  "remoteUser": "root",
+  "mounts": [
+    "source=${localEnv:USERPROFILE}/Documents/Personal/AgentToolkit/plugins,target=/root/.gemini/config/plugins,type=bind,consistency=cached"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "google.google-antigravity",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss"
+      ],
+      "settings": {
+        "files.eol": "\n",
+        "editor.formatOnSave": true
+      }
+    }
+  },
+  "remoteEnv": {
+    "GITHUB_PERSONAL_ACCESS_TOKEN": "${localEnv:GITHUB_PERSONAL_ACCESS_TOKEN}",
+    "GEMINI_API_KEY": "${localEnv:GEMINI_API_KEY}"
+  },
+  "forwardPorts": [3000, 5173],
+  "portsAttributes": {
+    "3000": {
+      "label": "App Dev Server (Next.js)",
+      "onAutoForward": "notify"
+    },
+    "5173": {
+      "label": "App Dev Server (Vite)",
+      "onAutoForward": "notify"
+    }
+  },
+  "postCreateCommand": "test -f package.json && npm install || echo 'Aviso: package.json no encontrado, omitiendo npm install.'"
+}
+
