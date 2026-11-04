@@ -7,6 +7,7 @@ import {
   CATEGORIAS_BEBIDA,
   estaEnAlertaStockBajo,
 } from '../domain/models/bebida';
+import { CATEGORIAS_PREDETERMINADAS } from '../domain/models/categoria';
 
 export interface BebidaCardProps {
   bebida: Bebida;
@@ -14,6 +15,7 @@ export interface BebidaCardProps {
   onEliminar: (bebida: Bebida) => void;
   onToggleFavorito: (bebida: Bebida) => void;
   onAjustarVolumen: (bebida: Bebida, nuevoVolumenMl: number) => void;
+  onVerFicha?: (bebida: Bebida) => void;
 }
 
 export const BebidaCard: React.FC<BebidaCardProps> = ({
@@ -22,6 +24,7 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
   onEliminar,
   onToggleFavorito,
   onAjustarVolumen,
+  onVerFicha,
 }) => {
   const porcentaje = calcularPorcentajeRestante(bebida);
   const bajoStock = estaEnAlertaStockBajo(bebida);
@@ -31,6 +34,14 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
     categoriaObj?.nombre ||
     CATEGORIAS_BEBIDA.find((c) => c.value === bebida.categoria)?.label ||
     bebida.categoria;
+
+  const subcategoriasValidas =
+    categoriaObj?.subcategorias ??
+    CATEGORIAS_PREDETERMINADAS.find((c) => c.id === bebida.categoria)?.subcategorias ??
+    [];
+  const esSubcategoriaValida = Boolean(
+    bebida.subcategoria && subcategoriasValidas.includes(bebida.subcategoria)
+  );
 
   const handleModificarVolumen = (deltaMl: number) => {
     const nuevoVolumen = ajustarVolumenRapido(
@@ -62,12 +73,24 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
       {/* Encabezado: Nombre, Marca, Favorito y Badges */}
       <div>
         <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
+          <div
+            className={`flex-1 min-w-0 ${onVerFicha ? 'cursor-pointer group/title' : ''}`}
+            onClick={() => onVerFicha?.(bebida)}
+            role={onVerFicha ? 'button' : undefined}
+            tabIndex={onVerFicha ? 0 : undefined}
+            onKeyDown={(e) => {
+              if (onVerFicha && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                onVerFicha(bebida);
+              }
+            }}
+            aria-label={onVerFicha ? `Abrir ficha técnica de ${bebida.nombre}` : undefined}
+          >
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-surface-container-high text-primary border border-outline">
                 {categoriaLabel}
               </span>
-              {bebida.subcategoria && (
+              {esSubcategoriaValida && (
                 <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-surface-container-high text-secondary border border-outline">
                   {bebida.subcategoria}
                 </span>
@@ -78,7 +101,12 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
                 </span>
               )}
             </div>
-            <h3 className="text-base font-bold text-on-surface mt-1.5 truncate" title={bebida.nombre}>
+            <h3
+              className={`text-base font-bold text-on-surface mt-1.5 truncate ${
+                onVerFicha ? 'group-hover/title:text-primary transition-colors' : ''
+              }`}
+              title={bebida.nombre}
+            >
               {bebida.nombre}
             </h3>
             <p className="text-xs text-on-surface-variant truncate" title={bebida.marca}>
@@ -175,8 +203,19 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
         </div>
       </div>
 
-      {/* Acciones de Edición y Eliminación */}
+      {/* Acciones de Ficha, Edición y Eliminación */}
       <div className="flex items-center justify-end gap-2 pt-2 border-t border-outline/70">
+        {onVerFicha && (
+          <button
+            type="button"
+            onClick={() => onVerFicha(bebida)}
+            className="px-3 py-1 text-xs font-medium text-on-surface hover:text-primary bg-surface-container-high hover:bg-surface border border-outline rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+            aria-label={`Ver ficha técnica de ${bebida.nombre}`}
+          >
+            <span>📋</span>
+            <span>Ficha</span>
+          </button>
+        )}
         <button
           type="button"
           onClick={() => onEditar(bebida)}

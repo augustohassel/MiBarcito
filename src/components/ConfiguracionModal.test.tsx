@@ -302,6 +302,53 @@ describe('ConfiguracionModal y CategoriasConfig', () => {
       });
     });
 
+    it('limpia en cascada la subcategoría en las bebidas afectadas de la despensa al eliminarla', async () => {
+      const botellaConVodka: Bebida = {
+        id: 'b-vodka-1',
+        nombre: 'Vodka Smirnoff',
+        marca: 'Smirnoff',
+        categoria: 'destilado',
+        subcategoria: 'Vodka',
+        volumenTotalMl: 700,
+        volumenRestanteMl: 700,
+        fechaCreacion: '2026-11-04T00:00:00Z',
+        fechaActualizacion: '2026-11-04T00:00:00Z',
+      };
+      const invRepo = new InMemoryInventoryRepository([botellaConVodka]);
+      const catRepo = new InMemoryCategoriaRepository();
+      const onActualizadas = vi.fn();
+
+      render(
+        <InventoryProvider repository={invRepo} categoriaRepository={catRepo}>
+          <ConfiguracionModal
+            isOpen={true}
+            onClose={() => {}}
+            bebidas={[botellaConVodka]}
+            onBebidasActualizadas={onActualizadas}
+          />
+        </InventoryProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('Destilado')).toBeInTheDocument();
+      });
+
+      const btnExpandir = screen.getByLabelText('Administrar subcategorías de Destilado');
+      fireEvent.click(btnExpandir);
+
+      expect(screen.getByText('Vodka')).toBeInTheDocument();
+
+      const btnEliminarVodka = screen.getByLabelText('Eliminar subcategoría Vodka');
+      fireEvent.click(btnEliminarVodka);
+
+      await waitFor(async () => {
+        expect(screen.queryByText('Vodka')).not.toBeInTheDocument();
+        const guardada = await invRepo.getById('b-vodka-1');
+        expect(guardada?.subcategoria).toBeUndefined();
+        expect(onActualizadas).toHaveBeenCalled();
+      });
+    });
+
     it('caso borde: bloquea subcategorías duplicadas o vacías', async () => {
       const invRepo = new InMemoryInventoryRepository();
       const catRepo = new InMemoryCategoriaRepository();

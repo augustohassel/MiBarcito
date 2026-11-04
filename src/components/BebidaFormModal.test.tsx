@@ -183,6 +183,84 @@ describe('BebidaFormModal Component', () => {
     });
   });
 
+  describe('Ficha Técnica en Modo Lectura', () => {
+    it('renderiza la ficha técnica en modo lectura sin campos editables', () => {
+      render(
+        <BebidaFormModal
+          isOpen={true}
+          bebidaAEditar={bebidaEjemplo}
+          modoInicialLectura={true}
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+
+      // Cabecera de Ficha Técnica
+      expect(screen.getByText('Ficha Técnica')).toBeInTheDocument();
+      expect(screen.getByText('Modo Lectura')).toBeInTheDocument();
+
+      // Datos en modo lectura
+      expect(screen.getByText('Aperol Spritz Base')).toBeInTheDocument();
+      expect(screen.getByText('Campari Group')).toBeInTheDocument();
+      expect(screen.getByText(/400 \/ 750 ml \(53%\)/i)).toBeInTheDocument();
+      expect(screen.getByText('11% ABV')).toBeInTheDocument();
+      expect(screen.getByText('$12.000')).toBeInTheDocument();
+      expect(screen.getByText('★ Favorito')).toBeInTheDocument();
+
+      // No debe haber botones de guardar ni inputs de formulario activos
+      expect(screen.queryByRole('button', { name: /Guardar Cambios/i })).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/Nombre de la Bebida/i)).not.toBeInTheDocument();
+    });
+
+    it('permite alternar de modo lectura a modo edición directamente mediante el botón Editar Bebida', () => {
+      render(
+        <BebidaFormModal
+          isOpen={true}
+          bebidaAEditar={bebidaEjemplo}
+          modoInicialLectura={true}
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+
+      // Click en "Editar Bebida"
+      const btnEditar = screen.getByRole('button', { name: /Editar Bebida/i });
+      fireEvent.click(btnEditar);
+
+      // Ahora debe mostrar el formulario editable
+      expect(screen.getByText('Editar Bebida')).toBeInTheDocument();
+      expect(screen.getByLabelText(/Nombre de la Bebida/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Guardar Cambios/i })).toBeInTheDocument();
+
+      // Botón para volver a la Ficha Técnica
+      const btnVolverFicha = screen.getByRole('button', { name: /Ficha/i });
+      fireEvent.click(btnVolverFicha);
+
+      // Vuelve a Ficha Técnica
+      expect(screen.getByText('Ficha Técnica')).toBeInTheDocument();
+    });
+
+    it('caso borde: si la subcategoría guardada ya no existe en la categoría, se limpia de forma transparente', () => {
+      const bebidaConSubcatObsoleta: Bebida = {
+        ...bebidaEjemplo,
+        subcategoria: 'SubcatInexistente',
+      };
+
+      render(
+        <BebidaFormModal
+          isOpen={true}
+          bebidaAEditar={bebidaConSubcatObsoleta}
+          modoInicialLectura={false}
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+
+      const selectSubcat = screen.getByLabelText(/Subcategoría/i) as HTMLSelectElement;
+      expect(selectSubcat.value).toBe('');
+    });
+  });
+
   describe('Carga Asistida por IA Multimodal (Issue #6)', () => {
     beforeEach(() => {
       vi.restoreAllMocks();

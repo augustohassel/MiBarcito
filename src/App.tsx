@@ -68,6 +68,7 @@ export function App() {
 
   // Estados de Modales de Despensa
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [modoLecturaModal, setModoLecturaModal] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [configTab, setConfigTab] = useState<TabConfig>('categorias');
   const [isMetricasOpen, setIsMetricasOpen] = useState(false);
@@ -175,6 +176,7 @@ export function App() {
   };
 
   const handleAbrirCrear = () => {
+    setModoLecturaModal(false);
     setBebidaAEditar(null);
     setFotoPendienteParaModal(null);
     setIsFormOpen(true);
@@ -191,6 +193,7 @@ export function App() {
   const handleFotoSeleccionada = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files[0]) {
+      setModoLecturaModal(false);
       setBebidaAEditar(null);
       setFotoPendienteParaModal(files[0]);
       setIsFormOpen(true);
@@ -199,6 +202,14 @@ export function App() {
   };
 
   const handleAbrirEditar = (bebida: Bebida) => {
+    setModoLecturaModal(false);
+    setBebidaAEditar(bebida);
+    setFotoPendienteParaModal(null);
+    setIsFormOpen(true);
+  };
+
+  const handleAbrirFicha = (bebida: Bebida) => {
+    setModoLecturaModal(true);
     setBebidaAEditar(bebida);
     setFotoPendienteParaModal(null);
     setIsFormOpen(true);
@@ -653,6 +664,7 @@ export function App() {
                     key={item.id}
                     bebida={item}
                     onEditar={handleAbrirEditar}
+                    onVerFicha={handleAbrirFicha}
                     onEliminar={handleSolicitarEliminar}
                     onToggleFavorito={handleToggleFavorito}
                     onAjustarVolumen={handleAjustarVolumen}
@@ -790,11 +802,13 @@ export function App() {
       <BebidaFormModal
         isOpen={isFormOpen}
         bebidaAEditar={bebidaAEditar}
+        modoInicialLectura={modoLecturaModal}
         fotoInicial={fotoPendienteParaModal}
         onSave={handleGuardarBebida}
         onClose={() => {
           setIsFormOpen(false);
           setFotoPendienteParaModal(null);
+          setModoLecturaModal(false);
         }}
         onAbrirConfiguracionIa={() => handleAbrirConfiguracion('ia')}
       />
@@ -815,6 +829,7 @@ export function App() {
         onClose={() => setIsConfigOpen(false)}
         bebidas={bebidas}
         initialTab={configTab}
+        onBebidasActualizadas={loadBebidas}
       />
 
       <MetricasValoracionModal

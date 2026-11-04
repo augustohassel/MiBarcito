@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useCategorias } from '../context/InventoryContext';
+import { useCategorias, useInventoryRepository } from '../context/InventoryContext';
 import {
   Categoria,
   CATEGORIA_COMODIN_ID,
@@ -12,10 +12,15 @@ import { ConfirmModal } from './ConfirmModal';
 
 export interface CategoriasConfigProps {
   bebidas: Bebida[];
+  onBebidasActualizadas?: () => Promise<void> | void;
 }
 
-export const CategoriasConfig: React.FC<CategoriasConfigProps> = ({ bebidas }) => {
+export const CategoriasConfig: React.FC<CategoriasConfigProps> = ({
+  bebidas,
+  onBebidasActualizadas,
+}) => {
   const { categorias, guardarCategoria, eliminarCategoria } = useCategorias();
+  const inventoryRepo = useInventoryRepository();
 
   // Estado para crear nueva categoría
   const [nuevoNombre, setNuevoNombre] = useState('');
@@ -124,6 +129,23 @@ export const CategoriasConfig: React.FC<CategoriasConfigProps> = ({ bebidas }) =
 
     try {
       await guardarCategoria(categoriaActualizada);
+
+      // Limpiar en cascada la subcategoría en las botellas afectadas del inventario
+      const botellasAfectadas = bebidas.filter(
+        (b) => b.categoria === categoria.id && b.subcategoria === subcategoriaAEliminar
+      );
+
+      for (const b of botellasAfectadas) {
+        await inventoryRepo.save({
+          ...b,
+          subcategoria: undefined,
+          fechaActualizacion: new Date().toISOString(),
+        });
+      }
+
+      if (botellasAfectadas.length > 0) {
+        await onBebidasActualizadas?.();
+      }
     } catch (err) {
       console.error(err);
     }
