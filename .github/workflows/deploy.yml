@@ -1,0 +1,135 @@
+name: Deploy MiBarcito to GitHub Pages
+
+on:
+  push:
+    branches:
+      - master
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Validar linter
+        run: npm run lint
+
+      - name: Ejecutar tests unitarios
+        run: npm test
+
+      - name: Compilar aplicación (Build)
+        run: npm run build
+        env:
+          GITHUB_ACTIONS: true
+          VITE_BASE_PATH: /MiBarcito/
+
+      - name: Subir artefacto para GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    name: Despliegue a GitHub Pages
+    needs: build
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Desplegar en GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  release:
+    name: Publicar Release y Tag SemVer
+    needs: [build, deploy]
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determinar Tag SemVer y publicar Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          BASE_TAG="v${VERSION}"
+          echo "Versión base de package.json: $BASE_TAG"
+
+          if git rev-parse "$BASE_TAG" >/dev/null 2>&1; then
+            echo "Tag $BASE_TAG ya existe en el repositorio. Calculando sufijo incremental..."
+            SUFFIX=1
+            while git rev-parse "${BASE_TAG}.${SUFFIX}" >/dev/null 2>&1; do
+              SUFFIX=$((SUFFIX + 1))
+            done
+            TAG_NAME="${BASE_TAG}.${SUFFIX}"
+          else
+            TAG_NAME="$BASE_TAG"
+          fi
+
+          echo "Tag final a registrar: $TAG_NAME"
+
+          # Obtener información del PR asociado al commit
+          PR_NUMBER=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" --jq '.[0].number // empty' 2>/dev/null || echo "")
+          if [ -n "$PR_NUMBER" ]; then
+            PR_TITLE=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}" --jq '.title // empty' 2>/dev/null || echo "")
+            PR_BODY=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}" --jq '.body // empty' 2>/dev/null || echo "")
+          fi
+
+          RELEASE_TITLE="${TAG_NAME}"
+          if [ -n "$PR_TITLE" ]; then
+            RELEASE_TITLE="${TAG_NAME}: ${PR_TITLE}"
+          fi
+
+          cat <<EOF > release_notes.md
+          ## Resumen del Release
+          ${PR_BODY:-Release automatizado para la versión $TAG_NAME.}
+
+          ---
+          - **Commit**: ${{ github.sha }}
+          - **Pull Request**: ${PR_NUMBER:+#$PR_NUMBER}
+          - **Ejecución CI/CD**: [Ver pipeline](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          EOF
+
+          gh release create "$TAG_NAME" \
+            --title "$RELEASE_TITLE" \
+            --notes-file release_notes.md \
+            --target "${{ github.sha }}"
+
+          echo "### 🚀 Release $TAG_NAME publicada con éxito" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag**: \`$TAG_NAME\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$PR_NUMBER" ]; then
+            echo "- **PR**: #$PR_NUMBER" >> $GITHUB_STEP_SUMMARY
+          fi

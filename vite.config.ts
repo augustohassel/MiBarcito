@@ -3,14 +3,23 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
+import pkg from './package.json';
+
+const basePath = process.env.VITE_BASE_PATH || '/MiBarcito/';
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: basePath,
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   plugins: [
     react(),
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      base: basePath,
+      scope: basePath,
       includeAssets: ['pwa-192x192.svg', 'pwa-512x512.svg'],
       manifest: {
         name: 'MiBarcito - Gestión de Despensa y Recetario',
@@ -21,7 +30,8 @@ export default defineConfig({
         background_color: '#0f172a',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
+        start_url: basePath,
+        scope: basePath,
         icons: [
           {
             src: 'pwa-192x192.svg',
@@ -43,7 +53,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
-        navigateFallback: '/index.html'
+        navigateFallback: `${basePath.endsWith('/') ? basePath : `${basePath}/`}index.html`
       }
     })
   ],
