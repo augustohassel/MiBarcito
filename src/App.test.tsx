@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act, within } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import App from './App';
 import { InventoryProvider } from './context/InventoryContext';
@@ -265,6 +265,115 @@ describe('App Component - Gestión de Despensa e Inventario', () => {
     // Verificar que la nueva categoría aparece reactivamente en las píldoras de filtro
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Tequila Añejo' })).toBeInTheDocument();
+    });
+  });
+
+  it('permite abrir el modal de valoración financiera y visualizar métricas y desglose', async () => {
+    // Sembrar dos bebidas: una con precio y otra sin precio
+    await mockRepo.save({
+      id: 'b-1',
+      nombre: 'Gin Tanqueray',
+      marca: 'Tanqueray',
+      categoria: 'destilado',
+      volumenTotalMl: 750,
+      volumenRestanteMl: 750,
+      precioEstimado: 12000,
+      stockMinimoMl: 200,
+      fechaCreacion: new Date().toISOString(),
+      fechaActualizacion: new Date().toISOString(),
+    });
+
+    await mockRepo.save({
+      id: 'b-2',
+      nombre: 'Vino Malbec',
+      marca: 'Catena Zapata',
+      categoria: 'vino',
+      volumenTotalMl: 750,
+      volumenRestanteMl: 750,
+      precioEstimado: undefined,
+      fechaCreacion: new Date().toISOString(),
+      fechaActualizacion: new Date().toISOString(),
+    });
+
+    render(
+      <InventoryProvider repository={mockRepo} categoriaRepository={mockCatRepo}>
+        <App />
+      </InventoryProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Gin Tanqueray')).toBeInTheDocument();
+    });
+
+    // Clic en la tarjeta de valor estimado
+    const cardValor = screen.getByTestId('card-valor-estimado');
+    expect(cardValor).toBeInTheDocument();
+    expect(screen.getByText(/1 sin cotizar/i)).toBeInTheDocument();
+
+    fireEvent.click(cardValor);
+
+    // Modal de Valoración abierto
+    const modal = screen.getByRole('dialog');
+    expect(within(modal).getByText('Valoración del Bar')).toBeInTheDocument();
+    expect(within(modal).getByTestId('aviso-botellas-sin-precio')).toHaveTextContent(/1 botella sin precio estimado/i);
+    expect(within(modal).getByText('Destilado')).toBeInTheDocument();
+    expect(within(modal).getByText(/100%/i)).toBeInTheDocument();
+
+    // Cerrar modal
+    fireEvent.click(within(modal).getByLabelText('Cerrar modal de métricas'));
+    await waitFor(() => {
+      expect(screen.queryByText('Valoración del Bar')).toBeNull();
+    });
+  });
+
+  it('permite abrir el panel de alertas de stock y reponer volumen rápidamente', async () => {
+    // Sembrar bebida en nivel crítico (restan 100 ml y el umbral es 250 ml)
+    await mockRepo.save({
+      id: 'b-critica',
+      nombre: 'Vermut Rosso',
+      marca: 'Carpano',
+      categoria: 'aperitivo_bitter',
+      volumenTotalMl: 1000,
+      volumenRestanteMl: 100,
+      stockMinimoMl: 250,
+      fechaCreacion: new Date().toISOString(),
+      fechaActualizacion: new Date().toISOString(),
+    });
+
+    render(
+      <InventoryProvider repository={mockRepo} categoriaRepository={mockCatRepo}>
+        <App />
+      </InventoryProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Vermut Rosso')).toBeInTheDocument();
+    });
+
+    // Clic en la tarjeta de alertas de stock
+    const cardAlertas = screen.getByTestId('card-alertas-stock');
+    expect(cardAlertas).toBeInTheDocument();
+    expect(screen.getByText('Crítico')).toBeInTheDocument();
+
+    fireEvent.click(cardAlertas);
+
+    // Modal de Alertas abierto
+    expect(screen.getByText('Alertas de Stock Bajo')).toBeInTheDocument();
+    expect(screen.getByText(/Restan 100 ml/i)).toBeInTheDocument();
+    expect(screen.getByText(/Umbral: 250 ml/i)).toBeInTheDocument();
+    expect(screen.getByText(/Faltan/i)).toBeInTheDocument();
+    expect(screen.getByText(/150 ml/i)).toBeInTheDocument();
+
+    // Acción rápida: Botella Llena (1000 ml)
+    const btnLlenar = screen.getByText(/Botella Llena \(1000 ml\)/i);
+    fireEvent.click(btnLlenar);
+
+    // Cerrar modal de alertas
+    fireEvent.click(screen.getByLabelText('Cerrar modal de alertas'));
+
+    // Esperar a que se actualice la despensa con 1000 ml
+    await waitFor(() => {
+      expect(screen.getByText('1000 / 1000 ml (100%)')).toBeInTheDocument();
     });
   });
 });
