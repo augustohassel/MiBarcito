@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useCategoriasOpcional } from '../context/InventoryContext';
 import {
   Bebida,
@@ -7,6 +7,9 @@ import {
   ErroresValidacionBebida,
   validarBebida,
 } from '../domain/models/bebida';
+import { compressAndResizeImage } from '../utils/image-processor';
+import { analizarFotoBotella } from '../domain/services/gemini-botella.service';
+import { hasGeminiApiKey } from '../infrastructure/ai/ai-config';
 
 export interface BebidaFormValues {
   id?: string;
@@ -26,6 +29,8 @@ export interface BebidaFormModalProps {
   bebidaAEditar?: Bebida | null;
   onSave: (datos: BebidaFormValues) => Promise<void> | void;
   onClose: () => void;
+  fotoInicial?: File | null;
+  onAbrirConfiguracionIa?: () => void;
 }
 
 const VALORES_INICIALES: BebidaFormValues = {
@@ -45,6 +50,8 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
   bebidaAEditar,
   onSave,
   onClose,
+  fotoInicial,
+  onAbrirConfiguracionIa,
 }) => {
   const categoriasCtx = useCategoriasOpcional();
   const opcionesCategorias = useMemo(() => {
@@ -56,6 +63,97 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
   const [formData, setFormData] = useState<BebidaFormValues>(VALORES_INICIALES);
   const [errores, setErrores] = useState<ErroresValidacionBebida>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Estados de IA y Carga por Foto
+  const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiSuccessMessage, setAiSuccessMessage] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const procesarArchivoImagen = async (file: File) => {
+    setAiError(null);
+    setAiSuccessMessage(null);
+
+    try {
+      const processed = await compressAndResizeImage(file);
+      setFotoPreview(processed.dataUrl);
+
+      if (!hasGeminiApiKey()) {
+        setAiError(
+          'Para el reconocimiento automático con IA, es necesario configurar una Gemini API Key.'
+        );
+        return;
+      }
+
+      setIsAnalyzingPhoto(true);
+
+      const nombresCategorias = opcionesCategorias.map((c) => c.label);
+      const resultado = await analizarFotoBotella(
+        {
+          base64Data: processed.base64Data,
+          mimeType: processed.mimeType,
+        },
+        { categoriasDisponibles: nombresCategorias }
+      );
+
+      if (!resultado.exito || !resultado.datos) {
+        setAiError(
+          resultado.error ||
+            'No pudimos reconocer la etiqueta con claridad. Podés completar los campos manualmente con la foto de referencia.'
+        );
+        return;
+      }
+
+      const datos = resultado.datos;
+
+      // Mapear categoría sugerida a una opción válida del bar
+      let categoriaMapeada = formData.categoria;
+      if (datos.categoriaSugerida) {
+        const sugeridaLower = datos.categoriaSugerida.toLowerCase();
+        const encontrada = opcionesCategorias.find(
+          (c) =>
+            c.label.toLowerCase() === sugeridaLower ||
+            c.value.toLowerCase() === sugeridaLower ||
+            c.label.toLowerCase().includes(sugeridaLower) ||
+            sugeridaLower.includes(c.label.toLowerCase())
+        );
+        if (encontrada) {
+          categoriaMapeada = encontrada.value as CategoriaBebida;
+        }
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        nombre: datos.nombre || prev.nombre,
+        marca: datos.marca || prev.marca,
+        categoria: categoriaMapeada,
+        graduacionAlcoholica:
+          datos.graduacionAlcoholica !== undefined
+            ? datos.graduacionAlcoholica
+            : prev.graduacionAlcoholica,
+        precioEstimado:
+          datos.precioEstimado !== undefined ? datos.precioEstimado : prev.precioEstimado,
+        volumenTotalMl: datos.volumenTotalMl || prev.volumenTotalMl || 750,
+        volumenRestanteMl: datos.volumenTotalMl || prev.volumenRestanteMl || 750,
+      }));
+
+      const notaGrounding = resultado.fuentePrecios
+        ? ` (precio de mercado sugerido vía ${resultado.fuentePrecios})`
+        : '';
+      setAiSuccessMessage(
+        `¡Botella reconocida con éxito!${notaGrounding} Revisá los datos antes de guardar.`
+      );
+    } catch (err) {
+      console.error('Error al procesar la fotografía:', err);
+      setAiError(
+        'Ocurrió un inconveniente al procesar la foto. Podés completar los datos manualmente con la imagen como guía.'
+      );
+    } finally {
+      setIsAnalyzingPhoto(false);
+    }
+  };
 
   useEffect(() => {
     if (bebidaAEditar) {
@@ -71,14 +169,24 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
         stockMinimoMl: bebidaAEditar.stockMinimoMl,
         esFavorito: bebidaAEditar.esFavorito ?? false,
       });
+      setFotoPreview(null);
+      setAiError(null);
+      setAiSuccessMessage(null);
     } else {
       setFormData({
         ...VALORES_INICIALES,
         categoria: opcionesCategorias[0]?.value || 'destilado',
       });
+      setFotoPreview(null);
+      setAiError(null);
+      setAiSuccessMessage(null);
+
+      if (fotoInicial && isOpen) {
+        procesarArchivoImagen(fotoInicial);
+      }
     }
     setErrores({});
-  }, [bebidaAEditar, isOpen]);
+  }, [bebidaAEditar, isOpen, fotoInicial]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -114,6 +222,15 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
 
   const handleLlenar100 = () => {
     handleChange('volumenRestanteMl', formData.volumenTotalMl);
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files[0]) {
+      procesarArchivoImagen(files[0]);
+    }
+    // Resetear valor para permitir seleccionar la misma imagen nuevamente
+    e.target.value = '';
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -153,6 +270,7 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
         className="w-full max-w-lg bg-surface-container border border-outline rounded-2xl shadow-xl p-6 text-on-surface my-8 flex flex-col gap-5 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Cabecera del Modal */}
         <div className="flex items-center justify-between border-b border-outline pb-3">
           <div className="flex items-center gap-2">
             <span className="text-xl">🍾</span>
@@ -160,15 +278,114 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
               {esEdicion ? 'Editar Bebida' : 'Agregar Nueva Bebida'}
             </h2>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg hover:bg-surface-container-high transition-colors cursor-pointer"
-            aria-label="Cerrar modal"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            {!esEdicion && (
+              <>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handleFileInputChange}
+                  aria-label="Cargar foto de botella"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isAnalyzingPhoto}
+                  className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-secondary/15 text-secondary border border-secondary/30 hover:bg-secondary/25 transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                  title="Capturar o subir foto para autocompletar con Gemini IA"
+                >
+                  <span>📸</span>
+                  <span>{fotoPreview ? 'Cambiar Foto' : 'Autocompletar con Foto'}</span>
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg hover:bg-surface-container-high transition-colors cursor-pointer"
+              aria-label="Cerrar modal"
+            >
+              ✕
+            </button>
+          </div>
         </div>
+
+        {/* Panel de Foto y Estado de Reconocimiento IA */}
+        {fotoPreview && (
+          <div className="flex items-start gap-3 p-3 bg-surface rounded-xl border border-outline animate-in fade-in duration-150">
+            <div className="relative shrink-0">
+              <img
+                src={fotoPreview}
+                alt="Foto de la botella tomada"
+                className="w-16 h-20 object-cover rounded-lg border border-outline shadow-xs bg-surface-container-high"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setFotoPreview(null);
+                  setAiError(null);
+                  setAiSuccessMessage(null);
+                }}
+                className="absolute -top-1.5 -right-1.5 bg-surface-container-high text-on-surface-variant hover:text-error rounded-full p-0.5 border border-outline text-[10px] w-4 h-4 flex items-center justify-center cursor-pointer"
+                title="Quitar foto de referencia"
+                aria-label="Quitar foto de referencia"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 text-xs space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-on-surface flex items-center gap-1">
+                  <span>📸</span> Foto de Referencia
+                </span>
+                {isAnalyzingPhoto && (
+                  <span className="text-[11px] text-primary animate-pulse font-medium">
+                    Analizando con Gemini...
+                  </span>
+                )}
+              </div>
+
+              {isAnalyzingPhoto && (
+                <div className="flex items-center gap-2 text-on-surface-variant text-[11px] py-1">
+                  <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  <span>Extrayendo marca, graduación y buscando precios de mercado...</span>
+                </div>
+              )}
+
+              {aiSuccessMessage && !isAnalyzingPhoto && (
+                <div className="p-2 rounded-lg bg-secondary/10 border border-secondary/30 text-secondary text-[11px] font-medium flex items-start gap-1.5">
+                  <span>✨</span>
+                  <span>{aiSuccessMessage}</span>
+                </div>
+              )}
+
+              {aiError && !isAnalyzingPhoto && (
+                <div className="p-2 rounded-lg bg-status-rose/10 border border-status-rose/30 text-status-rose text-[11px] font-medium flex flex-col gap-1">
+                  <div className="flex items-start gap-1">
+                    <span>⚠️</span>
+                    <span>{aiError}</span>
+                  </div>
+                  {aiError.includes('Gemini API Key') && onAbrirConfiguracionIa && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onAbrirConfiguracionIa();
+                      }}
+                      className="text-primary hover:underline text-left font-semibold text-[11px] mt-0.5 cursor-pointer"
+                    >
+                      Configurar API Key ahora ↗
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {errores.general && (
           <div className="p-3 rounded-xl bg-status-rose/10 border border-status-rose/30 text-status-rose text-xs">
@@ -409,7 +626,7 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isAnalyzingPhoto}
               className="px-5 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-primary hover:bg-primary-hover text-on-primary shadow-xs transition-colors cursor-pointer disabled:opacity-50"
             >
               {isSubmitting ? 'Guardando...' : esEdicion ? 'Guardar Cambios' : 'Crear Bebida'}

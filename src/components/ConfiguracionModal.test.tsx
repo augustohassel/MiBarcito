@@ -213,5 +213,29 @@ describe('ConfiguracionModal y CategoriasConfig', () => {
       expect(screen.queryByText('Sidra')).not.toBeInTheDocument();
     });
   });
+
+  it('permite navegar a la solapa Inteligencia Artificial y configurar la API Key de Gemini', async () => {
+    const invRepo = new InMemoryInventoryRepository();
+    const catRepo = new InMemoryCategoriaRepository();
+
+    render(
+      <InventoryProvider repository={invRepo} categoriaRepository={catRepo}>
+        <ConfiguracionModal isOpen={true} onClose={() => {}} bebidas={[]} initialTab="ia" />
+      </InventoryProvider>
+    );
+
+    expect(screen.getByText('Google Gemini API')).toBeInTheDocument();
+    expect(screen.getByText('Sin API Key configurada')).toBeInTheDocument();
+
+    const inputKey = screen.getByLabelText('Gemini API Key');
+    fireEvent.change(inputKey, { target: { value: 'AIzaSyTestApiKey123' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /Guardar Configuración/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Configuración de Gemini guardada con éxito.')).toBeInTheDocument();
+      expect(screen.getByText(/IA Multimodal Activa/i)).toBeInTheDocument();
+    });
+  });
 });
 
