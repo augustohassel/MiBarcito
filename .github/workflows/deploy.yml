@@ -84,18 +84,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          BASE_TAG="v${VERSION}"
-          echo "Versión base de package.json: $BASE_TAG"
+          if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::La versión de package.json debe tener formato major.minor.patch (actual: $VERSION)"
+            exit 1
+          fi
 
-          if git rev-parse "$BASE_TAG" >/dev/null 2>&1; then
-            echo "Tag $BASE_TAG ya existe en el repositorio. Calculando sufijo incremental..."
-            SUFFIX=1
-            while git rev-parse "${BASE_TAG}.${SUFFIX}" >/dev/null 2>&1; do
-              SUFFIX=$((SUFFIX + 1))
+          IFS=. read -r MAJOR MINOR PATCH <<< "$VERSION"
+          TAG_NAME="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "Versión base de package.json: $TAG_NAME"
+
+          if git rev-parse --verify "refs/tags/$TAG_NAME" >/dev/null 2>&1; then
+            echo "Tag $TAG_NAME ya existe en el repositorio. Incrementando patch..."
+            while git rev-parse --verify "refs/tags/$TAG_NAME" >/dev/null 2>&1; do
+              PATCH=$((PATCH + 1))
+              TAG_NAME="v${MAJOR}.${MINOR}.${PATCH}"
             done
-            TAG_NAME="${BASE_TAG}.${SUFFIX}"
-          else
-            TAG_NAME="$BASE_TAG"
           fi
 
           echo "Tag final a registrar: $TAG_NAME"
