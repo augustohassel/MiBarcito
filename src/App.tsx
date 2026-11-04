@@ -1,16 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useInventoryRepository, useRecetas } from './context/InventoryContext';
+import {
+  useCategoriasOpcional,
+  useInventoryRepository,
+  useRecetas,
+} from './context/InventoryContext';
 import { useTheme } from './hooks/useTheme';
 import {
   Bebida,
-  estaEnAlertaStockBajo,
 } from './domain/models/bebida';
 import { Receta, clonarRecetaParaAutor } from './domain/models/receta';
 import { clasificarRecetas, normalizarTexto } from './domain/services/recetario-motor';
+import {
+  calcularMetricasValoracion,
+  obtenerBebidasEnAlertaStock,
+} from './domain/services/metricas-bar';
 import { BebidaCard } from './components/BebidaCard';
 import { BebidaFormModal, BebidaFormValues } from './components/BebidaFormModal';
 import { ConfirmModal } from './components/ConfirmModal';
 import { ConfiguracionModal, TabConfig } from './components/ConfiguracionModal';
+import { MetricasValoracionModal } from './components/MetricasValoracionModal';
+import { AlertasStockModal } from './components/AlertasStockModal';
 import { hasGeminiApiKey } from './infrastructure/ai/ai-config';
 import {
   FiltrosEstado,
@@ -32,6 +41,7 @@ const FILTROS_DEFAULT: FiltrosEstado = {
 
 export function App() {
   const repository = useInventoryRepository();
+  const categoriasCtx = useCategoriasOpcional();
   const {
     recetas,
     loadingRecetas,
@@ -60,6 +70,8 @@ export function App() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [configTab, setConfigTab] = useState<TabConfig>('categorias');
+  const [isMetricasOpen, setIsMetricasOpen] = useState(false);
+  const [isAlertasOpen, setIsAlertasOpen] = useState(false);
   const [fotoPendienteParaModal, setFotoPendienteParaModal] = useState<File | null>(null);
   const fileInputFotoRef = useRef<HTMLInputElement>(null);
   const [bebidaAEditar, setBebidaAEditar] = useState<Bebida | null>(null);
@@ -325,10 +337,18 @@ export function App() {
     return res;
   };
 
-  // Métricas
-  const bajoStockCount = bebidas.filter(estaEnAlertaStockBajo).length;
-  const favoritosCount = bebidas.filter((b) => b.esFavorito).length;
-  const valorTotalEstimado = bebidas.reduce((acc, b) => acc + (b.precioEstimado || 0), 0);
+  // Métricas y Alertas (Issue #7)
+  const metricasValoracion = useMemo(() => {
+    return calcularMetricasValoracion(bebidas, categoriasCtx?.categorias);
+  }, [bebidas, categoriasCtx?.categorias]);
+
+  const alertasStock = useMemo(() => {
+    return obtenerBebidasEnAlertaStock(bebidas);
+  }, [bebidas]);
+
+  const bajoStockCount = alertasStock.length;
+  const favoritosCount = useMemo(() => bebidas.filter((b) => b.esFavorito).length, [bebidas]);
+  const valorTotalEstimado = metricasValoracion.costoTotal;
 
   // Evaluación para modal de detalle
   const evaluacionRecetaDetalle = useMemo(() => {
@@ -476,27 +496,67 @@ export function App() {
                 <p className="text-2xl font-bold text-status-amber mt-1">{favoritosCount}</p>
               </div>
 
-              <div className="p-4 rounded-xl bg-surface-container border border-outline shadow-xs">
-                <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
-                  Alertas Stock Bajo
-                </span>
-                <p
-                  className={`text-2xl font-bold mt-1 ${
-                    bajoStockCount > 0 ? 'text-status-amber' : 'text-on-surface-variant'
-                  }`}
-                >
-                  {bajoStockCount}
-                </p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setIsAlertasOpen(true)}
+                data-testid="card-alertas-stock"
+                className={`p-4 rounded-xl text-left bg-surface-container border shadow-xs transition-all duration-150 cursor-pointer group flex flex-col justify-between ${
+                  bajoStockCount > 0
+                    ? 'border-status-amber/60 hover:border-status-amber hover:bg-status-amber/10'
+                    : 'border-outline hover:border-primary/40 hover:bg-surface-container-high'
+                }`}
+                title="Ver alertas de stock bajo"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
+                    Alertas Stock
+                  </span>
+                  <span className="text-[10px] font-semibold text-primary group-hover:underline">
+                    Ver ↗
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between mt-1">
+                  <p
+                    className={`text-2xl font-bold ${
+                      bajoStockCount > 0 ? 'text-status-amber' : 'text-on-surface-variant'
+                    }`}
+                  >
+                    {bajoStockCount}
+                  </p>
+                  {bajoStockCount > 0 && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-status-amber/20 text-status-amber border border-status-amber/30">
+                      Crítico
+                    </span>
+                  )}
+                </div>
+              </button>
 
-              <div className="p-4 rounded-xl bg-surface-container border border-outline shadow-xs">
-                <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
-                  Valor Estimado
-                </span>
-                <p className="text-lg sm:text-xl font-bold text-status-emerald mt-1.5 truncate">
-                  ${valorTotalEstimado.toLocaleString('es-AR')}
-                </p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setIsMetricasOpen(true)}
+                data-testid="card-valor-estimado"
+                className="p-4 rounded-xl text-left bg-surface-container border border-outline hover:border-primary/40 hover:bg-surface-container-high shadow-xs transition-all duration-150 cursor-pointer group flex flex-col justify-between"
+                title="Ver desglose financiero del bar"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
+                    Valor Estimado
+                  </span>
+                  <span className="text-[10px] font-semibold text-primary group-hover:underline">
+                    Detalle ↗
+                  </span>
+                </div>
+                <div>
+                  <p className="text-lg sm:text-xl font-bold text-status-emerald mt-1.5 truncate">
+                    ${valorTotalEstimado.toLocaleString('es-AR')}
+                  </p>
+                  {metricasValoracion.botellasSinPrecio > 0 && (
+                    <span className="text-[10px] text-status-amber block truncate mt-0.5">
+                      {metricasValoracion.botellasSinPrecio} sin cotizar
+                    </span>
+                  )}
+                </div>
+              </button>
             </div>
 
             {/* Barra de Filtros, Búsqueda y Ordenamiento */}
@@ -755,6 +815,20 @@ export function App() {
         onClose={() => setIsConfigOpen(false)}
         bebidas={bebidas}
         initialTab={configTab}
+      />
+
+      <MetricasValoracionModal
+        isOpen={isMetricasOpen}
+        onClose={() => setIsMetricasOpen(false)}
+        metricas={metricasValoracion}
+      />
+
+      <AlertasStockModal
+        isOpen={isAlertasOpen}
+        onClose={() => setIsAlertasOpen(false)}
+        alertas={alertasStock}
+        onEditarBebida={handleAbrirEditar}
+        onAjustarVolumen={handleAjustarVolumen}
       />
 
       {/* Modales de Recetario */}
