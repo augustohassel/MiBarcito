@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   normalizarTexto,
+  escapeRegExp,
+  coincidePalabraCompleta,
   esBotellaCompatible,
   evaluarIngrediente,
   evaluarReceta,
@@ -69,6 +71,36 @@ describe('Motor de Recomendación de Tragos (recetario-motor)', () => {
     });
   });
 
+  describe('escapeRegExp y coincidePalabraCompleta (Búsqueda Estricta)', () => {
+    it('escapa caracteres especiales de regex correctamente', () => {
+      expect(escapeRegExp('Aperitivo / Bitter (Rojo) [50ml]')).toBe(
+        'Aperitivo / Bitter \\(Rojo\\) \\[50ml\\]'
+      );
+      expect(escapeRegExp('Gin+Tonic?*')).toBe('Gin\\+Tonic\\?\\*');
+    });
+
+    it('coincide por palabra exacta delimitada sin falsos positivos por substrings', () => {
+      // Caso crítico: Gin no debe matchear Ginger Ale ni Tónica Original
+      expect(coincidePalabraCompleta('Ginger Ale Schweppes', 'Gin')).toBe(false);
+      expect(coincidePalabraCompleta('Paso de los Toros Tonica Original', 'Gin')).toBe(false);
+
+      // Caso crítico: Ron no debe matchear Corona
+      expect(coincidePalabraCompleta('Cerveza Corona Extra', 'Ron')).toBe(false);
+
+      // Coincidencias válidas
+      expect(coincidePalabraCompleta('Tanqueray London Dry Gin', 'Gin')).toBe(true);
+      expect(coincidePalabraCompleta('Havana Club Ron Añejo', 'Ron')).toBe(true);
+      expect(coincidePalabraCompleta('Bacardi Carta Blanca Ron', 'Ron')).toBe(true);
+    });
+
+    it('soporta términos cortos (2 o 3 letras) sin colisiones accidentales', () => {
+      expect(coincidePalabraCompleta('Té helado con limón', 'Té')).toBe(true);
+      expect(coincidePalabraCompleta('Tenedor de bar', 'Té')).toBe(false);
+      expect(coincidePalabraCompleta('Dry Martini', 'Dry')).toBe(true);
+      expect(coincidePalabraCompleta('Londry Gin', 'Dry')).toBe(false);
+    });
+  });
+
   describe('esBotellaCompatible', () => {
     it('reconoce compatibilidad por marca o nombre', () => {
       const ingGin: IngredienteReceta = { nombre: 'Gin', tipo: 'bebida', cantidadMl: 50 };
@@ -86,6 +118,140 @@ describe('Motor de Recomendación de Tragos (recetario-motor)', () => {
         alternativas: ['Campari', 'Aperitivo / Bitter'],
       };
       expect(esBotellaCompatible(campari, ingBitter)).toBe(true);
+    });
+
+    it('caso crítico (erradicación de falsos positivos): Gin no empareja con Ginger Ale ni Tónica Original', () => {
+      const gingerAle: Bebida = {
+        id: 'bebida-ga',
+        nombre: 'Ginger Ale',
+        marca: 'Schweppes',
+        categoria: 'mixer_sin_alcohol',
+        volumenTotalMl: 1500,
+        volumenRestanteMl: 1000,
+        fechaCreacion: '2026-11-01T00:00:00.000Z',
+        fechaActualizacion: '2026-11-01T00:00:00.000Z',
+      };
+
+      const tonicaOriginal: Bebida = {
+        id: 'bebida-to',
+        nombre: 'Tónica Original',
+        marca: 'Paso de los Toros',
+        categoria: 'mixer_sin_alcohol',
+        volumenTotalMl: 1500,
+        volumenRestanteMl: 1000,
+        fechaCreacion: '2026-11-01T00:00:00.000Z',
+        fechaActualizacion: '2026-11-01T00:00:00.000Z',
+      };
+
+      const ingGin: IngredienteReceta = {
+        nombre: 'Gin',
+        tipo: 'bebida',
+        cantidadMl: 50,
+        alternativas: ['London Dry', 'Ginebra'],
+      };
+
+      expect(esBotellaCompatible(gingerAle, ingGin)).toBe(false);
+      expect(esBotellaCompatible(tonicaOriginal, ingGin)).toBe(false);
+    });
+
+    it('caso crítico: Ron no empareja con Cerveza Corona', () => {
+      const cervezaCorona: Bebida = {
+        id: 'bebida-corona',
+        nombre: 'Corona Extra',
+        marca: 'Cervecería Modelo',
+        categoria: 'cerveza',
+        volumenTotalMl: 330,
+        volumenRestanteMl: 330,
+        fechaCreacion: '2026-11-01T00:00:00.000Z',
+        fechaActualizacion: '2026-11-01T00:00:00.000Z',
+      };
+
+      const ingRon: IngredienteReceta = {
+        nombre: 'Ron',
+        tipo: 'bebida',
+        cantidadMl: 50,
+        alternativas: ['Ron Dorado', 'Ron Blanco', 'Rum'],
+      };
+
+      expect(esBotellaCompatible(cervezaCorona, ingRon)).toBe(false);
+    });
+
+    it('matching jerárquico por subcategoría: empareja con precisión cuando la botella posee subcategoría', () => {
+      const botellaBeefeater: Bebida = {
+        id: 'bebida-beefeater',
+        nombre: 'Beefeater 24',
+        marca: 'Beefeater',
+        categoria: 'destilado',
+        subcategoria: 'Gin',
+        volumenTotalMl: 750,
+        volumenRestanteMl: 750,
+        fechaCreacion: '2026-11-01T00:00:00.000Z',
+        fechaActualizacion: '2026-11-01T00:00:00.000Z',
+      };
+
+      const ingGin: IngredienteReceta = { nombre: 'Gin', tipo: 'bebida', cantidadMl: 50 };
+      expect(esBotellaCompatible(botellaBeefeater, ingGin)).toBe(true);
+
+      const botellaCointreau: Bebida = {
+        id: 'bebida-cointreau',
+        nombre: 'Liqueur',
+        marca: 'Cointreau',
+        categoria: 'licor',
+        subcategoria: 'Triple Sec / Naranja',
+        volumenTotalMl: 700,
+        volumenRestanteMl: 700,
+        fechaCreacion: '2026-11-01T00:00:00.000Z',
+        fechaActualizacion: '2026-11-01T00:00:00.000Z',
+      };
+
+      const ingTripleSec: IngredienteReceta = {
+        nombre: 'Licor de Naranja',
+        tipo: 'bebida',
+        cantidadMl: 25,
+        alternativas: ['Triple Sec', 'Cointreau'],
+      };
+      expect(esBotellaCompatible(botellaCointreau, ingTripleSec)).toBe(true);
+
+      const botellaFernet: Bebida = {
+        id: 'bebida-fernet',
+        nombre: 'Fernet',
+        marca: 'Branca',
+        categoria: 'aperitivo_bitter',
+        subcategoria: 'Fernet',
+        volumenTotalMl: 750,
+        volumenRestanteMl: 750,
+        fechaCreacion: '2026-11-01T00:00:00.000Z',
+        fechaActualizacion: '2026-11-01T00:00:00.000Z',
+      };
+
+      const ingCampari: IngredienteReceta = {
+        nombre: 'Campari',
+        tipo: 'bebida',
+        cantidadMl: 30,
+        alternativas: ['Bitter Rojo'],
+      };
+      // Fernet no debe ser compatible con Campari / Bitter Rojo
+      expect(esBotellaCompatible(botellaFernet, ingCampari)).toBe(false);
+    });
+
+    it('caso de falla / borde 1 (Retrocompatibilidad total): botellas legacy sin subcategoria no fallan en runtime', () => {
+      const botellaSinSubcat: Bebida = {
+        id: 'legacy-1',
+        nombre: 'Tanqueray London Dry Gin',
+        marca: 'Tanqueray',
+        categoria: 'destilado',
+        subcategoria: undefined,
+        volumenTotalMl: 750,
+        volumenRestanteMl: 500,
+        fechaCreacion: '2026-11-01T00:00:00.000Z',
+        fechaActualizacion: '2026-11-01T00:00:00.000Z',
+      };
+
+      const ingGin: IngredienteReceta = { nombre: 'Gin', tipo: 'bebida', cantidadMl: 50 };
+      expect(esBotellaCompatible(botellaSinSubcat, ingGin)).toBe(true);
+
+      const ingVodka: IngredienteReceta = { nombre: 'Vodka', tipo: 'bebida', cantidadMl: 50 };
+      expect(esBotellaCompatible(botellaSinSubcat, ingVodka)).toBe(false);
     });
 
     it('retorna false si el tipo es guarnición o insumo', () => {

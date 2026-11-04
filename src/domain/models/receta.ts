@@ -170,7 +170,7 @@ export const RECETAS_PREDETERMINADAS: Receta[] = [
     ingredientes: [
       { nombre: 'Gin', cantidadMl: 30, unidad: 'ml', tipo: 'bebida', alternativas: ['London Dry', 'Ginebra'] },
       { nombre: 'Campari', cantidadMl: 30, unidad: 'ml', tipo: 'bebida', alternativas: ['Bitter Rojo'] },
-      { nombre: 'Vermut Rosso', cantidadMl: 30, unidad: 'ml', tipo: 'bebida', alternativas: ['Vermut', 'Vermouth', 'Rosso'] },
+      { nombre: 'Vermut Rosso', cantidadMl: 30, unidad: 'ml', tipo: 'bebida', alternativas: ['Vermut Rosso', 'Vermouth Rosso', 'Vermouth', 'Rosso'] },
       { nombre: 'Hielo en cubos', tipo: 'guarnicion_insumo', opcional: false },
       { nombre: 'Media rodaja o piel de naranja', tipo: 'guarnicion_insumo', opcional: true },
     ],
@@ -192,7 +192,7 @@ export const RECETAS_PREDETERMINADAS: Receta[] = [
     esPropia: false,
     ingredientes: [
       { nombre: 'Gin', cantidadMl: 50, unidad: 'ml', tipo: 'bebida', alternativas: ['London Dry', 'Ginebra'] },
-      { nombre: 'Agua Tónica', cantidadMl: 150, unidad: 'ml', tipo: 'bebida', alternativas: ['Mixer sin Alcohol', 'Tonica'] },
+      { nombre: 'Agua Tónica', cantidadMl: 150, unidad: 'ml', tipo: 'bebida', alternativas: ['Tonica', 'Tónica', 'Indian Tonic'] },
       { nombre: 'Hielo en rocas', tipo: 'guarnicion_insumo', opcional: false },
       { nombre: 'Rodaja de limón o pepino', tipo: 'guarnicion_insumo', opcional: true },
     ],
@@ -215,8 +215,8 @@ export const RECETAS_PREDETERMINADAS: Receta[] = [
     esPropia: false,
     ingredientes: [
       { nombre: 'Vino Espumante', cantidadMl: 90, unidad: 'ml', tipo: 'bebida', alternativas: ['Prosecco', 'Champagne', 'Espumante'] },
-      { nombre: 'Aperitivo / Bitter', cantidadMl: 60, unidad: 'ml', tipo: 'bebida', alternativas: ['Aperol'] },
-      { nombre: 'Soda', cantidadMl: 30, unidad: 'ml', tipo: 'bebida', alternativas: ['Agua con gas', 'Mixer sin Alcohol'] },
+      { nombre: 'Aperol', cantidadMl: 60, unidad: 'ml', tipo: 'bebida', alternativas: ['Aperitivo Cítrico', 'Bitter Naranja'] },
+      { nombre: 'Soda', cantidadMl: 30, unidad: 'ml', tipo: 'bebida', alternativas: ['Agua con gas', 'Club Soda', 'Sifón'] },
       { nombre: 'Hielo', tipo: 'guarnicion_insumo', opcional: false },
       { nombre: 'Rodaja de naranja fresca', tipo: 'guarnicion_insumo', opcional: true },
     ],
@@ -237,8 +237,8 @@ export const RECETAS_PREDETERMINADAS: Receta[] = [
     esFavorito: false,
     esPropia: false,
     ingredientes: [
-      { nombre: 'Fernet', cantidadMl: 50, unidad: 'ml', tipo: 'bebida', alternativas: ['Aperitivo / Bitter', 'Bitter'] },
-      { nombre: 'Bebida Cola', cantidadMl: 150, unidad: 'ml', tipo: 'bebida', alternativas: ['Coca Cola', 'Mixer sin Alcohol', 'Gaseosa Cola', 'Cola'] },
+      { nombre: 'Fernet', cantidadMl: 50, unidad: 'ml', tipo: 'bebida', alternativas: ['Fernet Branca', 'Amaro'] },
+      { nombre: 'Bebida Cola', cantidadMl: 150, unidad: 'ml', tipo: 'bebida', alternativas: ['Coca Cola', 'Pepsi', 'Gaseosa Cola', 'Cola'] },
       { nombre: 'Hielo en cubos', tipo: 'guarnicion_insumo', opcional: false },
     ],
     pasos: [
@@ -282,8 +282,8 @@ export const RECETAS_PREDETERMINADAS: Receta[] = [
     esPropia: false,
     ingredientes: [
       { nombre: 'Tequila', cantidadMl: 50, unidad: 'ml', tipo: 'bebida', alternativas: ['Mezcal'] },
-      { nombre: 'Licor de Naranja', cantidadMl: 25, unidad: 'ml', tipo: 'bebida', alternativas: ['Triple Sec', 'Cointreau', 'Licor'] },
-      { nombre: 'Jugo de Lima fresca', cantidadMl: 25, unidad: 'ml', tipo: 'bebida', alternativas: ['Mixer sin Alcohol', 'Jugo de Limon', 'Lima'] },
+      { nombre: 'Licor de Naranja', cantidadMl: 25, unidad: 'ml', tipo: 'bebida', alternativas: ['Triple Sec', 'Cointreau', 'Curacao'] },
+      { nombre: 'Jugo de Lima fresca', cantidadMl: 25, unidad: 'ml', tipo: 'bebida', alternativas: ['Jugo de Lima', 'Jugo de Limon', 'Lima'] },
       { nombre: 'Sal fina para coronar', tipo: 'guarnicion_insumo', opcional: true },
       { nombre: 'Hielo para batir', tipo: 'guarnicion_insumo', opcional: false },
     ],
@@ -305,9 +305,9 @@ export const RECETAS_PREDETERMINADAS: Receta[] = [
     esPropia: false,
     ingredientes: [
       { nombre: 'Ron Blanco', cantidadMl: 50, unidad: 'ml', tipo: 'bebida', alternativas: ['Ron', 'Rum'] },
-      { nombre: 'Soda', cantidadMl: 50, unidad: 'ml', tipo: 'bebida', alternativas: ['Agua con gas', 'Mixer sin Alcohol'] },
+      { nombre: 'Soda', cantidadMl: 50, unidad: 'ml', tipo: 'bebida', alternativas: ['Agua con gas', 'Club Soda', 'Sifón'] },
       { nombre: 'Ramas de menta fresca', tipo: 'guarnicion_insumo', opcional: false },
-      { nombre: 'Jugo de lima fresco', cantidadMl: 20, unidad: 'ml', tipo: 'bebida', opcional: false, alternativas: ['Lima', 'Jugo de Limon'] },
+      { nombre: 'Jugo de lima fresco', cantidadMl: 20, unidad: 'ml', tipo: 'bebida', opcional: false, alternativas: ['Lima', 'Jugo de Limon', 'Jugo de Lima'] },
       { nombre: 'Azúcar blanco', tipo: 'guarnicion_insumo', opcional: false },
       { nombre: 'Hielo picado', tipo: 'guarnicion_insumo', opcional: false },
     ],
@@ -330,7 +330,7 @@ export const RECETAS_PREDETERMINADAS: Receta[] = [
     esPropia: false,
     ingredientes: [
       { nombre: 'Whisky', cantidadMl: 50, unidad: 'ml', tipo: 'bebida', alternativas: ['Rye', 'Bourbon', 'Scotch', 'Whiskey'] },
-      { nombre: 'Vermut Rosso', cantidadMl: 25, unidad: 'ml', tipo: 'bebida', alternativas: ['Vermut', 'Vermouth', 'Rosso'] },
+      { nombre: 'Vermut Rosso', cantidadMl: 25, unidad: 'ml', tipo: 'bebida', alternativas: ['Vermut Rosso', 'Vermouth Rosso', 'Vermouth', 'Rosso'] },
       { nombre: 'Bitter Angostura', cantidadMl: 5, unidad: 'ml', tipo: 'bebida', alternativas: ['Angostura', 'Aromatic Bitter'] },
       { nombre: 'Hielo para refrescar', tipo: 'guarnicion_insumo', opcional: false },
       { nombre: 'Cereza al marrasquino', tipo: 'guarnicion_insumo', opcional: true },
@@ -353,7 +353,7 @@ export const RECETAS_PREDETERMINADAS: Receta[] = [
     esPropia: false,
     ingredientes: [
       { nombre: 'Gin', cantidadMl: 60, unidad: 'ml', tipo: 'bebida', alternativas: ['London Dry', 'Ginebra'] },
-      { nombre: 'Vermut Dry', cantidadMl: 10, unidad: 'ml', tipo: 'bebida', alternativas: ['Vermut Seco', 'Vermut', 'Vermouth', 'Dry'] },
+      { nombre: 'Vermut Dry', cantidadMl: 10, unidad: 'ml', tipo: 'bebida', alternativas: ['Vermut Extra Dry', 'Vermut Seco', 'Vermouth Dry', 'French Vermouth'] },
       { nombre: 'Hielo para refrescar', tipo: 'guarnicion_insumo', opcional: false },
       { nombre: 'Aceituna verde o piel de limón', tipo: 'guarnicion_insumo', opcional: true },
     ],
@@ -376,8 +376,8 @@ export const RECETAS_PREDETERMINADAS: Receta[] = [
     esPropia: false,
     ingredientes: [
       { nombre: 'Ron', cantidadMl: 50, unidad: 'ml', tipo: 'bebida', alternativas: ['Ron Dorado', 'Ron Blanco', 'Rum'] },
-      { nombre: 'Bebida Cola', cantidadMl: 120, unidad: 'ml', tipo: 'bebida', alternativas: ['Coca Cola', 'Mixer sin Alcohol', 'Cola'] },
-      { nombre: 'Jugo de Lima fresca', cantidadMl: 10, unidad: 'ml', tipo: 'bebida', opcional: true, alternativas: ['Lima', 'Jugo de Limon'] },
+      { nombre: 'Bebida Cola', cantidadMl: 120, unidad: 'ml', tipo: 'bebida', alternativas: ['Coca Cola', 'Pepsi', 'Gaseosa Cola', 'Cola'] },
+      { nombre: 'Jugo de Lima fresca', cantidadMl: 10, unidad: 'ml', tipo: 'bebida', opcional: true, alternativas: ['Jugo de Lima', 'Jugo de Limon', 'Lima'] },
       { nombre: 'Hielo', tipo: 'guarnicion_insumo', opcional: false },
       { nombre: 'Rodaja de lima', tipo: 'guarnicion_insumo', opcional: true },
     ],

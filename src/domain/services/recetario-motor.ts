@@ -16,8 +16,51 @@ export function normalizarTexto(texto: string): string {
 }
 
 /**
+ * Escapa caracteres especiales para su uso seguro en expresiones regulares.
+ */
+export function escapeRegExp(cadena: string): string {
+  return cadena.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Evalúa si una cadena coincide con un término candidato respetando límites de palabras completas,
+ * previniendo falsos positivos por substrings dentro de otras palabras
+ * (ej. "gin" en "ginger ale" o "tonica original", "ron" en "corona", "dry" en "londry").
+ */
+export function coincidePalabraCompleta(texto: string, candidato: string): boolean {
+  if (!texto || !candidato) return false;
+  const normTexto = normalizarTexto(texto);
+  const normCandidato = normalizarTexto(candidato);
+  if (!normTexto || !normCandidato) return false;
+
+  // Coincidencia idéntica exacta
+  if (normTexto === normCandidato) {
+    return true;
+  }
+
+  // Búsqueda delimitada por límites de palabra o caracteres no alfanuméricos
+  const regex = new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(normCandidato)}(?:[^a-z0-9]|$)`, 'i');
+  if (regex.test(normTexto)) {
+    return true;
+  }
+
+  // Si el candidato es multipalabra (ej. "London Dry Gin", "Vermut Rosso"),
+  // chequear si todas las palabras clave (>2 caracteres) están presentes como palabras delimitadas
+  const tokensCandidato = normCandidato.split(' ').filter((t) => t.length > 2);
+  if (tokensCandidato.length > 1) {
+    return tokensCandidato.every((tc) => {
+      const tokenRegex = new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(tc)}(?:[^a-z0-9]|$)`, 'i');
+      return tokenRegex.test(normTexto);
+    });
+  }
+
+  return false;
+}
+
+/**
  * Evalúa si una botella de la despensa es compatible con un ingrediente de receta.
- * Compara por nombre, marca, categoría y alternativas semánticas.
+ * Compara jerárquicamente por subcategoría asignada, nombre, marca y alternativas semánticas
+ * mediante límites de palabra estrictos para evitar falsos positivos.
  */
 export function esBotellaCompatible(
   botella: Bebida,
@@ -28,36 +71,28 @@ export function esBotellaCompatible(
   }
 
   const candidatos = [ingrediente.nombre, ...(ingrediente.alternativas ?? [])];
+
+  // 1. Coincidencia jerárquica directa si la botella tiene subcategoría asignada
+  if (botella.subcategoria) {
+    const coincideSubcat = candidatos.some((candidato) =>
+      coincidePalabraCompleta(botella.subcategoria!, candidato)
+    );
+    if (coincideSubcat) {
+      return true;
+    }
+  }
+
+  // 2. Coincidencia estricta por límites de palabra en nombre, marca o combinaciones (retrocompatible)
   const camposBotella = [
     botella.nombre,
     botella.marca,
     `${botella.marca} ${botella.nombre}`,
     `${botella.nombre} ${botella.marca}`,
-  ].map(normalizarTexto);
+  ];
 
   return candidatos.some((candidato) => {
-    const normCandidato = normalizarTexto(candidato);
-    if (!normCandidato) return false;
-
     return camposBotella.some((campo) => {
-      if (!campo) return false;
-
-      // Coincidencia exacta o si la botella contiene el candidato
-      // (ej. "london dry gin" contiene "gin", o "campari bitter" contiene "campari")
-      if (campo.includes(normCandidato)) {
-        return true;
-      }
-
-      // Si el candidato es multipalabra (ej. "Vermut Rosso", "Agua Tónica"),
-      // chequear si todas las palabras clave (>2 caracteres) están en la botella
-      const tokensCandidato = normCandidato.split(' ').filter((t) => t.length > 2);
-      if (tokensCandidato.length > 1) {
-        if (tokensCandidato.every((tc) => campo.includes(tc))) {
-          return true;
-        }
-      }
-
-      return false;
+      return coincidePalabraCompleta(campo, candidato);
     });
   });
 }
