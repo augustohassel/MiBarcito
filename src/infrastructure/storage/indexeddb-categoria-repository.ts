@@ -1,4 +1,8 @@
-import { Categoria, CATEGORIAS_PREDETERMINADAS } from '../../domain/models/categoria';
+import {
+  Categoria,
+  CATEGORIAS_PREDETERMINADAS,
+  enriquecerSubcategorias,
+} from '../../domain/models/categoria';
 import { ICategoriaRepository } from '../../domain/repositories/categoria-repository.interface';
 import { getDatabase, STORE_CATEGORIAS } from './indexeddb-database';
 
@@ -9,32 +13,14 @@ export class IndexedDBCategoriaRepository implements ICategoriaRepository {
   async getAll(): Promise<Categoria[]> {
     const db = await getDatabase();
     const categorias = await db.getAll(STORE_CATEGORIAS);
-    const enriquecidas = categorias.map((cat) => {
-      if (Array.isArray(cat.subcategorias)) {
-        return cat;
-      }
-      // Backfill transparente para categorías predeterminadas preexistentes sin array de subcategorías
-      const predeterminada = CATEGORIAS_PREDETERMINADAS.find((p) => p.id === cat.id);
-      return {
-        ...cat,
-        subcategorias: predeterminada?.subcategorias ? [...predeterminada.subcategorias] : [],
-      };
-    });
+    const enriquecidas = categorias.map(enriquecerSubcategorias);
     return enriquecidas.sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre));
   }
 
   async getById(id: string): Promise<Categoria | undefined> {
     const db = await getDatabase();
     const cat = await db.get(STORE_CATEGORIAS, id);
-    if (!cat) return undefined;
-    if (!Array.isArray(cat.subcategorias)) {
-      const predeterminada = CATEGORIAS_PREDETERMINADAS.find((p) => p.id === cat.id);
-      return {
-        ...cat,
-        subcategorias: predeterminada?.subcategorias ? [...predeterminada.subcategorias] : [],
-      };
-    }
-    return cat;
+    return cat ? enriquecerSubcategorias(cat) : undefined;
   }
 
   async save(categoria: Categoria): Promise<void> {

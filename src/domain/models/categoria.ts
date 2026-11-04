@@ -98,6 +98,21 @@ export const CATEGORIAS_PREDETERMINADAS: Categoria[] = [
 ];
 
 /**
+ * Función pura para enriquecer transparentemente una categoría con sus subcategorías por defecto
+ * si fue persistida en versiones previas sin dicho atributo (backfill retrocompatible).
+ */
+export function enriquecerSubcategorias(categoria: Categoria): Categoria {
+  if (Array.isArray(categoria.subcategorias)) {
+    return categoria;
+  }
+  const predeterminada = CATEGORIAS_PREDETERMINADAS.find((p) => p.id === categoria.id);
+  return {
+    ...categoria,
+    subcategorias: predeterminada?.subcategorias ? [...predeterminada.subcategorias] : [],
+  };
+}
+
+/**
  * Errores de validación de una categoría
  */
 export type ErroresValidacionCategoria = {

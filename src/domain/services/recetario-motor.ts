@@ -87,7 +87,6 @@ export function esBotellaCompatible(
     botella.nombre,
     botella.marca,
     `${botella.marca} ${botella.nombre}`,
-    `${botella.nombre} ${botella.marca}`,
   ];
 
   return candidatos.some((candidato) => {
