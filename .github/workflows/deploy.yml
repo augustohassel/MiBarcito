@@ -43,7 +43,7 @@ jobs:
         run: npm run build
         env:
           GITHUB_ACTIONS: true
-          VITE_BASE_PATH: /MiBarcito/
+          VITE_BASE_PATH: /
 
       - name: Subir artefacto para GitHub Pages
         uses: actions/upload-pages-artifact@v3
