@@ -59,8 +59,9 @@ export function coincidePalabraCompleta(texto: string, candidato: string): boole
 
 /**
  * Evalúa si una botella de la despensa es compatible con un ingrediente de receta.
- * Compara jerárquicamente por subcategoría asignada, nombre, marca y alternativas semánticas
- * mediante límites de palabra estrictos para evitar falsos positivos.
+ * Cuando el ingrediente define `categoriaId` (estándar del recetario), evalúa estrictamente
+ * por coincidencia taxonómica de Categoría y Subcategoría (sin usar palabras clave del nombre).
+ * Mantiene soporte retrocompatible para ingredientes legacy que no posean `categoriaId`.
  */
 export function esBotellaCompatible(
   botella: Bebida,
@@ -70,9 +71,32 @@ export function esBotellaCompatible(
     return false;
   }
 
-  const candidatos = [ingrediente.nombre, ...(ingrediente.alternativas ?? [])];
+  // 1. Regla principal: Matching taxonómico estricto por Categoría y Subcategoría
+  if (ingrediente.categoriaId && ingrediente.categoriaId.trim() !== '') {
+    if (normalizarTexto(botella.categoria) !== normalizarTexto(ingrediente.categoriaId)) {
+      return false;
+    }
 
-  // 1. Coincidencia jerárquica directa si la botella tiene subcategoría asignada
+    // Si el ingrediente no exige subcategoría específica, cualquier botella de la categoría es compatible
+    if (!ingrediente.subcategoria || ingrediente.subcategoria.trim() === '') {
+      return true;
+    }
+
+    // Si el ingrediente exige subcategoría, la botella debe tener esa misma subcategoría asignada
+    if (!botella.subcategoria || botella.subcategoria.trim() === '') {
+      return false;
+    }
+
+    return normalizarTexto(botella.subcategoria) === normalizarTexto(ingrediente.subcategoria);
+  }
+
+  // 2. Fallback retrocompatible únicamente para ingredientes legacy sin `categoriaId`
+  const candidatos = [
+    ...(ingrediente.subcategoria ? [ingrediente.subcategoria] : []),
+    ingrediente.nombre,
+    ...(ingrediente.alternativas ?? []),
+  ];
+
   if (botella.subcategoria) {
     const coincideSubcat = candidatos.some((candidato) =>
       coincidePalabraCompleta(botella.subcategoria!, candidato)
@@ -82,7 +106,6 @@ export function esBotellaCompatible(
     }
   }
 
-  // 2. Coincidencia estricta por límites de palabra en nombre, marca o combinaciones (retrocompatible)
   const camposBotella = [
     botella.nombre,
     botella.marca,

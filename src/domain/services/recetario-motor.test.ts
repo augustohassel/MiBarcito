@@ -18,6 +18,7 @@ describe('Motor de Recomendación de Tragos (recetario-motor)', () => {
     nombre: 'London Dry Gin',
     marca: 'Bombay Sapphire',
     categoria: 'destilado',
+    subcategoria: 'Gin',
     volumenTotalMl: 750,
     volumenRestanteMl: 500,
     precioEstimado: 25000,
@@ -31,6 +32,7 @@ describe('Motor de Recomendación de Tragos (recetario-motor)', () => {
     nombre: 'Bitter',
     marca: 'Campari',
     categoria: 'aperitivo_bitter',
+    subcategoria: 'Bitter Rojo',
     volumenTotalMl: 750,
     volumenRestanteMl: 300,
     precioEstimado: 12000,
@@ -44,6 +46,7 @@ describe('Motor de Recomendación de Tragos (recetario-motor)', () => {
     nombre: 'Rosso',
     marca: 'Carpano',
     categoria: 'aperitivo_bitter',
+    subcategoria: 'Vermut Rosso',
     volumenTotalMl: 1000,
     volumenRestanteMl: 200,
     precioEstimado: 9000,
@@ -57,6 +60,7 @@ describe('Motor de Recomendación de Tragos (recetario-motor)', () => {
     nombre: 'Agua Tónica',
     marca: 'Paso de los Toros',
     categoria: 'mixer_sin_alcohol',
+    subcategoria: 'Tónica',
     volumenTotalMl: 1500,
     volumenRestanteMl: 1000,
     precioEstimado: 2000,
@@ -254,6 +258,60 @@ describe('Motor de Recomendación de Tragos (recetario-motor)', () => {
       expect(esBotellaCompatible(botellaSinSubcat, ingVodka)).toBe(false);
     });
 
+    it('evalúa estrictamente por categoría y subcategoría (sin usar palabras clave) cuando el ingrediente tiene categoriaId', () => {
+      // Botella cuyo nombre y marca NO contienen la palabra "Gin", pero tiene categoria="destilado" y subcategoria="Gin"
+      const apostoles: Bebida = {
+        id: 'bebida-apostoles',
+        nombre: 'Mate, Eucalipto y Peperina',
+        marca: 'Príncipe de los Apóstoles',
+        categoria: 'destilado',
+        subcategoria: 'Gin',
+        volumenTotalMl: 750,
+        volumenRestanteMl: 600,
+        fechaCreacion: '2026-11-01T00:00:00.000Z',
+        fechaActualizacion: '2026-11-01T00:00:00.000Z',
+      };
+
+      const ingGinTaxonomico: IngredienteReceta = {
+        nombre: 'Gin',
+        tipo: 'bebida',
+        categoriaId: 'destilado',
+        subcategoria: 'Gin',
+        cantidadMl: 50,
+      };
+
+      // Es compatible por categoría + subcategoría aunque no diga "Gin" en el nombre
+      expect(esBotellaCompatible(apostoles, ingGinTaxonomico)).toBe(true);
+
+      // Si una botella se llama "Gin London Dry" pero NO tiene la subcategoría "Gin" (ej. fue borrada o es otra), NO debe coincidir por palabra clave
+      const botellaConNombreGinSinSubcategoria: Bebida = {
+        id: 'bebida-sin-sub',
+        nombre: 'Gin London Dry',
+        marca: 'Bombay Sapphire',
+        categoria: 'destilado',
+        subcategoria: undefined,
+        volumenTotalMl: 750,
+        volumenRestanteMl: 500,
+        fechaCreacion: '2026-11-01T00:00:00.000Z',
+        fechaActualizacion: '2026-11-01T00:00:00.000Z',
+      };
+
+      expect(esBotellaCompatible(botellaConNombreGinSinSubcategoria, ingGinTaxonomico)).toBe(false);
+
+      // Si el ingrediente pide categoría sin subcategoría específica ("Cualquiera"), acepta cualquier botella de esa categoría
+      const ingCualquierDestilado: IngredienteReceta = {
+        nombre: 'Destilado',
+        tipo: 'bebida',
+        categoriaId: 'destilado',
+        subcategoria: undefined,
+        cantidadMl: 50,
+      };
+
+      expect(esBotellaCompatible(botellaConNombreGinSinSubcategoria, ingCualquierDestilado)).toBe(true);
+      expect(esBotellaCompatible(apostoles, ingCualquierDestilado)).toBe(true);
+      expect(esBotellaCompatible(campari, ingCualquierDestilado)).toBe(false);
+    });
+
     it('retorna false si el tipo es guarnición o insumo', () => {
       const ingHielo: IngredienteReceta = { nombre: 'Hielo', tipo: 'guarnicion_insumo' };
       expect(esBotellaCompatible(ginBombay, ingHielo)).toBe(false);
@@ -344,7 +402,7 @@ describe('Motor de Recomendación de Tragos (recetario-motor)', () => {
         nombre: 'Coca Cola',
         marca: 'Coca Cola',
         categoria: 'mixer_sin_alcohol',
-        subcategoria: 'Gaseosa',
+        subcategoria: 'Cola',
         volumenTotalMl: 1500,
         volumenRestanteMl: 1500,
         fechaCreacion: '2026-11-01T00:00:00.000Z',

@@ -85,8 +85,8 @@ Este documento reúne la terminología, entidades de negocio y conceptos funcion
 
 ### Subcategoría de Bebida
 - **Definición**: Clasificación secundaria y granular opcional (`subcategoria` en `Bebida` y `subcategorias` en `Categoria`) que especifica el tipo concreto de bebida dentro de su categoría padre (ej. Gin, Vodka, Ron dentro de Destilado; Tinto, Blanco dentro de Vino; Triple Sec dentro de Licor; Bitter Rojo, Fernet, Vermut Rosso dentro de Aperitivo / Bitter).
-- **Alcance / Propósito**: Permite emparejar ingredientes en el recetario con alta afinidad semántica y jerárquica, distinguiendo variedades y erradicando falsos positivos por substrings o comodines laxos. Se gestiona de forma configurable desde el panel de configuración de categorías y cuenta con pre-siembra estándar y backfill transparente para bases de datos preexistentes.
-- **Lo que NO es**: No es un campo obligatorio para la persistencia de botellas (manteniendo total retrocompatibilidad con botellas heredadas sin subcategoría) ni constituye una estructura jerárquica de más de dos niveles.
+- **Alcance / Propósito**: Permite emparejar ingredientes de tipo bebida en el recetario (`IngredienteReceta`) y durante la preparación de tragos de manera taxonómica estricta por `categoriaId` y `subcategoria` (y no por palabras clave en el nombre comercial), seleccionándose mediante listas desplegables tanto al registrar botellas como al crear recetas de autor. Se gestiona de forma configurable desde el panel de configuración de categorías y cuenta con pre-siembra estándar y backfill transparente para bases de datos preexistentes.
+- **Lo que NO es**: No depende del texto libre o nombre de fantasía de la botella para evaluar disponibilidad en recetas estructuradas, ni constituye una estructura jerárquica de más de dos niveles.
 
 ---
 

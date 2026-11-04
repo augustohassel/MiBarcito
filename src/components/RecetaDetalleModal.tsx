@@ -1,6 +1,8 @@
 import React from 'react';
 import { Receta } from '../domain/models/receta';
 import { EvaluacionReceta } from '../domain/services/recetario-motor';
+import { CATEGORIAS_PREDETERMINADAS } from '../domain/models/categoria';
+import { useCategoriasOpcional } from '../context/InventoryContext';
 
 export interface RecetaDetalleModalProps {
   isOpen: boolean;
@@ -23,7 +25,17 @@ export const RecetaDetalleModal: React.FC<RecetaDetalleModalProps> = ({
   onEditar,
   onDuplicar,
 }) => {
+  const categoriasCtx = useCategoriasOpcional();
+  const categorias = categoriasCtx?.categorias?.length
+    ? categoriasCtx.categorias
+    : CATEGORIAS_PREDETERMINADAS;
+
   if (!isOpen || !receta) return null;
+
+  const obtenerNombreCategoria = (catId?: string) => {
+    if (!catId) return undefined;
+    return categorias.find((c) => c.id === catId)?.nombre ?? catId;
+  };
 
   const puedePreparar = evaluacion?.puedePreparar ?? false;
 
@@ -138,7 +150,20 @@ export const RecetaDetalleModal: React.FC<RecetaDetalleModalProps> = ({
                           {item.disponible ? '✓' : esOpcionalFaltante ? '○' : '✕'}
                         </span>
                         <div>
-                          <div className="font-medium">{item.ingrediente.nombre}</div>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-medium">{item.ingrediente.nombre}</span>
+                            {item.ingrediente.tipo === 'bebida' && item.ingrediente.categoriaId && (
+                              <span
+                                data-testid={`badge-taxonomia-${idx}`}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant"
+                              >
+                                {obtenerNombreCategoria(item.ingrediente.categoriaId)}
+                                {item.ingrediente.subcategoria
+                                  ? ` › ${item.ingrediente.subcategoria}`
+                                  : ''}
+                              </span>
+                            )}
+                          </div>
                           {item.botellaSugerida && item.disponible ? (
                             <div className="text-[11px] text-on-surface-variant">
                               En despensa: {item.botellaSugerida.marca} - {item.botellaSugerida.nombre} ({item.botellaSugerida.volumenRestanteMl} ml)

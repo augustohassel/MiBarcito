@@ -53,6 +53,7 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
       nombre: 'London Dry Gin',
       marca: 'Bombay Sapphire',
       categoria: 'destilado',
+      subcategoria: 'Gin',
       volumenTotalMl: 750,
       volumenRestanteMl: 500,
       precioEstimado: 25000,
@@ -65,6 +66,7 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
       nombre: 'Bitter',
       marca: 'Campari',
       categoria: 'aperitivo_bitter',
+      subcategoria: 'Bitter Rojo',
       volumenTotalMl: 750,
       volumenRestanteMl: 400,
       precioEstimado: 12000,
@@ -77,6 +79,7 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
       nombre: 'Rosso',
       marca: 'Carpano',
       categoria: 'aperitivo_bitter',
+      subcategoria: 'Vermut Rosso',
       volumenTotalMl: 1000,
       volumenRestanteMl: 300,
       precioEstimado: 8000,
@@ -108,7 +111,7 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
     });
   });
 
-  it('permite crear, editar y eliminar una receta de autor', async () => {
+  it('permite crear, editar y eliminar una receta de autor seleccionando categoría y subcategoría', async () => {
     renderApp();
     fireEvent.click(screen.getByTestId('tab-recetario'));
 
@@ -120,15 +123,18 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
     fireEvent.click(screen.getByTestId('btn-nueva-receta'));
     expect(screen.getByRole('heading', { name: 'Nueva Receta de Autor' })).toBeInTheDocument();
 
-    // Completar formulario
+    // Completar formulario seleccionando Categoría y Subcategoría (no palabra clave libre)
     fireEvent.change(screen.getByTestId('input-receta-nombre'), {
       target: { value: 'Mi Cóctel Especial' },
     });
     fireEvent.change(screen.getByTestId('input-receta-cristaleria'), {
       target: { value: 'Copa Coupé' },
     });
-    fireEvent.change(screen.getByTestId('input-ingrediente-nombre-0'), {
-      target: { value: 'Gin' },
+    fireEvent.change(screen.getByTestId('select-ingrediente-categoria-0'), {
+      target: { value: 'destilado' },
+    });
+    fireEvent.change(screen.getByTestId('select-ingrediente-subcategoria-0'), {
+      target: { value: 'Vodka' },
     });
     fireEvent.change(screen.getByTestId('input-ingrediente-ml-0'), {
       target: { value: '60' },
@@ -152,6 +158,7 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
       nombre: 'London Dry Gin',
       marca: 'Bombay Sapphire',
       categoria: 'destilado',
+      subcategoria: 'Gin',
       volumenTotalMl: 750,
       volumenRestanteMl: 500,
       precioEstimado: 25000,
@@ -164,6 +171,7 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
       nombre: 'Agua Tónica',
       marca: 'Paso de los Toros',
       categoria: 'mixer_sin_alcohol',
+      subcategoria: 'Tónica',
       volumenTotalMl: 1500,
       volumenRestanteMl: 1000,
       precioEstimado: 2000,
@@ -210,6 +218,7 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
       nombre: 'London Dry Gin',
       marca: 'Tanqueray',
       categoria: 'destilado',
+      subcategoria: 'Gin',
       volumenTotalMl: 750,
       volumenRestanteMl: 20, // Solo quedan 20 ml
       precioEstimado: 25000,
@@ -222,6 +231,7 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
       nombre: 'Agua Tónica',
       marca: 'Paso de los Toros',
       categoria: 'mixer_sin_alcohol',
+      subcategoria: 'Tónica',
       volumenTotalMl: 1500,
       volumenRestanteMl: 1000,
       precioEstimado: 2000,

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Receta } from '../domain/models/receta';
 import { Bebida } from '../domain/models/bebida';
 import { esBotellaCompatible } from '../domain/services/recetario-motor';
+import { CATEGORIAS_PREDETERMINADAS } from '../domain/models/categoria';
+import { useCategoriasOpcional } from '../context/InventoryContext';
 
 export interface PrepararTragoModalProps {
   isOpen: boolean;
@@ -51,7 +53,17 @@ export const PrepararTragoModal: React.FC<PrepararTragoModalProps> = ({
     setErrorValidacion(null);
   }, [receta, bebidasEnDespensa, isOpen]);
 
+  const categoriasCtx = useCategoriasOpcional();
+  const categorias = categoriasCtx?.categorias?.length
+    ? categoriasCtx.categorias
+    : CATEGORIAS_PREDETERMINADAS;
+
   if (!isOpen || !receta) return null;
+
+  const obtenerNombreCategoria = (catId?: string) => {
+    if (!catId) return undefined;
+    return categorias.find((c) => c.id === catId)?.nombre ?? catId;
+  };
 
   const ingredientesBebida = receta.ingredientes
     .map((ing, idx) => ({ ing, idx }))
@@ -180,13 +192,19 @@ export const PrepararTragoModal: React.FC<PrepararTragoModalProps> = ({
                 }`}
               >
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="text-xs font-semibold text-on-surface flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-on-surface flex flex-wrap items-center gap-1.5">
                     <span
                       className={`w-2 h-2 rounded-full ${
                         item.tieneStock ? 'bg-status-emerald' : 'bg-status-rose'
                       }`}
                     />
-                    {item.ing.nombre}
+                    <span>{item.ing.nombre}</span>
+                    {item.ing.categoriaId && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant">
+                        {obtenerNombreCategoria(item.ing.categoriaId)}
+                        {item.ing.subcategoria ? ` › ${item.ing.subcategoria}` : ''}
+                      </span>
+                    )}
                   </span>
                   <span className="text-xs font-bold text-primary">
                     -{item.cantidadRequerida} ml
