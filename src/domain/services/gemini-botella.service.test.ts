@@ -271,6 +271,112 @@ describe('gemini-botella.service', () => {
       expect(res.datos?.marca).toBe('Absolut');
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });
+
+    it('si el primer modelo devuelve 404 (ej: gemini-1.5-flash deprecado), prueba el siguiente modelo candidato con éxito', async () => {
+      const fakeSuccess = {
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    esLegible: true,
+                    nombre: 'Cynar 70',
+                    marca: 'Cynar',
+                    categoriaSugerida: 'Aperitivo / Bitter',
+                    graduacionAlcoholica: 35,
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      };
+
+      const mockFetch = vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes('gemini-2.5-flash')) {
+          // Primer candidato devuelve 404
+          return {
+            ok: false,
+            status: 404,
+            text: async () => 'models/gemini-2.5-flash is not found for API version v1beta',
+          };
+        }
+        // Segundo candidato devuelve 200
+        return {
+          ok: true,
+          status: 200,
+          json: async () => fakeSuccess,
+        };
+      });
+
+      const res = await analizarFotoBotella(fakeImage, {
+        apiKey: 'clave-valida',
+        fetchFn: mockFetch as unknown as typeof fetch,
+      });
+
+      expect(res.exito).toBe(true);
+      expect(res.datos?.nombre).toBe('Cynar 70');
+    });
+
+    it('si todos los candidatos dan 404, autodescubre modelos disponibles con generateContent', async () => {
+      const fakeModelsList = {
+        models: [
+          {
+            name: 'models/gemini-3.8-flash',
+            supportedGenerationMethods: ['generateContent'],
+          },
+        ],
+      };
+
+      const fakeSuccess = {
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    esLegible: true,
+                    nombre: 'Vermut Punt e Mes',
+                    marca: 'Carpano',
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      };
+
+      const mockFetch = vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes('/models?')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => fakeModelsList,
+          };
+        }
+        if (url.includes('gemini-3.8-flash')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => fakeSuccess,
+          };
+        }
+        return {
+          ok: false,
+          status: 404,
+          text: async () => 'not found',
+        };
+      });
+
+      const res = await analizarFotoBotella(fakeImage, {
+        apiKey: 'clave-valida',
+        fetchFn: mockFetch as unknown as typeof fetch,
+      });
+
+      expect(res.exito).toBe(true);
+      expect(res.datos?.nombre).toBe('Vermut Punt e Mes');
+    });
   });
 });
 

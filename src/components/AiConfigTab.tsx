@@ -4,11 +4,15 @@ import {
   setGeminiApiKey,
   removeGeminiApiKey,
   hasGeminiApiKey,
+  getGeminiModel,
+  setGeminiModel,
+  MODELOS_DISPONIBLES_GEMINI,
 } from '../infrastructure/ai/ai-config';
 
 export const AiConfigTab: React.FC = () => {
   const [keyInput, setKeyInput] = useState('');
   const [showKey, setShowKey] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<string>(getGeminiModel());
   const [isConfigured, setIsConfigured] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<{
     text: string;
@@ -16,13 +20,16 @@ export const AiConfigTab: React.FC = () => {
   } | null>(null);
 
   useEffect(() => {
-    const current = getGeminiApiKey();
-    setKeyInput(current);
+    const currentKey = getGeminiApiKey();
+    setKeyInput(currentKey);
+    setSelectedModel(getGeminiModel());
     setIsConfigured(hasGeminiApiKey());
   }, []);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    setGeminiModel(selectedModel);
+
     if (!keyInput.trim()) {
       removeGeminiApiKey();
       setIsConfigured(false);
@@ -32,7 +39,7 @@ export const AiConfigTab: React.FC = () => {
 
     setGeminiApiKey(keyInput);
     setIsConfigured(true);
-    setFeedbackMessage({ text: 'API Key de Gemini guardada con éxito.', type: 'success' });
+    setFeedbackMessage({ text: 'Configuración de Gemini guardada con éxito.', type: 'success' });
   };
 
   const handleRemove = () => {
@@ -67,7 +74,7 @@ export const AiConfigTab: React.FC = () => {
           <span className="text-base">{isConfigured ? '🟢' : '⚪'}</span>
           <span>
             {isConfigured
-              ? 'IA Multimodal Activa (API Key configurada)'
+              ? `IA Multimodal Activa (${selectedModel})`
               : 'Sin API Key configurada'}
           </span>
         </div>
@@ -111,6 +118,33 @@ export const AiConfigTab: React.FC = () => {
           </div>
         </div>
 
+        <div>
+          <label
+            htmlFor="gemini-model-select"
+            className="block text-xs font-medium text-on-surface mb-1"
+          >
+            Modelo de Gemini
+          </label>
+          <select
+            id="gemini-model-select"
+            value={selectedModel}
+            onChange={(e) => {
+              setSelectedModel(e.target.value);
+              setFeedbackMessage(null);
+            }}
+            className="w-full bg-surface-container-high border border-outline rounded-xl px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary cursor-pointer"
+          >
+            {MODELOS_DISPONIBLES_GEMINI.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.nombre}
+              </option>
+            ))}
+          </select>
+          <p className="text-[11px] text-on-surface-variant/80 mt-1">
+            Si un modelo arroja 404 por versión de API, el sistema reintenta automáticamente con los demás modelos candidatos.
+          </p>
+        </div>
+
         {feedbackMessage && (
           <p
             className={`text-xs font-medium ${
@@ -127,7 +161,7 @@ export const AiConfigTab: React.FC = () => {
             className="px-4 py-2 bg-primary text-on-primary rounded-xl text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1.5"
           >
             <span>💾</span>
-            <span>Guardar Clave</span>
+            <span>Guardar Configuración</span>
           </button>
           {isConfigured && (
             <button
@@ -167,4 +201,3 @@ export const AiConfigTab: React.FC = () => {
     </div>
   );
 };
-

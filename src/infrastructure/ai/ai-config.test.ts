@@ -4,6 +4,8 @@ import {
   setGeminiApiKey,
   removeGeminiApiKey,
   hasGeminiApiKey,
+  getGeminiModel,
+  setGeminiModel,
   GEMINI_API_KEY_STORAGE_KEY,
 } from './ai-config';
 
@@ -49,6 +51,16 @@ describe('ai-config - Gestión de Gemini API Key', () => {
     setGeminiApiKey('   ');
     expect(hasGeminiApiKey()).toBe(false);
     expect(getGeminiApiKey()).toBe('');
+  });
+
+  it('gestiona el modelo configurado con fallback por defecto', () => {
+    expect(getGeminiModel()).toBe('gemini-2.5-flash');
+
+    setGeminiModel('gemini-3.8-flash');
+    expect(getGeminiModel()).toBe('gemini-3.8-flash');
+
+    setGeminiModel('');
+    expect(getGeminiModel()).toBe('gemini-2.5-flash');
   });
 });
 

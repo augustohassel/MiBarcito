@@ -230,11 +230,11 @@ describe('ConfiguracionModal y CategoriasConfig', () => {
     const inputKey = screen.getByLabelText('Gemini API Key');
     fireEvent.change(inputKey, { target: { value: 'AIzaSyTestApiKey123' } });
 
-    fireEvent.click(screen.getByRole('button', { name: /Guardar Clave/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Guardar Configuración/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('API Key de Gemini guardada con éxito.')).toBeInTheDocument();
-      expect(screen.getByText('IA Multimodal Activa (API Key configurada)')).toBeInTheDocument();
+      expect(screen.getByText('Configuración de Gemini guardada con éxito.')).toBeInTheDocument();
+      expect(screen.getByText(/IA Multimodal Activa/i)).toBeInTheDocument();
     });
   });
 });
