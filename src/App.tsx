@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useInventoryRepository, useRecetas } from './context/InventoryContext';
 import { useTheme } from './hooks/useTheme';
 import {
@@ -10,7 +10,8 @@ import { clasificarRecetas, normalizarTexto } from './domain/services/recetario-
 import { BebidaCard } from './components/BebidaCard';
 import { BebidaFormModal, BebidaFormValues } from './components/BebidaFormModal';
 import { ConfirmModal } from './components/ConfirmModal';
-import { ConfiguracionModal } from './components/ConfiguracionModal';
+import { ConfiguracionModal, TabConfig } from './components/ConfiguracionModal';
+import { hasGeminiApiKey } from './infrastructure/ai/ai-config';
 import {
   FiltrosEstado,
   filtrarYOrdenarBebidas,
@@ -58,6 +59,9 @@ export function App() {
   // Estados de Modales de Despensa
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [configTab, setConfigTab] = useState<TabConfig>('categorias');
+  const [fotoPendienteParaModal, setFotoPendienteParaModal] = useState<File | null>(null);
+  const fileInputFotoRef = useRef<HTMLInputElement>(null);
   const [bebidaAEditar, setBebidaAEditar] = useState<Bebida | null>(null);
   const [bebidaAEliminar, setBebidaAEliminar] = useState<Bebida | null>(null);
 
@@ -153,13 +157,38 @@ export function App() {
   }, [clasificacionRecetas, busquedaReceta, filtroSeccionReceta]);
 
   // Handlers de CRUD de Bebidas
+  const handleAbrirConfiguracion = (tab: TabConfig = 'categorias') => {
+    setConfigTab(tab);
+    setIsConfigOpen(true);
+  };
+
   const handleAbrirCrear = () => {
     setBebidaAEditar(null);
+    setFotoPendienteParaModal(null);
     setIsFormOpen(true);
+  };
+
+  const handleAbrirCargarConFoto = () => {
+    if (!hasGeminiApiKey()) {
+      handleAbrirConfiguracion('ia');
+      return;
+    }
+    fileInputFotoRef.current?.click();
+  };
+
+  const handleFotoSeleccionada = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files[0]) {
+      setBebidaAEditar(null);
+      setFotoPendienteParaModal(files[0]);
+      setIsFormOpen(true);
+    }
+    e.target.value = '';
   };
 
   const handleAbrirEditar = (bebida: Bebida) => {
     setBebidaAEditar(bebida);
+    setFotoPendienteParaModal(null);
     setIsFormOpen(true);
   };
 
@@ -371,7 +400,7 @@ export function App() {
             </button>
 
             <button
-              onClick={() => setIsConfigOpen(true)}
+              onClick={() => handleAbrirConfiguracion('categorias')}
               aria-label="Abrir Configuración"
               title="Configuración de Parámetros y Categorías"
               className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline transition-colors flex items-center gap-1.5 text-xs font-medium cursor-pointer shadow-xs ml-0.5"
@@ -483,13 +512,30 @@ export function App() {
               <h2 className="text-base font-semibold text-on-surface">
                 Despensa ({bebidasFiltradas.length})
               </h2>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                <input
+                  type="file"
+                  ref={fileInputFotoRef}
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handleFotoSeleccionada}
+                  aria-label="Capturar o subir foto para despensa"
+                />
                 <button
                   onClick={handleAbrirCrear}
                   className="px-3.5 py-2 text-xs sm:text-sm font-semibold bg-primary hover:bg-primary-hover text-on-primary rounded-xl transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
                 >
                   <span>+</span>
                   <span>Nueva Bebida</span>
+                </button>
+                <button
+                  onClick={handleAbrirCargarConFoto}
+                  className="px-3.5 py-2 text-xs sm:text-sm font-semibold bg-secondary/15 hover:bg-secondary/25 text-secondary border border-secondary/30 rounded-xl transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
+                  title="Reconocer etiqueta y autocompletar con IA Gemini"
+                >
+                  <span>📸</span>
+                  <span>Cargar con Foto</span>
                 </button>
                 <button
                   onClick={handleAgregarMuestra}
@@ -684,8 +730,13 @@ export function App() {
       <BebidaFormModal
         isOpen={isFormOpen}
         bebidaAEditar={bebidaAEditar}
+        fotoInicial={fotoPendienteParaModal}
         onSave={handleGuardarBebida}
-        onClose={() => setIsFormOpen(false)}
+        onClose={() => {
+          setIsFormOpen(false);
+          setFotoPendienteParaModal(null);
+        }}
+        onAbrirConfiguracionIa={() => handleAbrirConfiguracion('ia')}
       />
 
       <ConfirmModal
@@ -703,6 +754,7 @@ export function App() {
         isOpen={isConfigOpen}
         onClose={() => setIsConfigOpen(false)}
         bebidas={bebidas}
+        initialTab={configTab}
       />
 
       {/* Modales de Recetario */}
