@@ -117,7 +117,7 @@ export function evaluarIngrediente(
   bebidas: Bebida[]
 ): EvaluacionIngrediente {
   // Los insumos o guarniciones frescas no bloquean la preparación ni descuentan botellas
-  if (ingrediente.tipo === 'guarnicion_insumo' || ingrediente.opcional) {
+  if (ingrediente.tipo === 'guarnicion_insumo') {
     return {
       ingrediente,
       disponible: true,
@@ -194,9 +194,10 @@ export function evaluarReceta(receta: Receta, bebidas: Bebida[]): EvaluacionRece
 
   const ingredientesDisponibles = ingredientesEvaluados.filter((i) => i.disponible);
   const ingredientesFaltantes = ingredientesEvaluados.filter((i) => !i.disponible);
+  const faltantesObligatorios = ingredientesFaltantes.filter((i) => !i.ingrediente.opcional);
 
-  const puedePreparar = ingredientesFaltantes.length === 0;
-  const cantidadFaltantes = ingredientesFaltantes.length;
+  const puedePreparar = faltantesObligatorios.length === 0;
+  const cantidadFaltantes = faltantesObligatorios.length;
 
   let seccion: 'armar_hoy' | 'casi_listos' | 'otras' = 'otras';
   if (puedePreparar) {

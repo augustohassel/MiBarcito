@@ -112,42 +112,52 @@ export const RecetaDetalleModal: React.FC<RecetaDetalleModalProps> = ({
             </h3>
             <div className="space-y-2">
               {evaluacion?.ingredientesEvaluados ? (
-                evaluacion.ingredientesEvaluados.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className={`p-3 rounded-2xl border flex items-center justify-between gap-3 text-xs ${
-                      item.disponible
-                        ? 'bg-status-emerald/5 border-status-emerald/30 text-on-surface'
-                        : 'bg-status-rose/5 border-status-rose/30 text-on-surface'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span
-                        className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 ${
-                          item.disponible
-                            ? 'bg-status-emerald text-white'
-                            : 'bg-status-rose text-white'
-                        }`}
-                      >
-                        {item.disponible ? '✓' : '✕'}
-                      </span>
-                      <div>
-                        <div className="font-medium">{item.ingrediente.nombre}</div>
-                        {item.botellaSugerida ? (
-                          <div className="text-[11px] text-on-surface-variant">
-                            En despensa: {item.botellaSugerida.marca} - {item.botellaSugerida.nombre} ({item.botellaSugerida.volumenRestanteMl} ml)
-                          </div>
-                        ) : item.ingrediente.tipo === 'guarnicion_insumo' ? (
-                          <div className="text-[11px] text-on-surface-variant italic">
-                            Insumo o guarnición de almacén
-                          </div>
-                        ) : (
-                          <div className="text-[11px] text-status-rose font-medium">
-                            No disponible en tu despensa
-                          </div>
-                        )}
+                evaluacion.ingredientesEvaluados.map((item, idx) => {
+                  const esOpcionalFaltante = !item.disponible && Boolean(item.ingrediente.opcional);
+                  return (
+                    <div
+                      key={idx}
+                      className={`p-3 rounded-2xl border flex items-center justify-between gap-3 text-xs ${
+                        item.disponible
+                          ? 'bg-status-emerald/5 border-status-emerald/30 text-on-surface'
+                          : esOpcionalFaltante
+                          ? 'bg-surface border-outline-variant text-on-surface'
+                          : 'bg-status-rose/5 border-status-rose/30 text-on-surface'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 font-bold ${
+                            item.disponible
+                              ? 'bg-status-emerald text-white'
+                              : esOpcionalFaltante
+                              ? 'bg-surface-container-high text-on-surface-variant border border-outline'
+                              : 'bg-status-rose text-white'
+                          }`}
+                        >
+                          {item.disponible ? '✓' : esOpcionalFaltante ? '○' : '✕'}
+                        </span>
+                        <div>
+                          <div className="font-medium">{item.ingrediente.nombre}</div>
+                          {item.botellaSugerida && item.disponible ? (
+                            <div className="text-[11px] text-on-surface-variant">
+                              En despensa: {item.botellaSugerida.marca} - {item.botellaSugerida.nombre} ({item.botellaSugerida.volumenRestanteMl} ml)
+                            </div>
+                          ) : item.ingrediente.tipo === 'guarnicion_insumo' ? (
+                            <div className="text-[11px] text-on-surface-variant italic">
+                              Insumo o guarnición de almacén
+                            </div>
+                          ) : esOpcionalFaltante ? (
+                            <div className="text-[11px] text-on-surface-variant">
+                              Opcional — No disponible en tu despensa
+                            </div>
+                          ) : (
+                            <div className="text-[11px] text-status-rose font-medium">
+                              No disponible en tu despensa
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
 
                     <div className="text-right shrink-0">
                       <span className="font-bold text-on-surface">
@@ -160,7 +170,8 @@ export const RecetaDetalleModal: React.FC<RecetaDetalleModalProps> = ({
                       )}
                     </div>
                   </div>
-                ))
+                );
+              })
               ) : (
                 receta.ingredientes.map((ing, idx) => (
                   <div

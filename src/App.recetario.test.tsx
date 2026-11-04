@@ -253,5 +253,23 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
     const ginIntacto = await mockInventoryRepo.getById('gin-vacio');
     expect(ginIntacto?.volumenRestanteMl).toBe(20);
   });
+
+  it('en el modal de detalle muestra ingredientes opcionales faltantes sin tildar en verde contradictorio', async () => {
+    renderApp();
+    fireEvent.click(screen.getByTestId('tab-recetario'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Cuba Libre')).toBeInTheDocument();
+    });
+
+    // Abrir detalle de Cuba Libre
+    fireEvent.click(screen.getByTestId('detalle-receta-receta-cuba-libre'));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Jugo de Lima fresca').length).toBeGreaterThanOrEqual(1);
+      // Debe indicar explícitamente "Opcional — No disponible en tu despensa"
+      expect(screen.getByText('Opcional — No disponible en tu despensa')).toBeInTheDocument();
+    });
+  });
 });
 

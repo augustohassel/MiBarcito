@@ -67,7 +67,10 @@ export const PrepararTragoModal: React.FC<PrepararTragoModalProps> = ({
     const cantidadRequerida = ing.cantidadMl ?? 0;
     const compatibles = bebidasEnDespensa.filter((b) => esBotellaCompatible(b, ing));
 
-    const tieneStock = botella ? botella.volumenRestanteMl >= cantidadRequerida : false;
+    const tieneStock = botella
+      ? botella.volumenRestanteMl >= cantidadRequerida
+      : Boolean(ing.opcional);
+
     if (!tieneStock) {
       hayStockInsuficiente = true;
       if (!mensajeStockInsuficiente) {
@@ -104,10 +107,12 @@ export const PrepararTragoModal: React.FC<PrepararTragoModalProps> = ({
       return;
     }
 
-    const descuentos = itemsDescuento.map((item) => ({
-      botellaId: item.botella!.id,
-      cantidadMl: item.cantidadRequerida,
-    }));
+    const descuentos = itemsDescuento
+      .filter((item) => Boolean(item.botella))
+      .map((item) => ({
+        botellaId: item.botella!.id,
+        cantidadMl: item.cantidadRequerida,
+      }));
 
     setProcesando(true);
     try {
@@ -200,6 +205,9 @@ export const PrepararTragoModal: React.FC<PrepararTragoModalProps> = ({
                       data-testid={`select-botella-${item.idx}`}
                       className="w-full px-3 py-1.5 rounded-xl bg-surface-container border border-outline text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
                     >
+                      {item.ing.opcional && (
+                        <option value="">(Opcional - No incluir)</option>
+                      )}
                       {item.compatibles.map((b) => (
                         <option key={b.id} value={b.id}>
                           {b.marca} - {b.nombre} (Stock: {b.volumenRestanteMl} ml)
@@ -216,6 +224,10 @@ export const PrepararTragoModal: React.FC<PrepararTragoModalProps> = ({
                       </div>
                     )}
                   </div>
+                ) : item.ing.opcional ? (
+                  <p className="text-xs text-on-surface-variant italic">
+                    Ingrediente opcional — No tenés botella compatible en tu despensa (no se descontará stock).
+                  </p>
                 ) : (
                   <p className="text-xs text-status-rose font-medium">
                     ⚠️ No se encontró ninguna botella compatible en tu despensa para este ingrediente.

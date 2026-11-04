@@ -326,6 +326,46 @@ describe('Motor de Recomendación de Tragos (recetario-motor)', () => {
       expect(evaluacion.cantidadFaltantes).toBe(3);
     });
 
+    it('ingredientes opcionales faltantes reflejan disponible: false pero no impiden armar_hoy ni suman faltantes', () => {
+      const recetaCubaLibre = RECETAS_PREDETERMINADAS.find((r) => r.id === 'receta-cuba-libre')!;
+      const ronHavana: Bebida = {
+        id: 'ron-1',
+        nombre: 'Ron Blanco',
+        marca: 'Havana Club',
+        categoria: 'destilado',
+        subcategoria: 'Ron',
+        volumenTotalMl: 750,
+        volumenRestanteMl: 500,
+        fechaCreacion: '2026-11-01T00:00:00.000Z',
+        fechaActualizacion: '2026-11-01T00:00:00.000Z',
+      };
+      const cocaCola: Bebida = {
+        id: 'cola-1',
+        nombre: 'Coca Cola',
+        marca: 'Coca Cola',
+        categoria: 'mixer_sin_alcohol',
+        subcategoria: 'Gaseosa',
+        volumenTotalMl: 1500,
+        volumenRestanteMl: 1500,
+        fechaCreacion: '2026-11-01T00:00:00.000Z',
+        fechaActualizacion: '2026-11-01T00:00:00.000Z',
+      };
+
+      // Tenemos Ron y Coca Cola, pero NO Jugo de Lima fresca (ingrediente opcional)
+      const evaluacion = evaluarReceta(recetaCubaLibre, [ronHavana, cocaCola]);
+
+      expect(evaluacion.puedePreparar).toBe(true);
+      expect(evaluacion.seccion).toBe('armar_hoy');
+      expect(evaluacion.cantidadFaltantes).toBe(0);
+
+      const itemLima = evaluacion.ingredientesEvaluados.find(
+        (i) => i.ingrediente.nombre === 'Jugo de Lima fresca'
+      );
+      expect(itemLima).toBeDefined();
+      expect(itemLima?.disponible).toBe(false);
+      expect(itemLima?.ingrediente.opcional).toBe(true);
+    });
+
     it('clasificarRecetas segrega correctamente las recetas del catálogo en sus secciones', () => {
       const despensa = [ginBombay, campari, vermutRosso, tonica];
       const resultado = clasificarRecetas([recetaNegroni, recetaGinTonic, recetaOldFashioned], despensa);
