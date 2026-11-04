@@ -67,6 +67,11 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
               <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-surface-container-high text-primary border border-outline">
                 {categoriaLabel}
               </span>
+              {bebida.subcategoria && (
+                <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-surface-container-high text-secondary border border-outline">
+                  {bebida.subcategoria}
+                </span>
+              )}
               {bajoStock && (
                 <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-status-amber/20 text-status-amber border border-status-amber/30 flex items-center gap-1">
                   ⚠️ Stock Bajo

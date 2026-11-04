@@ -4,6 +4,7 @@ import {
   Categoria,
   CATEGORIA_COMODIN_ID,
   validarCategoria,
+  validarSubcategoria,
   puedeEliminarCategoria,
 } from '../domain/models/categoria';
 import { Bebida } from '../domain/models/bebida';
@@ -28,6 +29,11 @@ export const CategoriasConfig: React.FC<CategoriasConfigProps> = ({ bebidas }) =
   // Estado para eliminar
   const [categoriaAEliminar, setCategoriaAEliminar] = useState<Categoria | null>(null);
   const [mensajeBloqueoEliminacion, setMensajeBloqueoEliminacion] = useState<string | null>(null);
+
+  // Estado para gestión de subcategorías
+  const [categoriaExpandidaId, setCategoriaExpandidaId] = useState<string | null>(null);
+  const [nuevaSubcatTexto, setNuevaSubcatTexto] = useState('');
+  const [errorSubcat, setErrorSubcat] = useState<string | null>(null);
 
   // Cantidad de bebidas por categoría
   const getCantidadBebidas = (catId: string): number => {
@@ -54,6 +60,7 @@ export const CategoriasConfig: React.FC<CategoriasConfigProps> = ({ bebidas }) =
       nombre: nuevoNombre.trim(),
       esPredeterminada: false,
       orden: maxOrden + 1,
+      subcategorias: [],
       fechaCreacion: ahora,
       fechaActualizacion: ahora,
     };
@@ -63,6 +70,61 @@ export const CategoriasConfig: React.FC<CategoriasConfigProps> = ({ bebidas }) =
       setNuevoNombre('');
     } catch (err) {
       setErrorCrear('Ocurrió un error al guardar la categoría');
+      console.error(err);
+    }
+  };
+
+  // Handlers para Subcategorías
+  const toggleExpandirSubcategorias = (catId: string) => {
+    if (categoriaExpandidaId === catId) {
+      setCategoriaExpandidaId(null);
+    } else {
+      setCategoriaExpandidaId(catId);
+      setNuevaSubcatTexto('');
+      setErrorSubcat(null);
+    }
+  };
+
+  const handleAgregarSubcategoria = async (categoria: Categoria) => {
+    setErrorSubcat(null);
+    const actuales = categoria.subcategorias ?? [];
+    const validacion = validarSubcategoria(nuevaSubcatTexto, actuales);
+    if (!validacion.valido) {
+      setErrorSubcat(validacion.error || 'Nombre de subcategoría inválido');
+      return;
+    }
+
+    const categoriaActualizada: Categoria = {
+      ...categoria,
+      subcategorias: [...actuales, nuevaSubcatTexto.trim()],
+      fechaActualizacion: new Date().toISOString(),
+    };
+
+    try {
+      await guardarCategoria(categoriaActualizada);
+      setNuevaSubcatTexto('');
+    } catch (err) {
+      console.error(err);
+      setErrorSubcat('Ocurrió un error al guardar la subcategoría');
+    }
+  };
+
+  const handleEliminarSubcategoria = async (
+    categoria: Categoria,
+    subcategoriaAEliminar: string
+  ) => {
+    const actuales = categoria.subcategorias ?? [];
+    const filtradas = actuales.filter((s) => s !== subcategoriaAEliminar);
+
+    const categoriaActualizada: Categoria = {
+      ...categoria,
+      subcategorias: filtradas,
+      fechaActualizacion: new Date().toISOString(),
+    };
+
+    try {
+      await guardarCategoria(categoriaActualizada);
+    } catch (err) {
       console.error(err);
     }
   };
@@ -212,91 +274,177 @@ export const CategoriasConfig: React.FC<CategoriasConfigProps> = ({ bebidas }) =
             return (
               <div
                 key={cat.id}
-                className="flex items-center justify-between p-2.5 bg-surface rounded-xl border border-outline gap-2"
+                className="flex flex-col p-2.5 bg-surface rounded-xl border border-outline gap-2"
               >
-                {enEdicion ? (
-                  <div className="flex flex-1 flex-col gap-1">
-                    <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  {enEdicion ? (
+                    <div className="flex flex-1 flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={nombreEnEdicion}
+                          onChange={(e) => {
+                            setNombreEnEdicion(e.target.value);
+                            if (errorEditar) setErrorEditar(null);
+                          }}
+                          aria-label="Editar nombre de categoría"
+                          className="flex-1 bg-surface-container border border-primary rounded-lg px-2.5 py-1 text-xs text-on-surface focus:outline-none"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleGuardarEdicion(cat)}
+                          className="px-2.5 py-1 text-xs font-medium bg-status-emerald hover:bg-status-emerald/90 text-white rounded-lg transition-colors cursor-pointer"
+                          title="Guardar nombre"
+                        >
+                          ✓
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelarEdicion}
+                          className="px-2 py-1 text-xs font-medium bg-surface-container-high hover:bg-surface text-on-surface rounded-lg transition-colors cursor-pointer"
+                          title="Cancelar"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      {errorEditar && (
+                        <span className="text-xs text-status-rose">{errorEditar}</span>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2 flex-wrap min-w-0">
+                        <span className="text-xs sm:text-sm font-medium text-on-surface truncate">
+                          {cat.nombre}
+                        </span>
+                        {cat.esPredeterminada ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-surface-container-high text-on-surface-variant border border-outline">
+                            Predeterminada
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-status-emerald/15 text-status-emerald border border-status-emerald/30">
+                            Personalizada
+                          </span>
+                        )}
+                        <span className="text-[11px] text-on-surface-variant">
+                          ({cantidadBebidas} {cantidadBebidas === 1 ? 'botella' : 'botellas'})
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => toggleExpandirSubcategorias(cat.id)}
+                          className={`px-2 py-1 text-xs font-medium rounded-lg transition-colors cursor-pointer flex items-center gap-1 ${
+                            categoriaExpandidaId === cat.id
+                              ? 'bg-primary/15 text-primary border border-primary/30'
+                              : 'text-on-surface-variant hover:text-primary hover:bg-surface-container-high'
+                          }`}
+                          title="Administrar subcategorías"
+                          aria-label={`Administrar subcategorías de ${cat.nombre}`}
+                        >
+                          <span>🏷️</span>
+                          <span className="hidden sm:inline">Subcats</span>
+                          <span className="text-[11px]">({(cat.subcategorias ?? []).length})</span>
+                          <span>{categoriaExpandidaId === cat.id ? '▲' : '▼'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleIniciarEditar(cat)}
+                          className="px-2 py-1 text-xs font-medium text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded-lg transition-colors cursor-pointer"
+                          title="Renombrar categoría"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSolicitarEliminar(cat)}
+                          disabled={esComodin}
+                          className={`px-2 py-1 text-xs font-medium rounded-lg transition-colors ${
+                            esComodin
+                              ? 'text-on-surface-variant/40 cursor-not-allowed opacity-50'
+                              : 'text-on-surface-variant hover:text-status-rose hover:bg-status-rose/10 cursor-pointer'
+                          }`}
+                          title={
+                            esComodin
+                              ? "La categoría 'Otro' es el comodín reservado del sistema y no puede eliminarse."
+                              : 'Eliminar categoría'
+                          }
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Panel expandible de Subcategorías */}
+                {categoriaExpandidaId === cat.id && (
+                  <div className="mt-1 pt-2 border-t border-outline/50 flex flex-col gap-2">
+                    <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
+                      Subcategorías de {cat.nombre}
+                    </span>
+
+                    {/* Chips de subcategorías */}
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      {(cat.subcategorias ?? []).length === 0 ? (
+                        <span className="text-xs text-on-surface-variant italic">
+                          Sin subcategorías registradas
+                        </span>
+                      ) : (
+                        (cat.subcategorias ?? []).map((sub) => (
+                          <span
+                            key={sub}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-surface-container border border-outline text-on-surface"
+                          >
+                            <span>{sub}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleEliminarSubcategoria(cat, sub)}
+                              className="text-on-surface-variant hover:text-status-rose transition-colors cursor-pointer font-bold leading-none ml-0.5"
+                              title={`Eliminar ${sub}`}
+                              aria-label={`Eliminar subcategoría ${sub}`}
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Formulario para agregar subcategoría */}
+                    <div className="flex gap-2 mt-1">
                       <input
                         type="text"
-                        value={nombreEnEdicion}
+                        value={nuevaSubcatTexto}
                         onChange={(e) => {
-                          setNombreEnEdicion(e.target.value);
-                          if (errorEditar) setErrorEditar(null);
+                          setNuevaSubcatTexto(e.target.value);
+                          if (errorSubcat) setErrorSubcat(null);
                         }}
-                        aria-label="Editar nombre de categoría"
-                        className="flex-1 bg-surface-container border border-primary rounded-lg px-2.5 py-1 text-xs text-on-surface focus:outline-none"
-                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAgregarSubcategoria(cat);
+                          }
+                        }}
+                        placeholder={`Nueva subcategoría para ${cat.nombre}...`}
+                        aria-label={`Nueva subcategoría para ${cat.nombre}`}
+                        className="flex-1 bg-surface-container border border-outline rounded-lg px-2.5 py-1 text-xs text-on-surface placeholder-on-surface-variant focus:outline-none focus:ring-1 focus:ring-primary"
                       />
                       <button
                         type="button"
-                        onClick={() => handleGuardarEdicion(cat)}
-                        className="px-2.5 py-1 text-xs font-medium bg-status-emerald hover:bg-status-emerald/90 text-white rounded-lg transition-colors cursor-pointer"
-                        title="Guardar nombre"
+                        onClick={() => handleAgregarSubcategoria(cat)}
+                        aria-label={`Agregar subcategoría a ${cat.nombre}`}
+                        className="px-3 py-1 text-xs font-semibold bg-primary hover:bg-primary-hover text-on-primary rounded-lg transition-colors cursor-pointer"
                       >
-                        ✓
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleCancelarEdicion}
-                        className="px-2 py-1 text-xs font-medium bg-surface-container-high hover:bg-surface text-on-surface rounded-lg transition-colors cursor-pointer"
-                        title="Cancelar"
-                      >
-                        ✕
+                        + Agregar
                       </button>
                     </div>
-                    {errorEditar && (
-                      <span className="text-xs text-status-rose">{errorEditar}</span>
+                    {errorSubcat && (
+                      <p className="text-[11px] text-status-rose">{errorSubcat}</p>
                     )}
                   </div>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-2 flex-wrap min-w-0">
-                      <span className="text-xs sm:text-sm font-medium text-on-surface truncate">
-                        {cat.nombre}
-                      </span>
-                      {cat.esPredeterminada ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-surface-container-high text-on-surface-variant border border-outline">
-                          Predeterminada
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-status-emerald/15 text-status-emerald border border-status-emerald/30">
-                          Personalizada
-                        </span>
-                      )}
-                      <span className="text-[11px] text-on-surface-variant">
-                        ({cantidadBebidas} {cantidadBebidas === 1 ? 'botella' : 'botellas'})
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => handleIniciarEditar(cat)}
-                        className="px-2 py-1 text-xs font-medium text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded-lg transition-colors cursor-pointer"
-                        title="Renombrar categoría"
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSolicitarEliminar(cat)}
-                        disabled={esComodin}
-                        className={`px-2 py-1 text-xs font-medium rounded-lg transition-colors ${
-                          esComodin
-                            ? 'text-on-surface-variant/40 cursor-not-allowed opacity-50'
-                            : 'text-on-surface-variant hover:text-status-rose hover:bg-status-rose/10 cursor-pointer'
-                        }`}
-                        title={
-                          esComodin
-                            ? "La categoría 'Otro' es el comodín reservado del sistema y no puede eliminarse."
-                            : 'Eliminar categoría'
-                        }
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </>
                 )}
               </div>
             );

@@ -96,7 +96,7 @@ describe('App Component - Gestión de Despensa e Inventario', () => {
     fireEvent.change(screen.getByLabelText(/Marca \/ Destilería/i), {
       target: { value: 'Fratelli Branca' },
     });
-    fireEvent.change(screen.getByLabelText(/Categoría/i), {
+    fireEvent.change(screen.getByLabelText(/^Categoría/i), {
       target: { value: 'aperitivo_bitter' },
     });
     fireEvent.change(screen.getByLabelText(/Capacidad Total/i), {

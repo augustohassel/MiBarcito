@@ -7,6 +7,7 @@ import {
   ErroresValidacionBebida,
   validarBebida,
 } from '../domain/models/bebida';
+import { CATEGORIAS_PREDETERMINADAS } from '../domain/models/categoria';
 import { compressAndResizeImage } from '../utils/image-processor';
 import { analizarFotoBotella } from '../domain/services/gemini-botella.service';
 import { hasGeminiApiKey } from '../infrastructure/ai/ai-config';
@@ -16,6 +17,7 @@ export interface BebidaFormValues {
   nombre: string;
   marca: string;
   categoria: CategoriaBebida;
+  subcategoria?: string;
   volumenTotalMl: number;
   volumenRestanteMl: number;
   graduacionAlcoholica?: number;
@@ -37,6 +39,7 @@ const VALORES_INICIALES: BebidaFormValues = {
   nombre: '',
   marca: '',
   categoria: 'destilado',
+  subcategoria: '',
   volumenTotalMl: 750,
   volumenRestanteMl: 750,
   graduacionAlcoholica: undefined,
@@ -63,6 +66,16 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
   const [formData, setFormData] = useState<BebidaFormValues>(VALORES_INICIALES);
   const [errores, setErrores] = useState<ErroresValidacionBebida>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Subcategorías disponibles según la categoría seleccionada
+  const subcategoriasDisponibles = useMemo(() => {
+    const cat = categoriasCtx?.categorias.find((c) => c.id === formData.categoria);
+    if (cat && Array.isArray(cat.subcategorias)) {
+      return cat.subcategorias;
+    }
+    const def = CATEGORIAS_PREDETERMINADAS.find((c) => c.id === formData.categoria);
+    return def?.subcategorias ?? [];
+  }, [categoriasCtx?.categorias, formData.categoria]);
 
   // Estados de IA y Carga por Foto
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
@@ -162,6 +175,7 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
         nombre: bebidaAEditar.nombre,
         marca: bebidaAEditar.marca,
         categoria: bebidaAEditar.categoria,
+        subcategoria: bebidaAEditar.subcategoria || '',
         volumenTotalMl: bebidaAEditar.volumenTotalMl,
         volumenRestanteMl: bebidaAEditar.volumenRestanteMl,
         graduacionAlcoholica: bebidaAEditar.graduacionAlcoholica,
@@ -176,6 +190,7 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
       setFormData({
         ...VALORES_INICIALES,
         categoria: opcionesCategorias[0]?.value || 'destilado',
+        subcategoria: '',
       });
       setFotoPreview(null);
       setAiError(null);
@@ -220,6 +235,28 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
     }
   };
 
+  const handleCategoriaChange = (nuevaCategoria: CategoriaBebida) => {
+    // Al cambiar la categoría principal, se resetea la subcategoría para evitar combinaciones incoherentes
+    const updated: BebidaFormValues = {
+      ...formData,
+      categoria: nuevaCategoria,
+      subcategoria: '',
+    };
+    setFormData(updated);
+
+    if (errores.categoria || errores.subcategoria) {
+      const nuevosErrores = validarBebida(
+        updated,
+        opcionesCategorias.map((c) => c.value)
+      );
+      setErrores((prevErr) => ({
+        ...prevErr,
+        categoria: nuevosErrores.categoria,
+        subcategoria: nuevosErrores.subcategoria,
+      }));
+    }
+  };
+
   const handleLlenar100 = () => {
     handleChange('volumenRestanteMl', formData.volumenTotalMl);
   };
@@ -235,8 +272,12 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const datosParaGuardar: BebidaFormValues = {
+      ...formData,
+      subcategoria: formData.subcategoria?.trim() ? formData.subcategoria.trim() : undefined,
+    };
     const resultadoErrores = validarBebida(
-      formData,
+      datosParaGuardar,
       opcionesCategorias.map((c) => c.value)
     );
 
@@ -247,7 +288,7 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
 
     try {
       setIsSubmitting(true);
-      await onSave(formData);
+      await onSave(datosParaGuardar);
       onClose();
     } catch (err) {
       console.error('Error al guardar bebida:', err);
@@ -437,8 +478,8 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
             </div>
           </div>
 
-          {/* Categoría y Favorito */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+          {/* Categoría y Subcategoría */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="categoria" className="block text-xs font-medium text-on-surface-variant mb-1">
                 Categoría *
@@ -447,7 +488,7 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
                 id="categoria"
                 name="categoria"
                 value={formData.categoria}
-                onChange={(e) => handleChange('categoria', e.target.value as CategoriaBebida)}
+                onChange={(e) => handleCategoriaChange(e.target.value as CategoriaBebida)}
                 className={`w-full px-3 py-2 bg-surface border rounded-xl text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-colors ${
                   errores.categoria ? 'border-status-rose ring-1 ring-status-rose' : 'border-outline'
                 }`}
@@ -463,17 +504,42 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
               )}
             </div>
 
-            <div className="flex items-center gap-2 pt-5">
-              <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={formData.esFavorito}
-                  onChange={(e) => handleChange('esFavorito', e.target.checked)}
-                  className="w-4 h-4 rounded text-primary bg-surface border-outline focus:ring-primary"
-                />
-                <span>⭐ Marcar como Favorito</span>
+            <div>
+              <label htmlFor="subcategoria" className="block text-xs font-medium text-on-surface-variant mb-1">
+                Subcategoría (Opcional)
               </label>
+              <select
+                id="subcategoria"
+                name="subcategoria"
+                value={formData.subcategoria || ''}
+                onChange={(e) => handleChange('subcategoria', e.target.value || undefined)}
+                disabled={subcategoriasDisponibles.length === 0}
+                className="w-full px-3 py-2 bg-surface border border-outline rounded-xl text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="">Sin subcategoría</option>
+                {subcategoriasDisponibles.map((sub) => (
+                  <option key={sub} value={sub}>
+                    {sub}
+                  </option>
+                ))}
+              </select>
+              {errores.subcategoria && (
+                <p className="text-status-rose text-xs mt-1">{errores.subcategoria}</p>
+              )}
             </div>
+          </div>
+
+          {/* Favorito */}
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={formData.esFavorito}
+                onChange={(e) => handleChange('esFavorito', e.target.checked)}
+                className="w-4 h-4 rounded text-primary bg-surface border-outline focus:ring-primary"
+              />
+              <span>⭐ Marcar como Favorito</span>
+            </label>
           </div>
 
           {/* Volúmenes */}

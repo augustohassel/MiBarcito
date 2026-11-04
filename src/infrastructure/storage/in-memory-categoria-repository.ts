@@ -22,13 +22,28 @@ export class InMemoryCategoriaRepository implements ICategoriaRepository {
   }
 
   async getAll(): Promise<Categoria[]> {
-    const list = Array.from(this.items.values());
+    const list = Array.from(this.items.values()).map((cat) => {
+      if (Array.isArray(cat.subcategorias)) return { ...cat };
+      const predeterminada = CATEGORIAS_PREDETERMINADAS.find((p) => p.id === cat.id);
+      return {
+        ...cat,
+        subcategorias: predeterminada?.subcategorias ? [...predeterminada.subcategorias] : [],
+      };
+    });
     return list.sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre));
   }
 
   async getById(id: string): Promise<Categoria | undefined> {
     const item = this.items.get(id);
-    return item ? { ...item } : undefined;
+    if (!item) return undefined;
+    if (!Array.isArray(item.subcategorias)) {
+      const predeterminada = CATEGORIAS_PREDETERMINADAS.find((p) => p.id === item.id);
+      return {
+        ...item,
+        subcategorias: predeterminada?.subcategorias ? [...predeterminada.subcategorias] : [],
+      };
+    }
+    return { ...item };
   }
 
   async save(categoria: Categoria): Promise<void> {

@@ -237,5 +237,101 @@ describe('ConfiguracionModal y CategoriasConfig', () => {
       expect(screen.getByText(/IA Multimodal Activa/i)).toBeInTheDocument();
     });
   });
+
+  describe('Gestión de Subcategorías (Issue #36)', () => {
+    it('permite expandir subcategorías de una categoría, visualizar sus chips y agregar una nueva', async () => {
+      const invRepo = new InMemoryInventoryRepository();
+      const catRepo = new InMemoryCategoriaRepository();
+
+      render(
+        <InventoryProvider repository={invRepo} categoriaRepository={catRepo}>
+          <ConfiguracionModal isOpen={true} onClose={() => {}} bebidas={[]} />
+        </InventoryProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('Destilado')).toBeInTheDocument();
+      });
+
+      // Expandir subcategorías de Destilado
+      const btnExpandir = screen.getByLabelText('Administrar subcategorías de Destilado');
+      fireEvent.click(btnExpandir);
+
+      // Verificar chips iniciales
+      expect(screen.getByText('Gin')).toBeInTheDocument();
+      expect(screen.getByText('Vodka')).toBeInTheDocument();
+      expect(screen.getByText('Ron')).toBeInTheDocument();
+
+      // Agregar nueva subcategoría "Pisco Quebranta"
+      const inputSubcat = screen.getByLabelText('Nueva subcategoría para Destilado');
+      fireEvent.change(inputSubcat, { target: { value: 'Pisco Quebranta' } });
+
+      const btnAgregarSubcat = screen.getByLabelText('Agregar subcategoría a Destilado');
+      fireEvent.click(btnAgregarSubcat);
+
+      await waitFor(() => {
+        expect(screen.getByText('Pisco Quebranta')).toBeInTheDocument();
+      });
+    });
+
+    it('permite eliminar una subcategoría existente', async () => {
+      const invRepo = new InMemoryInventoryRepository();
+      const catRepo = new InMemoryCategoriaRepository();
+
+      render(
+        <InventoryProvider repository={invRepo} categoriaRepository={catRepo}>
+          <ConfiguracionModal isOpen={true} onClose={() => {}} bebidas={[]} />
+        </InventoryProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('Destilado')).toBeInTheDocument();
+      });
+
+      const btnExpandir = screen.getByLabelText('Administrar subcategorías de Destilado');
+      fireEvent.click(btnExpandir);
+
+      expect(screen.getByText('Vodka')).toBeInTheDocument();
+
+      // Eliminar Vodka
+      const btnEliminarVodka = screen.getByLabelText('Eliminar subcategoría Vodka');
+      fireEvent.click(btnEliminarVodka);
+
+      await waitFor(() => {
+        expect(screen.queryByText('Vodka')).not.toBeInTheDocument();
+      });
+    });
+
+    it('caso borde: bloquea subcategorías duplicadas o vacías', async () => {
+      const invRepo = new InMemoryInventoryRepository();
+      const catRepo = new InMemoryCategoriaRepository();
+
+      render(
+        <InventoryProvider repository={invRepo} categoriaRepository={catRepo}>
+          <ConfiguracionModal isOpen={true} onClose={() => {}} bebidas={[]} />
+        </InventoryProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('Destilado')).toBeInTheDocument();
+      });
+
+      const btnExpandir = screen.getByLabelText('Administrar subcategorías de Destilado');
+      fireEvent.click(btnExpandir);
+
+      // Intentar agregar "gin" duplicado
+      const inputSubcat = screen.getByLabelText('Nueva subcategoría para Destilado');
+      fireEvent.change(inputSubcat, { target: { value: '  GIN  ' } });
+
+      const btnAgregarSubcat = screen.getByLabelText('Agregar subcategoría a Destilado');
+      fireEvent.click(btnAgregarSubcat);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Ya existe esta subcategoría en la categoría')
+        ).toBeInTheDocument();
+      });
+    });
+  });
 });
 

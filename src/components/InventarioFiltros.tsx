@@ -41,11 +41,12 @@ export function filtrarYOrdenarBebidas(
   const query = filtros.busqueda.trim().toLowerCase();
 
   const filtradas = bebidas.filter((b) => {
-    // Filtro por texto (nombre o marca)
+    // Filtro por texto (nombre, marca o subcategoría)
     if (query) {
       const coincideNombre = b.nombre.toLowerCase().includes(query);
       const coincideMarca = b.marca.toLowerCase().includes(query);
-      if (!coincideNombre && !coincideMarca) return false;
+      const coincideSubcat = b.subcategoria?.toLowerCase().includes(query) ?? false;
+      if (!coincideNombre && !coincideMarca && !coincideSubcat) return false;
     }
 
     // Filtro por categoría

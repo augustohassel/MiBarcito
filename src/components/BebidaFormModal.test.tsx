@@ -67,7 +67,7 @@ describe('BebidaFormModal Component', () => {
     fireEvent.change(screen.getByLabelText(/Marca \/ Destilería/i), {
       target: { value: 'Absolut' },
     });
-    fireEvent.change(screen.getByLabelText(/Categoría/i), {
+    fireEvent.change(screen.getByLabelText(/^Categoría/i), {
       target: { value: 'destilado' },
     });
     fireEvent.change(screen.getByLabelText(/Capacidad Total/i), {
@@ -88,6 +88,7 @@ describe('BebidaFormModal Component', () => {
         nombre: 'Vodka Absolut',
         marca: 'Absolut',
         categoria: 'destilado',
+        subcategoria: undefined,
         volumenTotalMl: 700,
         volumenRestanteMl: 700,
         graduacionAlcoholica: 40,
@@ -97,6 +98,56 @@ describe('BebidaFormModal Component', () => {
       });
       expect(onClose).toHaveBeenCalled();
     });
+  });
+
+  it('permite seleccionar una subcategoría coherente y la envía al guardar', async () => {
+    const onSave = vi.fn();
+    render(<BebidaFormModal isOpen={true} onSave={onSave} onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText(/Nombre de la Bebida/i), {
+      target: { value: 'Tanqueray London Dry' },
+    });
+    fireEvent.change(screen.getByLabelText(/Marca \/ Destilería/i), {
+      target: { value: 'Tanqueray' },
+    });
+    fireEvent.change(screen.getByLabelText(/^Categoría/i), {
+      target: { value: 'destilado' },
+    });
+
+    const selectSubcategoria = screen.getByLabelText(/Subcategoría/i);
+    fireEvent.change(selectSubcategoria, { target: { value: 'Gin' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /Crear Bebida/i }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          nombre: 'Tanqueray London Dry',
+          categoria: 'destilado',
+          subcategoria: 'Gin',
+        })
+      );
+    });
+  });
+
+  it('caso de borde / regla de integridad: reiniciar subcategoría al cambiar categoría padre', async () => {
+    render(<BebidaFormModal isOpen={true} onSave={vi.fn()} onClose={vi.fn()} />);
+
+    // Seleccionar categoría Destilado y subcategoría Gin
+    fireEvent.change(screen.getByLabelText(/^Categoría/i), {
+      target: { value: 'destilado' },
+    });
+    const selectSubcat = screen.getByLabelText(/Subcategoría/i) as HTMLSelectElement;
+    fireEvent.change(selectSubcat, { target: { value: 'Gin' } });
+    expect(selectSubcat.value).toBe('Gin');
+
+    // Cambiar categoría padre a Vino
+    fireEvent.change(screen.getByLabelText(/^Categoría/i), {
+      target: { value: 'vino' },
+    });
+
+    // Subcategoría debe haberse reseteado a vacía
+    expect(selectSubcat.value).toBe('');
   });
 
   it('carga datos existentes en modo edición y permite guardar cambios', async () => {
