@@ -1,21 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { CategoriasConfig } from './CategoriasConfig';
+import { AiConfigTab } from './AiConfigTab';
 import { Bebida } from '../domain/models/bebida';
 
 export interface ConfiguracionModalProps {
   isOpen: boolean;
   onClose: () => void;
   bebidas: Bebida[];
+  initialTab?: TabConfig;
 }
 
-type TabConfig = 'categorias' | 'respaldo';
+export type TabConfig = 'categorias' | 'ia' | 'respaldo';
 
 export const ConfiguracionModal: React.FC<ConfiguracionModalProps> = ({
   isOpen,
   onClose,
   bebidas,
+  initialTab = 'categorias',
 }) => {
-  const [activeTab, setActiveTab] = useState<TabConfig>('categorias');
+  const [activeTab, setActiveTab] = useState<TabConfig>(initialTab);
+
+  useEffect(() => {
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -78,6 +87,18 @@ export const ConfiguracionModal: React.FC<ConfiguracionModalProps> = ({
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab('ia')}
+            className={`pb-2.5 px-3 text-xs sm:text-sm font-semibold transition-colors border-b-2 flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'ia'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-on-surface-variant hover:text-on-surface'
+            }`}
+          >
+            <span>✨</span>
+            <span>Inteligencia Artificial</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab('respaldo')}
             className={`pb-2.5 px-3 text-xs sm:text-sm font-semibold transition-colors border-b-2 flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'respaldo'
@@ -96,6 +117,7 @@ export const ConfiguracionModal: React.FC<ConfiguracionModalProps> = ({
         {/* Contenido de la solapa activa */}
         <div className="flex-1 overflow-y-auto pr-1">
           {activeTab === 'categorias' && <CategoriasConfig bebidas={bebidas} />}
+          {activeTab === 'ia' && <AiConfigTab />}
           {activeTab === 'respaldo' && (
             <div className="text-center py-12 text-on-surface-variant flex flex-col items-center gap-2">
               <span className="text-3xl">☁️</span>
