@@ -360,7 +360,7 @@ export function App() {
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img
-              src="/pwa-192x192.svg"
+              src={`${import.meta.env.BASE_URL}pwa-192x192.svg`}
               alt="Logo MiBarcito"
               className="w-9 h-9 rounded-xl shadow-xs border border-outline"
             />
@@ -800,7 +800,7 @@ export function App() {
 
       {/* Footer */}
       <footer className="border-t border-outline px-4 py-4 text-center text-xs text-on-surface-variant">
-        MiBarcito • Gestión de Despensa & Coctelería • Google Material 3
+        MiBarcito v{__APP_VERSION__} • Gestión de Despensa & Coctelería • Google Material 3
       </footer>
     </div>
   );
