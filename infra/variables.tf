@@ -21,7 +21,9 @@ variable "authorized_domains" {
   default = [
     "localhost",
     "127.0.0.1",
-    "augustohassel.github.io"
+    "augustohassel.github.io",
+    "barcito.hasselpunk.com",
+    "hasselpunk.com"
   ]
 }
 

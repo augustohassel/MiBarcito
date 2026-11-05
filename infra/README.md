@@ -10,7 +10,7 @@ Este directorio contiene la definición de Infraestructura como Código (**Terra
 2. **Cloud Firestore en modo Native** (`google_firestore_database`):
    - Base de datos `(default)` configurada por defecto en `nam5` (multi-región US) o `us-central1`, elegibles para el nivel gratuito perpetuo (1 GiB de almacenamiento, 50.000 lecturas/día, 20.000 escrituras/día, 20.000 borrados/día).
 3. **Identity Platform / Firebase Auth** (`google_identity_platform_config`):
-   - Configuración de dominios autorizados para OAuth (`localhost`, `127.0.0.1`, `augustohassel.github.io` y los dominios de Firebase del proyecto).
+   - Configuración de dominios autorizados para OAuth (`localhost`, `127.0.0.1`, `augustohassel.github.io`, `barcito.hasselpunk.com`, `hasselpunk.com` y los dominios de Firebase del proyecto).
 4. **Firestore Security Rules** (`google_firebaserules_ruleset` y `google_firebaserules_release`):
    - Despliegue declarativo de `firestore.rules` con denegación por defecto y aislamiento multi-usuario estricto bajo `/users/{userId}/{document=**}` verificando `request.auth != null && request.auth.uid == userId` (cualquier usuario puede iniciar sesión con su cuenta de Google y acceder únicamente a sus propios datos).
 5. **Backend Remoto en GCS y Despliegue Continuo en GitHub Actions (OIDC)**:
@@ -62,7 +62,9 @@ region     = "nam5"
 authorized_domains = [
   "localhost",
   "127.0.0.1",
-  "augustohassel.github.io"
+  "augustohassel.github.io",
+  "barcito.hasselpunk.com",
+  "hasselpunk.com"
 ]
 ```
 

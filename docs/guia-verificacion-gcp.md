@@ -70,6 +70,8 @@ Este documento explica paso a paso —con enlaces directos— **dónde entrar y 
   - `localhost`
   - `127.0.0.1`
   - `augustohassel.github.io`
+  - `barcito.hasselpunk.com`
+  - `hasselpunk.com`
   - `mibarcito-app.firebaseapp.com`
   - `mibarcito-app.web.app`
 - En **Users (`users`)**: Apenas inicies sesión desde MiBarcito en tu celular o PC, aparecerá tu correo de Google, la fecha de último acceso y tu **UID de usuario** (el mismo que da nombre a tu carpeta en Firestore).

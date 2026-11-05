@@ -115,7 +115,13 @@ export function traducirErrorFirebase(err: unknown): string {
   }
 
   if (code === 'auth/unauthorized-domain') {
-    return 'Este dominio aún no está autorizado en Identity Platform (authorized_domains en Terraform).';
+    const hostname =
+      typeof window !== 'undefined' && window.location?.hostname
+        ? window.location.hostname
+        : '';
+    return hostname
+      ? `Este dominio (${hostname}) aún no está autorizado en Identity Platform (authorized_domains en Terraform).`
+      : 'Este dominio aún no está autorizado en Identity Platform (authorized_domains en Terraform).';
   }
 
   if (
