@@ -2,6 +2,10 @@ import React from 'react';
 import { Receta } from '../domain/models/receta';
 import { EvaluacionReceta } from '../domain/services/recetario-motor';
 import { CATEGORIAS_PREDETERMINADAS } from '../domain/models/categoria';
+import {
+  obtenerIconoCategoriaInsumo,
+  obtenerLabelCategoriaInsumo,
+} from '../domain/models/insumo-almacen';
 import { useCategoriasOpcional } from '../context/InventoryContext';
 
 export interface RecetaDetalleModalProps {
@@ -117,10 +121,10 @@ export const RecetaDetalleModal: React.FC<RecetaDetalleModalProps> = ({
             </div>
           </div>
 
-          {/* Ingredientes y Disponibilidad en Despensa */}
+          {/* Ingredientes y Disponibilidad en Despensa / Almacén */}
           <div>
             <h3 className="text-sm font-semibold text-on-surface mb-2.5">
-              Ingredientes y Estado en Despensa
+              Ingredientes y Estado en Despensa / Almacén
             </h3>
             <div className="space-y-2">
               {evaluacion?.ingredientesEvaluados ? (
@@ -163,6 +167,17 @@ export const RecetaDetalleModal: React.FC<RecetaDetalleModalProps> = ({
                                   : ''}
                               </span>
                             )}
+                            {item.ingrediente.tipo === 'guarnicion_insumo' &&
+                              item.insumoSugerido && (
+                                <span
+                                  data-testid={`badge-almacen-${idx}`}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant"
+                                >
+                                  {obtenerIconoCategoriaInsumo(item.insumoSugerido.categoria)}{' '}
+                                  {obtenerLabelCategoriaInsumo(item.insumoSugerido.categoria)} ›{' '}
+                                  {item.insumoSugerido.nombre}
+                                </span>
+                              )}
                           </div>
                           {item.botellaSugerida && item.disponible ? (
                             <div className="text-[11px] text-on-surface-variant">

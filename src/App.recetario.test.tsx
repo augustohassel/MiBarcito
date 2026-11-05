@@ -143,6 +143,19 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
     fireEvent.change(screen.getByTestId('input-ingrediente-ml-0'), {
       target: { value: '60' },
     });
+
+    // Agregar también un insumo del Almacén usando los selectores de Categoría e Insumo de Almacén
+    fireEvent.click(screen.getByTestId('btn-agregar-ingrediente'));
+    fireEvent.change(screen.getByTestId('select-ingrediente-tipo-1'), {
+      target: { value: 'guarnicion_insumo' },
+    });
+    fireEvent.change(screen.getByTestId('select-ingrediente-categoria-insumo-1'), {
+      target: { value: 'encurtidos_decoracion' },
+    });
+    fireEvent.change(screen.getByTestId('select-ingrediente-insumo-1'), {
+      target: { value: 'insumo-aceituna' },
+    });
+
     fireEvent.change(screen.getByTestId('input-paso-0'), {
       target: { value: 'Batir en coctelera y servir' },
     });

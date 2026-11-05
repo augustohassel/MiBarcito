@@ -8,7 +8,12 @@ import {
   ErroresValidacionReceta,
 } from '../domain/models/receta';
 import { CATEGORIAS_PREDETERMINADAS, Categoria } from '../domain/models/categoria';
-import { INSUMOS_PREDETERMINADOS, InsumoAlmacen } from '../domain/models/insumo-almacen';
+import {
+  INSUMOS_PREDETERMINADOS,
+  InsumoAlmacen,
+  CATEGORIAS_INSUMO,
+  CategoriaInsumo,
+} from '../domain/models/insumo-almacen';
 import { useCategoriasOpcional, useAlmacenOpcional } from '../context/InventoryContext';
 
 export interface RecetaFormModalProps {
@@ -36,12 +41,34 @@ function normalizarComparacion(texto: string): string {
     .trim();
 }
 
-function normalizarIngredienteBebida(
+function normalizarIngredienteConCatalogos(
   ing: IngredienteReceta,
-  categorias: Categoria[]
+  categorias: Categoria[],
+  insumos: InsumoAlmacen[]
 ): IngredienteReceta {
   if (ing.tipo !== 'bebida') {
-    return { ...ing };
+    if (ing.insumoId) {
+      const ins = insumos.find((i) => i.id === ing.insumoId);
+      if (ins) {
+        return {
+          ...ing,
+          insumoId: ins.id,
+          nombre: ins.nombre,
+        };
+      }
+    }
+    const nombreNorm = normalizarComparacion(ing.nombre || '');
+    const insMatch =
+      insumos.find(
+        (i) =>
+          normalizarComparacion(i.nombre) === nombreNorm ||
+          (i.aliases ?? []).some((a) => normalizarComparacion(a) === nombreNorm)
+      ) ?? insumos[0];
+    return {
+      ...ing,
+      insumoId: insMatch?.id,
+      nombre: insMatch?.nombre || ing.nombre || 'Hielo',
+    };
   }
 
   if (ing.categoriaId) {
@@ -142,7 +169,7 @@ export const RecetaFormModal: React.FC<RecetaFormModalProps> = ({
       setIngredientes(
         recetaAEditar.ingredientes.length > 0
           ? recetaAEditar.ingredientes.map((i) =>
-              normalizarIngredienteBebida(i, categoriasDisponibles)
+              normalizarIngredienteConCatalogos(i, categoriasDisponibles, insumosDisponibles)
             )
           : [crearIngredienteInicial()]
       );
@@ -156,7 +183,7 @@ export const RecetaFormModal: React.FC<RecetaFormModalProps> = ({
       setPasos(['']);
     }
     setErrores({});
-  }, [recetaAEditar, isOpen, categoriasDisponibles]);
+  }, [recetaAEditar, isOpen, categoriasDisponibles, insumosDisponibles]);
 
   if (!isOpen) return null;
 
@@ -197,17 +224,31 @@ export const RecetaFormModal: React.FC<RecetaFormModalProps> = ({
     );
   };
 
+  const handleCambiarCategoriaInsumoIngrediente = (
+    index: number,
+    nuevaCategoria: CategoriaInsumo
+  ) => {
+    const insumoDeCategoria =
+      insumosDisponibles.find((ins) => ins.categoria === nuevaCategoria) ??
+      insumosDisponibles[0];
+    setIngredientes((prev) =>
+      prev.map((ing, i) => {
+        if (i !== index) return ing;
+        return {
+          ...ing,
+          insumoId: insumoDeCategoria?.id,
+          nombre: insumoDeCategoria?.nombre || ing.nombre,
+        };
+      })
+    );
+  };
+
   const handleCambiarInsumoIngrediente = (index: number, nuevoInsumoId: string) => {
     const insumo = insumosDisponibles.find((ins) => ins.id === nuevoInsumoId);
     setIngredientes((prev) =>
       prev.map((ing, i) => {
         if (i !== index) return ing;
-        if (!insumo) {
-          return {
-            ...ing,
-            insumoId: undefined,
-          };
-        }
+        if (!insumo) return ing;
         return {
           ...ing,
           insumoId: insumo.id,
@@ -299,9 +340,13 @@ export const RecetaFormModal: React.FC<RecetaFormModalProps> = ({
             cantidadMl: Number(i.cantidadMl),
           };
         }
+        const insumoElegido =
+          insumosDisponibles.find((ins) => ins.id === i.insumoId) ??
+          insumosDisponibles[0];
         return {
           ...i,
-          nombre: i.nombre.trim(),
+          insumoId: insumoElegido?.id || i.insumoId,
+          nombre: insumoElegido?.nombre || i.nombre.trim(),
           categoriaId: undefined,
           subcategoria: undefined,
           cantidadMl: undefined,
@@ -543,34 +588,63 @@ export const RecetaFormModal: React.FC<RecetaFormModalProps> = ({
                         </div>
                       </>
                     ) : (
-                      <div className="flex-1 w-full sm:w-auto flex flex-col sm:flex-row gap-2">
-                        <select
-                          value={ing.insumoId || ''}
-                          aria-label={`Insumo de almacén ${idx + 1}`}
-                          data-testid={`select-ingrediente-insumo-${idx}`}
-                          onChange={(e) =>
-                            handleCambiarInsumoIngrediente(idx, e.target.value)
-                          }
-                          className="flex-1 px-2.5 py-1.5 rounded-lg bg-surface-container border border-outline text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
-                        >
-                          <option value="">Personalizado / Otro...</option>
-                          {insumosDisponibles.map((ins) => (
-                            <option key={ins.id} value={ins.id}>
-                              {ins.nombre} ({ins.disponible ? '✓ Tengo' : '✕ No tengo'})
-                            </option>
-                          ))}
-                        </select>
-                        <input
-                          type="text"
-                          value={ing.nombre}
-                          onChange={(e) =>
-                            handleModificarIngrediente(idx, 'nombre', e.target.value)
-                          }
-                          placeholder="Presentación o detalle (ej. Rodaja de lima, Aceituna verde)"
-                          data-testid={`input-ingrediente-nombre-${idx}`}
-                          className="flex-1 px-3 py-1.5 rounded-lg bg-surface-container border border-outline text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
-                        />
-                      </div>
+                      (() => {
+                        const insumoActual =
+                          insumosDisponibles.find((ins) => ins.id === ing.insumoId) ??
+                          insumosDisponibles[0];
+                        const categoriaInsumoActual: CategoriaInsumo =
+                          insumoActual?.categoria ?? 'hielo';
+                        const insumosDeCategoria = insumosDisponibles.filter(
+                          (ins) => ins.categoria === categoriaInsumoActual
+                        );
+                        const opcionesInsumo =
+                          insumosDeCategoria.length > 0
+                            ? insumosDeCategoria
+                            : insumosDisponibles;
+
+                        return (
+                          <>
+                            <div className="flex-1 min-w-[140px] w-full sm:w-auto">
+                              <select
+                                value={categoriaInsumoActual}
+                                aria-label={`Categoría de almacén ${idx + 1}`}
+                                data-testid={`select-ingrediente-categoria-insumo-${idx}`}
+                                onChange={(e) =>
+                                  handleCambiarCategoriaInsumoIngrediente(
+                                    idx,
+                                    e.target.value as CategoriaInsumo
+                                  )
+                                }
+                                className="w-full px-2.5 py-1.5 rounded-lg bg-surface-container border border-outline text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+                              >
+                                {CATEGORIAS_INSUMO.map((cat) => (
+                                  <option key={cat.value} value={cat.value}>
+                                    {cat.icono} {cat.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="flex-1 min-w-[160px] w-full sm:w-auto">
+                              <select
+                                value={insumoActual?.id || ''}
+                                aria-label={`Insumo de almacén ${idx + 1}`}
+                                data-testid={`select-ingrediente-insumo-${idx}`}
+                                onChange={(e) =>
+                                  handleCambiarInsumoIngrediente(idx, e.target.value)
+                                }
+                                className="w-full px-2.5 py-1.5 rounded-lg bg-surface-container border border-outline text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+                              >
+                                {opcionesInsumo.map((ins) => (
+                                  <option key={ins.id} value={ins.id}>
+                                    {ins.nombre} ({ins.disponible ? '✓ Tengo' : '✕ No tengo'})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </>
+                        );
+                      })()
                     )}
 
                     <label className="flex items-center gap-1 text-[11px] text-on-surface-variant cursor-pointer select-none">

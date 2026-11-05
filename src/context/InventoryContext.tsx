@@ -9,7 +9,7 @@ import { createRecetaRepository } from '../infrastructure/storage/receta-reposit
 import { Receta } from '../domain/models/receta';
 import { IAlmacenRepository } from '../domain/repositories/almacen-repository.interface';
 import { createAlmacenRepository } from '../infrastructure/storage/almacen-repository-factory';
-import { InsumoAlmacen } from '../domain/models/insumo-almacen';
+import { InsumoAlmacen, INSUMOS_PREDETERMINADOS } from '../domain/models/insumo-almacen';
 
 export interface CategoriaContextType {
   categoriaRepository: ICategoriaRepository;
@@ -94,7 +94,7 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
   const [loadingRecetas, setLoadingRecetas] = useState(true);
 
   // Estados de Almacén
-  const [insumos, setInsumos] = useState<InsumoAlmacen[]>([]);
+  const [insumos, setInsumos] = useState<InsumoAlmacen[]>(INSUMOS_PREDETERMINADOS);
   const [loadingAlmacen, setLoadingAlmacen] = useState(true);
 
   const recargarCategorias = useCallback(async () => {

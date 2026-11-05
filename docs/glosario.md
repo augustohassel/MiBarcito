@@ -30,10 +30,10 @@ Este documento reúne la terminología, entidades de negocio y conceptos funcion
 ---
 
 ### Motor de Recomendación Dinámico
-- **Definición**: Algoritmo reactivo en tiempo real (`recetario-motor.ts`) que evalúa cada ingrediente de una receta frente a las botellas presentes en la despensa considerando coincidencia semántica de marca/nombre/alternativas y nivel de stock disponible en mililitros.
+- **Definición**: Algoritmo reactivo en tiempo real (`recetario-motor.ts`) que evalúa cada ingrediente de una receta frente a las botellas presentes en la **Despensa** (por Categoría, Subcategoría y volumen restante en mililitros) y frente a las guarniciones e insumos presentes en el **Almacén** (por vínculo directo `insumoId` y estado *"Tengo / No tengo"*).
 - **Alcance / Propósito**: Clasifica el recetario en tres sectores prioritarios:
-  1. **"¿Qué puedo armar hoy?"**: Cócteles donde el 100% de los ingredientes líquidos necesarios están presentes con `volumenRestanteMl >= medidaRequerida`.
-  2. **"Casi listos"**: Fórmulas a las que les falta únicamente 1 o 2 ingredientes para estar completas, destacando con precisión qué botellas faltan adquirir.
+  1. **"¿Qué puedo armar hoy?"**: Cócteles donde el 100% de los ingredientes obligatorios están disponibles (botellas con `volumenRestanteMl >= medidaRequerida` en Despensa e insumos obligatorios con `disponible: true` en Almacén).
+  2. **"Casi listos"**: Fórmulas a las que les falta únicamente 1 o 2 ingredientes obligatorios para estar completas, destacando qué botellas o insumos de almacén faltan adquirir.
   3. **"Catálogo general"**: Cócteles con más de 2 insumos faltantes.
 
 ---
