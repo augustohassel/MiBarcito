@@ -148,7 +148,7 @@ export function calcularMetricasValoracion(
     const totalCostoCat = Math.round(datos.totalCosto * 100) / 100;
     const porcentaje = valorActualProrrateado > 0
       ? Math.round(((totalCostoCat / valorActualProrrateado) * 100) * 10) / 10
-      : (costoTotalLleno > 0 ? 0 : 0);
+      : 0;
 
     distribucionCategorias.push({
       categoriaId: catId,

@@ -309,7 +309,7 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
       subcategoria: formData.subcategoria?.trim() ? formData.subcategoria.trim() : undefined,
       notas: formData.notas?.trim() ? formData.notas.trim() : undefined,
       archivada: formData.archivada ? true : undefined,
-      recomprar: formData.recomprar !== undefined ? formData.recomprar : undefined,
+      recomprar: formData.recomprar,
     };
     const resultadoErrores = validarBebida(
       datosParaGuardar,

@@ -34,28 +34,33 @@ export const AlertasStockModal: React.FC<AlertasStockModalProps> = ({
   };
 
   const { totalReposicion, faltantesSinPrecio, cantidadRecomprar } = React.useMemo(() => {
+    let cant = 0;
     let suma = 0;
     let sinPrecio = 0;
-    let cant = 0;
+    const necesitaCalculo = costoReposicion === undefined || botellasReposicionSinPrecio === undefined;
+
     for (const a of alertas) {
       if (a.bebida.recomprar === true) {
         cant++;
-        if (typeof a.bebida.precioEstimado === 'number' && !Number.isNaN(a.bebida.precioEstimado) && a.bebida.precioEstimado > 0) {
-          suma += a.bebida.precioEstimado;
-        } else {
-          sinPrecio++;
+        if (necesitaCalculo) {
+          const precio = a.bebida.precioEstimado;
+          if (typeof precio === 'number' && !Number.isNaN(precio) && precio > 0) {
+            suma += precio;
+          } else {
+            sinPrecio++;
+          }
         }
       }
     }
     return {
-      totalReposicion: Math.round(suma * 100) / 100,
-      faltantesSinPrecio: sinPrecio,
+      totalReposicion: costoReposicion ?? Math.round(suma * 100) / 100,
+      faltantesSinPrecio: botellasReposicionSinPrecio ?? sinPrecio,
       cantidadRecomprar: cant,
     };
-  }, [alertas]);
+  }, [alertas, costoReposicion, botellasReposicionSinPrecio]);
 
-  const presupuestoFinal = costoReposicion !== undefined ? costoReposicion : totalReposicion;
-  const sinCotizacionFinal = botellasReposicionSinPrecio !== undefined ? botellasReposicionSinPrecio : faltantesSinPrecio;
+  const presupuestoFinal = totalReposicion;
+  const sinCotizacionFinal = faltantesSinPrecio;
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
