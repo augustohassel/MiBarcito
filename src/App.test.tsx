@@ -25,7 +25,7 @@ describe('App Component - Gestión de Despensa e Inventario', () => {
 
     expect(screen.getByText('MiBarcito')).toBeInTheDocument();
     expect(screen.getAllByText(/Gestión de Despensa & Coctelería/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('PWA Ready')).toBeInTheDocument();
+    expect(screen.queryByText('PWA Ready')).toBeNull();
 
     await waitFor(() => {
       expect(screen.getByText(/Tu bar está vacío por ahora/i)).toBeInTheDocument();

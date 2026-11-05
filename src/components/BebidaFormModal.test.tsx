@@ -305,6 +305,7 @@ describe('BebidaFormModal Component', () => {
           nombre: 'Tanqueray London Dry Gin',
           marca: 'Tanqueray',
           categoriaSugerida: 'Destilado',
+          subcategoriaSugerida: 'Gin',
           graduacionAlcoholica: 47.3,
           precioEstimado: 28000,
           volumenTotalMl: 750,
@@ -324,6 +325,7 @@ describe('BebidaFormModal Component', () => {
         expect(screen.getByDisplayValue('Tanqueray')).toBeInTheDocument();
         expect(screen.getByDisplayValue('47.3')).toBeInTheDocument();
         expect(screen.getByDisplayValue('28000')).toBeInTheDocument();
+        expect(screen.getByRole('combobox', { name: /Subcategoría/i })).toHaveValue('Gin');
         expect(screen.getByText(/¡Botella reconocida con éxito!/i)).toBeInTheDocument();
         expect(screen.getByText(/precio de mercado sugerido vía Google Search/i)).toBeInTheDocument();
       });

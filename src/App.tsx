@@ -428,18 +428,11 @@ export function App() {
           </div>
 
           <div className="flex items-center gap-2">
-            {isOffline ? (
+            {isOffline && (
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-status-amber/15 text-status-amber border border-status-amber/30">
                 ● Modo Offline
               </span>
-            ) : (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-status-emerald/15 text-status-emerald border border-status-emerald/30">
-                ● En línea
-              </span>
             )}
-            <span className="hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-container text-on-primary-container border border-outline-variant">
-              PWA Ready
-            </span>
 
             {/* Estado / Botón de Sesión Cloud */}
             {firebaseEnabled && (

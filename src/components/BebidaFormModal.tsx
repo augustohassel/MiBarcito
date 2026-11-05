@@ -122,12 +122,19 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
       setIsAnalyzingPhoto(true);
 
       const nombresCategorias = opcionesCategorias.map((c) => c.label);
+      const todasSubcategorias = (categoriasCtx?.categorias ?? CATEGORIAS_PREDETERMINADAS).flatMap(
+        (c) => c.subcategorias ?? []
+      );
+
       const resultado = await analizarFotoBotella(
         {
           base64Data: processed.base64Data,
           mimeType: processed.mimeType,
         },
-        { categoriasDisponibles: nombresCategorias }
+        {
+          categoriasDisponibles: nombresCategorias,
+          subcategoriasDisponibles: todasSubcategorias,
+        }
       );
 
       if (!resultado.exito || !resultado.datos) {
@@ -156,11 +163,47 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
         }
       }
 
+      // Obtener subcategorías válidas para la categoría inferida
+      const catEncontradaObj = (categoriasCtx?.categorias ?? CATEGORIAS_PREDETERMINADAS).find(
+        (c) => c.id === categoriaMapeada
+      );
+      const subcategoriasDeCategoria = catEncontradaObj?.subcategorias ?? [];
+
+      let subcategoriaMapeada = '';
+      if (datos.subcategoriaSugerida) {
+        const sugLower = datos.subcategoriaSugerida.toLowerCase();
+        const exactMatch = subcategoriasDeCategoria.find((s) => s.toLowerCase() === sugLower);
+        if (exactMatch) {
+          subcategoriaMapeada = exactMatch;
+        } else {
+          const matches = subcategoriasDeCategoria.filter(
+            (s) => sugLower.includes(s.toLowerCase()) || s.toLowerCase().includes(sugLower)
+          );
+          if (matches.length > 0) {
+            matches.sort((a, b) => b.length - a.length);
+            subcategoriaMapeada = matches[0];
+          }
+        }
+      }
+
+      // Fallback por texto si no vino subcategoriaSugerida o no hizo match
+      if (!subcategoriaMapeada && subcategoriasDeCategoria.length > 0) {
+        const textoCompleto = `${datos.nombre || ''} ${datos.marca || ''} ${datos.notas || ''}`.toLowerCase();
+        const matches = subcategoriasDeCategoria.filter((s) =>
+          textoCompleto.includes(s.toLowerCase())
+        );
+        if (matches.length > 0) {
+          matches.sort((a, b) => b.length - a.length);
+          subcategoriaMapeada = matches[0];
+        }
+      }
+
       setFormData((prev) => ({
         ...prev,
         nombre: datos.nombre || prev.nombre,
         marca: datos.marca || prev.marca,
         categoria: categoriaMapeada,
+        subcategoria: subcategoriaMapeada || prev.subcategoria,
         graduacionAlcoholica:
           datos.graduacionAlcoholica !== undefined
             ? datos.graduacionAlcoholica
@@ -169,6 +212,7 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
           datos.precioEstimado !== undefined ? datos.precioEstimado : prev.precioEstimado,
         volumenTotalMl: datos.volumenTotalMl || prev.volumenTotalMl || 750,
         volumenRestanteMl: datos.volumenTotalMl || prev.volumenRestanteMl || 750,
+        notas: datos.notas || prev.notas,
       }));
 
       const notaGrounding = resultado.fuentePrecios
