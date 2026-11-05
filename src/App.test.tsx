@@ -281,7 +281,7 @@ describe('App Component - Gestión de Despensa e Inventario', () => {
     expect(screen.getByText('Gestión de Categorías de Bebidas')).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByText('Destilado')).toBeInTheDocument();
+      expect(screen.getAllByText('Destilado').length).toBeGreaterThanOrEqual(1);
     });
 
     // Crear nueva categoría "Tequila Añejo"
