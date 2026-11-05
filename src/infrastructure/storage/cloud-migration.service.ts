@@ -133,6 +133,18 @@ export async function mergeLocalInventoryToFirestore(
   let recetasSubidas = 0;
   let insumosSubidos = 0;
 
+  // Asegurar que el documento raíz `users/{uid}` exista como documento real en Firestore
+  // para que aparezca listado inmediatamente en la Consola de Firebase / GCP (y no en cursiva como documento fantasma)
+  batch.set(
+    doc(db, 'users', uid),
+    {
+      uid,
+      updatedAt: new Date().toISOString(),
+    },
+    { merge: true }
+  );
+  batchWritesCount++;
+
   // 1. Fusión de Bebidas (Botellas del bar)
   for (const localBebida of localData.bebidas) {
     const remota = cloudBebidas.get(localBebida.id);

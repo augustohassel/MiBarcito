@@ -74,13 +74,13 @@ vi.mock('firebase/firestore', () => {
         data: () => (found ? { ...found } : undefined),
       };
     },
-    setDoc: async (docRef: { path: string }, data: Record<string, any>) => {
+    setDoc: async (docRef: { path: string }, data: Record<string, any>, _options?: any) => {
       if (shouldThrowPermissionDenied) {
         const err = new Error('Missing or insufficient permissions.');
         (err as any).code = 'permission-denied';
         throw err;
       }
-      mockCloudStore.set(docRef.path, { ...data });
+      mockCloudStore.set(docRef.path, { ...mockCloudStore.get(docRef.path), ...data });
     },
     deleteDoc: async (docRef: { path: string }) => {
       if (shouldThrowPermissionDenied) {
@@ -93,8 +93,10 @@ vi.mock('firebase/firestore', () => {
     writeBatch: (_db: unknown) => {
       const ops: Array<() => void> = [];
       return {
-        set: (docRef: { path: string }, data: Record<string, any>) => {
-          ops.push(() => mockCloudStore.set(docRef.path, { ...data }));
+        set: (docRef: { path: string }, data: Record<string, any>, _options?: any) => {
+          ops.push(() =>
+            mockCloudStore.set(docRef.path, { ...mockCloudStore.get(docRef.path), ...data })
+          );
         },
         delete: (docRef: { path: string }) => {
           ops.push(() => mockCloudStore.delete(docRef.path));

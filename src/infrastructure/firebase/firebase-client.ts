@@ -2,9 +2,6 @@ import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, Auth } from 'firebase/auth';
 import {
   getFirestore,
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
   Firestore,
 } from 'firebase/firestore';
 
@@ -77,16 +74,7 @@ export function getFirebaseServices(): {
     }
 
     if (!cachedFirestore) {
-      try {
-        cachedFirestore = initializeFirestore(cachedApp, {
-          localCache: persistentLocalCache({
-            tabManager: persistentMultipleTabManager(),
-          }),
-        });
-      } catch {
-        // Fallback si Firestore ya había sido inicializado o si el entorno (ej. jsdom/SSR) no soporta persistentLocalCache
-        cachedFirestore = getFirestore(cachedApp);
-      }
+      cachedFirestore = getFirestore(cachedApp);
     }
 
     const googleProvider = new GoogleAuthProvider();

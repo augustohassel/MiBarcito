@@ -92,8 +92,12 @@ export class FirestoreInventoryRepository implements IInventoryRepository {
 
   async save(bebida: Bebida): Promise<void> {
     try {
+      const userRef = doc(this.db, 'users', this.uid);
       const ref = doc(this.db, 'users', this.uid, 'bebidas', bebida.id);
-      await setDoc(ref, sanitizeForFirestore(bebida));
+      await Promise.all([
+        setDoc(userRef, { uid: this.uid, updatedAt: bebida.fechaActualizacion }, { merge: true }),
+        setDoc(ref, sanitizeForFirestore(bebida)),
+      ]);
       if (this.localFallback) {
         await this.localFallback.save(bebida).catch(() => {});
       }
