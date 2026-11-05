@@ -380,5 +380,38 @@ describe('ConfiguracionModal y CategoriasConfig', () => {
       });
     });
   });
+
+  describe('Solapa Respaldo & Nube (Issue #41)', () => {
+    it('muestra el conteo de botellas guardadas localmente en el dispositivo y los controles de backup JSON', async () => {
+      const invRepo = new InMemoryInventoryRepository(bebidasMock);
+      const catRepo = new InMemoryCategoriaRepository();
+
+      render(
+        <InventoryProvider repository={invRepo} categoriaRepository={catRepo}>
+          <ConfiguracionModal
+            isOpen={true}
+            onClose={() => {}}
+            bebidas={bebidasMock}
+            initialTab="respaldo"
+          />
+        </InventoryProvider>
+      );
+
+      expect(
+        screen.getByText('Sincronización en la Nube (Google Cloud Firestore)')
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText('Datos Guardados en este Dispositivo (IndexedDB)')
+      ).toBeInTheDocument();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('local-bebidas-count')).toHaveTextContent('2');
+      });
+
+      expect(screen.getByTestId('btn-exportar-json')).toBeInTheDocument();
+      expect(screen.getByTestId('btn-importar-json')).toBeInTheDocument();
+      expect(screen.getByTestId('btn-migrar-datos-locales')).toBeDisabled();
+    });
+  });
 });
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CategoriasConfig } from './CategoriasConfig';
 import { AiConfigTab } from './AiConfigTab';
+import { RespaldoCloudTab } from './RespaldoCloudTab';
 import { Bebida } from '../domain/models/bebida';
 
 export interface ConfiguracionModalProps {
@@ -110,9 +111,6 @@ export const ConfiguracionModal: React.FC<ConfiguracionModalProps> = ({
           >
             <span>💾</span>
             <span>Respaldo & Nube</span>
-            <span className="text-[10px] bg-surface-container-high text-on-surface-variant px-1.5 py-0.2 rounded-full border border-outline">
-              Pronto
-            </span>
           </button>
         </div>
 
@@ -126,16 +124,7 @@ export const ConfiguracionModal: React.FC<ConfiguracionModalProps> = ({
           )}
           {activeTab === 'ia' && <AiConfigTab />}
           {activeTab === 'respaldo' && (
-            <div className="text-center py-12 text-on-surface-variant flex flex-col items-center gap-2">
-              <span className="text-3xl">☁️</span>
-              <p className="text-sm font-medium text-on-surface">
-                Copia de Seguridad y Sincronización en la Nube
-              </p>
-              <p className="text-xs text-on-surface-variant max-w-sm">
-                Esta sección permitirá exportar e importar tu inventario en formato JSON/CSV y
-                sincronizar con Google Cloud en próximas versiones.
-              </p>
-            </div>
+            <RespaldoCloudTab onInventarioActualizado={onBebidasActualizadas} />
           )}
         </div>
       </div>
