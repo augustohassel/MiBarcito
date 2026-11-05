@@ -12,7 +12,7 @@ Este directorio contiene la definición de Infraestructura como Código (**Terra
 3. **Identity Platform / Firebase Auth** (`google_identity_platform_config`):
    - Configuración de dominios autorizados para OAuth (`localhost`, `127.0.0.1`, `augustohassel.github.io` y los dominios de Firebase del proyecto).
 4. **Firestore Security Rules** (`google_firebaserules_ruleset` y `google_firebaserules_release`):
-   - Despliegue declarativo de `firestore.rules` con denegación por defecto y aislamiento estricto bajo `/users/{userId}/{document=**}` verificando `request.auth != null && request.auth.uid == userId` (y soporte opcional para restringir a un único email propietario mediante `allowed_user_email`).
+   - Despliegue declarativo de `firestore.rules` con denegación por defecto y aislamiento multi-usuario estricto bajo `/users/{userId}/{document=**}` verificando `request.auth != null && request.auth.uid == userId` (cualquier usuario puede iniciar sesión con su cuenta de Google y acceder únicamente a sus propios datos).
 5. **Backend Remoto en GCS y Despliegue Continuo en GitHub Actions (OIDC)**:
    - Estado remoto almacenado en el bucket `gs://mibarcito-app-tfstate` (con versionado activo y acceso público bloqueado).
    - **Workload Identity Federation (`github-actions-pool` / `github-oidc`)** y Service Account (`github-actions-tf@mibarcito-app.iam.gserviceaccount.com`) que permiten al workflow `.github/workflows/terraform-validate.yml` ejecutar `terraform plan` en PRs/ramas y **`terraform apply` automáticamente al mergear en `master`**, sin almacenar claves JSON de larga duración en GitHub.
@@ -64,9 +64,6 @@ authorized_domains = [
   "127.0.0.1",
   "augustohassel.github.io"
 ]
-
-# Opcional: tu email de Google para que nadie más pueda escribir en Firestore aunque inicie sesión
-allowed_user_email = "tu-correo@gmail.com"
 ```
 
 ### 3. Inicializar, Validar, Previsualizar y Aplicar
@@ -92,6 +89,8 @@ Una vez ejecutado `terraform apply`:
 1. Ingresa a [Firebase Console](https://console.firebase.google.com/) → selecciona tu proyecto → **Authentication** → **Sign-in method**.
 2. Habilita el proveedor **Google** (seleccionando tu correo de soporte del proyecto), ya que Google exige configurar el correo de consentimiento OAuth de forma interactiva o con credenciales OAuth específicas.
 3. En **Configuración del proyecto** → **Tus apps**, registra una **App Web (`</>`)** para obtener los identificadores públicos (`apiKey`, `appId`, `projectId`, `authDomain`) que se utilizarán en las variables `VITE_FIREBASE_*` del frontend (Issue #41).
+
+> 📌 **¿Dónde mirar en GCP/Firebase que todo funcione?**: Consulta la [Guía APB de Verificación y Monitoreo en GCP (`docs/guia-verificacion-gcp.md`)](../docs/guia-verificacion-gcp.md) con todos los enlaces directos a tu proyecto `mibarcito-app`.
 
 ---
 
