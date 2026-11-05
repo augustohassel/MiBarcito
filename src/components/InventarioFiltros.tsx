@@ -16,10 +16,13 @@ export type CriterioOrden =
   | 'fecha_desc'
   | 'fecha_asc';
 
+export type FiltroEstadoBotella = 'activas' | 'archivadas' | 'todas';
+
 export interface FiltrosEstado {
   busqueda: string;
   categoria: CategoriaBebida | 'todas';
   soloFavoritos: boolean;
+  estadoBotella?: FiltroEstadoBotella;
   orden: CriterioOrden;
 }
 
@@ -56,6 +59,15 @@ export function filtrarYOrdenarBebidas(
 
     // Filtro por favoritos
     if (filtros.soloFavoritos && !b.esFavorito) {
+      return false;
+    }
+
+    // Filtro por estado de archivado (activas por defecto)
+    const estado = filtros.estadoBotella ?? 'activas';
+    if (estado === 'activas' && b.archivada) {
+      return false;
+    }
+    if (estado === 'archivadas' && !b.archivada) {
       return false;
     }
 
@@ -120,6 +132,7 @@ export const InventarioFiltros: React.FC<InventarioFiltrosProps> = ({
       busqueda: '',
       categoria: 'todas',
       soloFavoritos: false,
+      estadoBotella: 'activas',
       orden: 'nombre_asc',
     });
   };
@@ -127,7 +140,8 @@ export const InventarioFiltros: React.FC<InventarioFiltrosProps> = ({
   const hayFiltrosActivos =
     filtros.busqueda !== '' ||
     filtros.categoria !== 'todas' ||
-    filtros.soloFavoritos;
+    filtros.soloFavoritos ||
+    (filtros.estadoBotella !== undefined && filtros.estadoBotella !== 'activas');
 
   return (
     <div className="flex flex-col gap-3 p-4 rounded-2xl bg-surface-container border border-outline shadow-xs">
@@ -157,7 +171,7 @@ export const InventarioFiltros: React.FC<InventarioFiltrosProps> = ({
           )}
         </div>
 
-        {/* Toggle Favoritos y Selector de Orden */}
+        {/* Toggle Favoritos, Selector de Estado y Selector de Orden */}
         <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
@@ -171,6 +185,44 @@ export const InventarioFiltros: React.FC<InventarioFiltrosProps> = ({
             <span>{filtros.soloFavoritos ? '⭐' : '☆'}</span>
             <span>Solo Favoritos</span>
           </button>
+
+          {/* Selector de Estado de Botella (Activas / Archivadas / Todas) */}
+          <div className="flex items-center bg-surface border border-outline rounded-xl p-0.5 text-xs">
+            <button
+              type="button"
+              onClick={() => onChange({ ...filtros, estadoBotella: 'activas' })}
+              className={`px-2.5 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
+                (filtros.estadoBotella ?? 'activas') === 'activas'
+                  ? 'bg-primary text-on-primary font-semibold shadow-xs'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              Activas
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange({ ...filtros, estadoBotella: 'archivadas' })}
+              className={`px-2.5 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
+                filtros.estadoBotella === 'archivadas'
+                  ? 'bg-primary text-on-primary font-semibold shadow-xs'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              Archivadas
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange({ ...filtros, estadoBotella: 'todas' })}
+              aria-label="Todas las botellas"
+              className={`px-2.5 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
+                filtros.estadoBotella === 'todas'
+                  ? 'bg-primary text-on-primary font-semibold shadow-xs'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              Todas
+            </button>
+          </div>
 
           <div className="flex items-center gap-1.5 bg-surface border border-outline rounded-xl px-2.5 py-1.5">
             <label htmlFor="orden-select" className="text-xs text-on-surface-variant whitespace-nowrap">

@@ -114,6 +114,16 @@ describe('Motor de Recomendación de Tragos (recetario-motor)', () => {
       expect(esBotellaCompatible(campari, ingCampari)).toBe(true);
     });
 
+    it('caso borde (#53): las botellas archivadas quedan estrictamente excluidas de la compatibilidad en recetas', () => {
+      const ginArchivado: Bebida = {
+        ...ginBombay,
+        id: 'gin-archivado',
+        archivada: true,
+      };
+      const ingGin: IngredienteReceta = { nombre: 'Gin', tipo: 'bebida', cantidadMl: 50 };
+      expect(esBotellaCompatible(ginArchivado, ingGin)).toBe(false);
+    });
+
     it('reconoce compatibilidad por alternativas semánticas', () => {
       const ingBitter: IngredienteReceta = {
         nombre: 'Bitter Rojo',

@@ -351,7 +351,7 @@ describe('App Component - Gestión de Despensa e Inventario', () => {
     expect(within(modal).getByText('Valoración del Bar')).toBeInTheDocument();
     expect(within(modal).getByTestId('aviso-botellas-sin-precio')).toHaveTextContent(/1 botella sin precio estimado/i);
     expect(within(modal).getByText('Destilado')).toBeInTheDocument();
-    expect(within(modal).getByText(/100%/i)).toBeInTheDocument();
+    expect(within(modal).getByText('(100%)')).toBeInTheDocument();
 
     // Cerrar modal
     fireEvent.click(within(modal).getByLabelText('Cerrar modal de métricas'));

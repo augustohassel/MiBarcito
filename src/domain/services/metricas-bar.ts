@@ -16,10 +16,16 @@ export interface MetricaDistribucionCategoria {
  * Reporte consolidado de valoración económica del inventario
  */
 export interface MetricasValoracion {
-  costoTotal: number;
-  totalBotellas: number;
-  botellasCotizadas: number;
-  botellasSinPrecio: number;
+  costoTotal: number; // Alias retrocompatible de valorActualProrrateado
+  costoTotalLleno: number; // Inversión total si todas las botellas activas estuvieran 100% llenas
+  valorActualProrrateado: number; // Suma prorrateada según volumen restante real en líquido
+  costoReposicion: number; // Presupuesto estimado para reponer botellas activas en stock bajo con recomprar === true
+  botellasPorReponer: number; // Cantidad de botellas activas en alerta de stock bajo con recomprar === true
+  botellasReposicionSinPrecio: number; // Cantidad de botellas por reponer que carecen de precioEstimado
+  totalBotellas: number; // Cantidad de botellas activas evaluadas
+  botellasCotizadas: number; // Cantidad de botellas activas con precio > 0
+  botellasSinPrecio: number; // Cantidad de botellas activas sin precio válido
+  botellasArchivadas: number; // Cantidad de botellas archivadas en el historial
   distribucionCategorias: MetricaDistribucionCategoria[];
 }
 
@@ -60,9 +66,15 @@ export function calcularMetricasValoracion(
     mapaCategorias.set(cat.id, cat.nombre);
   }
 
-  let costoTotal = 0;
+  let costoTotalLleno = 0;
+  let valorActualProrrateado = 0;
+  let costoReposicion = 0;
+  let botellasPorReponer = 0;
+  let botellasReposicionSinPrecio = 0;
   let botellasCotizadas = 0;
   let botellasSinPrecio = 0;
+  let botellasArchivadas = 0;
+  let totalBotellasActivas = 0;
 
   // Agrupador por categoría: id -> { costo, cantidad }
   const mapaDistribucion = new Map<
@@ -71,14 +83,44 @@ export function calcularMetricasValoracion(
   >();
 
   for (const b of bebidas) {
+    if (b.archivada) {
+      botellasArchivadas += 1;
+      continue;
+    }
+
+    totalBotellasActivas += 1;
     const tienePrecio = esPrecioValido(b.precioEstimado);
     const precio = tienePrecio ? (b.precioEstimado as number) : 0;
 
+    // Prorrateo seguro por volumen (evita división por cero y NaN ante volumenTotalMl <= 0)
+    let ratio = 0;
+    if (
+      typeof b.volumenTotalMl === 'number' &&
+      b.volumenTotalMl > 0 &&
+      typeof b.volumenRestanteMl === 'number' &&
+      !Number.isNaN(b.volumenRestanteMl)
+    ) {
+      const restante = Math.max(0, Math.min(b.volumenTotalMl, b.volumenRestanteMl));
+      ratio = restante / b.volumenTotalMl;
+    }
+    const costoProrrateado = precio * ratio;
+
     if (tienePrecio && precio > 0) {
-      costoTotal += precio;
+      costoTotalLleno += precio;
+      valorActualProrrateado += costoProrrateado;
       botellasCotizadas += 1;
     } else {
       botellasSinPrecio += 1;
+    }
+
+    // Costo de reposición: botellas activas con stock bajo y preferencia explícita de recompra
+    if (estaEnAlertaStockBajo(b) && b.recomprar === true) {
+      botellasPorReponer += 1;
+      if (tienePrecio && precio > 0) {
+        costoReposicion += precio;
+      } else {
+        botellasReposicionSinPrecio += 1;
+      }
     }
 
     const catId = b.categoria || CATEGORIA_COMODIN_ID;
@@ -90,25 +132,28 @@ export function calcularMetricasValoracion(
       nombre: catNombre,
     };
 
-    actual.totalCosto += precio;
+    actual.totalCosto += costoProrrateado;
     actual.cantidadBotellas += 1;
     mapaDistribucion.set(catId, actual);
   }
 
-  // Redondear costo total a 2 decimales para evitar artefactos de coma flotante
-  costoTotal = Math.round(costoTotal * 100) / 100;
+  // Redondear a 2 decimales para evitar artefactos de coma flotante
+  costoTotalLleno = Math.round(costoTotalLleno * 100) / 100;
+  valorActualProrrateado = Math.round(valorActualProrrateado * 100) / 100;
+  costoReposicion = Math.round(costoReposicion * 100) / 100;
 
   // Generar lista de distribución ordenada por costo descendente
   const distribucionCategorias: MetricaDistribucionCategoria[] = [];
   for (const [catId, datos] of mapaDistribucion.entries()) {
-    const porcentaje = costoTotal > 0
-      ? Math.round(((datos.totalCosto / costoTotal) * 100) * 10) / 10
-      : 0;
+    const totalCostoCat = Math.round(datos.totalCosto * 100) / 100;
+    const porcentaje = valorActualProrrateado > 0
+      ? Math.round(((totalCostoCat / valorActualProrrateado) * 100) * 10) / 10
+      : (costoTotalLleno > 0 ? 0 : 0);
 
     distribucionCategorias.push({
       categoriaId: catId,
       categoriaNombre: datos.nombre,
-      totalCosto: Math.round(datos.totalCosto * 100) / 100,
+      totalCosto: totalCostoCat,
       porcentaje,
       cantidadBotellas: datos.cantidadBotellas,
     });
@@ -117,10 +162,16 @@ export function calcularMetricasValoracion(
   distribucionCategorias.sort((a, b) => b.totalCosto - a.totalCosto || b.cantidadBotellas - a.cantidadBotellas);
 
   return {
-    costoTotal,
-    totalBotellas: bebidas.length,
+    costoTotal: valorActualProrrateado,
+    costoTotalLleno,
+    valorActualProrrateado,
+    costoReposicion,
+    botellasPorReponer,
+    botellasReposicionSinPrecio,
+    totalBotellas: totalBotellasActivas,
     botellasCotizadas,
     botellasSinPrecio,
+    botellasArchivadas,
     distribucionCategorias,
   };
 }

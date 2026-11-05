@@ -40,6 +40,7 @@ const FILTROS_DEFAULT: FiltrosEstado = {
   busqueda: '',
   categoria: 'todas',
   soloFavoritos: false,
+  estadoBotella: 'activas',
   orden: 'nombre_asc',
 };
 
@@ -276,6 +277,16 @@ export function App() {
     const actualizada: Bebida = {
       ...bebida,
       volumenRestanteMl: nuevoVolumenMl,
+      fechaActualizacion: new Date().toISOString(),
+    };
+    await repository.save(actualizada);
+    await loadBebidas();
+  };
+
+  const handleToggleArchivar = async (bebida: Bebida) => {
+    const actualizada: Bebida = {
+      ...bebida,
+      archivada: !bebida.archivada,
       fechaActualizacion: new Date().toISOString(),
     };
     await repository.save(actualizada);
@@ -739,6 +750,7 @@ export function App() {
                     onEliminar={handleSolicitarEliminar}
                     onToggleFavorito={handleToggleFavorito}
                     onAjustarVolumen={handleAjustarVolumen}
+                    onToggleArchivar={handleToggleArchivar}
                   />
                 ))}
               </div>
@@ -925,6 +937,8 @@ export function App() {
         alertas={alertasStock}
         onEditarBebida={handleAbrirEditar}
         onAjustarVolumen={handleAjustarVolumen}
+        costoReposicion={metricasValoracion.costoReposicion}
+        botellasReposicionSinPrecio={metricasValoracion.botellasReposicionSinPrecio}
       />
 
       {/* Modales de Recetario */}

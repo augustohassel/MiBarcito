@@ -5,10 +5,16 @@ import { MetricasValoracion } from '../domain/services/metricas-bar';
 
 describe('MetricasValoracionModal', () => {
   const metricasMock: MetricasValoracion = {
-    costoTotal: 15000,
+    costoTotal: 12000,
+    costoTotalLleno: 18000,
+    valorActualProrrateado: 12000,
+    costoReposicion: 8000,
+    botellasPorReponer: 2,
+    botellasReposicionSinPrecio: 1,
     totalBotellas: 5,
     botellasCotizadas: 3,
     botellasSinPrecio: 2,
+    botellasArchivadas: 1,
     distribucionCategorias: [
       {
         categoriaId: 'destilado',
@@ -38,11 +44,19 @@ describe('MetricasValoracionModal', () => {
     render(<MetricasValoracionModal isOpen={true} onClose={vi.fn()} metricas={metricasMock} />);
 
     expect(screen.getByText('Valoración del Bar')).toBeInTheDocument();
+    expect(screen.getByText('Valor Actual en Líquido')).toBeInTheDocument();
+    expect(screen.getByText('Capacidad Plena (100%)')).toBeInTheDocument();
+    expect(screen.getByText('Costo de Reposición')).toBeInTheDocument();
     expect(screen.getByText(/3 de 5 botella\(s\) cotizadas/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 archivada\(s\)/i)).toBeInTheDocument();
 
     const aviso = screen.getByTestId('aviso-botellas-sin-precio');
     expect(aviso).toBeInTheDocument();
     expect(aviso).toHaveTextContent(/2 botellas sin precio estimado/i);
+
+    const avisoRepo = screen.getByTestId('aviso-reposicion-sin-precio');
+    expect(avisoRepo).toBeInTheDocument();
+    expect(avisoRepo).toHaveTextContent(/1 botella por reponer sin cotización/i);
   });
 
   it('no muestra el aviso de botellas sin precio cuando botellasSinPrecio es 0', () => {

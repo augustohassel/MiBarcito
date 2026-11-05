@@ -45,6 +45,19 @@ describe('InventarioFiltros Component y Lógica', () => {
       fechaCreacion: '2026-11-03T10:00:00Z',
       fechaActualizacion: '2026-11-03T10:00:00Z',
     },
+    {
+      id: '4',
+      nombre: 'Whisky Archivada',
+      marca: 'Old Brand',
+      categoria: 'destilado',
+      volumenTotalMl: 750,
+      volumenRestanteMl: 0,
+      precioEstimado: 30000,
+      archivada: true,
+      esFavorito: false,
+      fechaCreacion: '2026-11-04T10:00:00Z',
+      fechaActualizacion: '2026-11-04T10:00:00Z',
+    },
   ];
 
   describe('filtrarYOrdenarBebidas (función pura)', () => {
@@ -130,6 +143,28 @@ describe('InventarioFiltros Component y Lógica', () => {
       });
       expect(descFecha.map((b) => b.id)).toEqual(['3', '2', '1']);
     });
+
+    it('filtra por estadoBotella: solo activas por defecto, solo archivadas y todas (#53)', () => {
+      // Activas por defecto (excluye id: '4' que está archivada)
+      const resActivas = filtrarYOrdenarBebidas(listaBebidas, filtrosBase);
+      expect(resActivas).toHaveLength(3);
+      expect(resActivas.map((b) => b.id)).toEqual(['2', '1', '3']);
+
+      // Solo archivadas
+      const resArchivadas = filtrarYOrdenarBebidas(listaBebidas, {
+        ...filtrosBase,
+        estadoBotella: 'archivadas',
+      });
+      expect(resArchivadas).toHaveLength(1);
+      expect(resArchivadas[0].nombre).toBe('Whisky Archivada');
+
+      // Todas
+      const resTodas = filtrarYOrdenarBebidas(listaBebidas, {
+        ...filtrosBase,
+        estadoBotella: 'todas',
+      });
+      expect(resTodas).toHaveLength(4);
+    });
   });
 
   describe('InventarioFiltros UI', () => {
@@ -181,8 +216,29 @@ describe('InventarioFiltros Component y Lógica', () => {
         busqueda: '',
         categoria: 'todas',
         soloFavoritos: false,
+        estadoBotella: 'activas',
         orden: 'nombre_asc',
       });
+    });
+
+    it('permite alternar el filtro de estado de botella (Activas, Archivadas, Todas)', () => {
+      const onChange = vi.fn();
+      render(
+        <InventarioFiltros
+          filtros={filtros}
+          onChange={onChange}
+          totalResultados={1}
+          totalBebidas={3}
+        />
+      );
+
+      const btnArchivadas = screen.getByRole('button', { name: 'Archivadas' });
+      fireEvent.click(btnArchivadas);
+      expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ estadoBotella: 'archivadas' }));
+
+      const btnTodas = screen.getByRole('button', { name: 'Todas las botellas' });
+      fireEvent.click(btnTodas);
+      expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ estadoBotella: 'todas' }));
     });
   });
 });

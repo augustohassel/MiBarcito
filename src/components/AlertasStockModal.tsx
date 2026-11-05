@@ -10,6 +10,8 @@ export interface AlertasStockModalProps {
   alertas: BebidaAlertaStock[];
   onEditarBebida?: (bebida: Bebida) => void;
   onAjustarVolumen?: (bebida: Bebida, nuevoVolumenMl: number) => void;
+  costoReposicion?: number;
+  botellasReposicionSinPrecio?: number;
 }
 
 export const AlertasStockModal: React.FC<AlertasStockModalProps> = ({
@@ -18,8 +20,42 @@ export const AlertasStockModal: React.FC<AlertasStockModalProps> = ({
   alertas,
   onEditarBebida,
   onAjustarVolumen,
+  costoReposicion,
+  botellasReposicionSinPrecio,
 }) => {
   const categoriasCtx = useCategoriasOpcional();
+
+  const formatearDinero = (monto: number): string => {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      maximumFractionDigits: 0,
+    }).format(monto);
+  };
+
+  const { totalReposicion, faltantesSinPrecio, cantidadRecomprar } = React.useMemo(() => {
+    let suma = 0;
+    let sinPrecio = 0;
+    let cant = 0;
+    for (const a of alertas) {
+      if (a.bebida.recomprar === true) {
+        cant++;
+        if (typeof a.bebida.precioEstimado === 'number' && !Number.isNaN(a.bebida.precioEstimado) && a.bebida.precioEstimado > 0) {
+          suma += a.bebida.precioEstimado;
+        } else {
+          sinPrecio++;
+        }
+      }
+    }
+    return {
+      totalReposicion: Math.round(suma * 100) / 100,
+      faltantesSinPrecio: sinPrecio,
+      cantidadRecomprar: cant,
+    };
+  }, [alertas]);
+
+  const presupuestoFinal = costoReposicion !== undefined ? costoReposicion : totalReposicion;
+  const sinCotizacionFinal = botellasReposicionSinPrecio !== undefined ? botellasReposicionSinPrecio : faltantesSinPrecio;
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -106,7 +142,38 @@ export const AlertasStockModal: React.FC<AlertasStockModalProps> = ({
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
+            {/* Tarjeta Resumen con Presupuesto Consolidado de Reposición */}
+            <div
+              data-testid="resumen-presupuesto-reposicion"
+              className="p-3.5 rounded-xl bg-surface-container-high border border-outline flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
+            >
+              <div>
+                <span className="text-xs text-on-surface-variant font-medium block">
+                  Presupuesto Estimado de Reposición
+                </span>
+                <span className="text-xl font-black text-status-amber mt-0.5 block">
+                  {formatearDinero(presupuestoFinal)}
+                </span>
+                <span className="text-[11px] text-on-surface-variant">
+                  {cantidadRecomprar} {cantidadRecomprar === 1 ? 'botella marcada' : 'botellas marcadas'} para recompra
+                </span>
+              </div>
+
+              {sinCotizacionFinal > 0 && (
+                <div
+                  data-testid="aviso-alerta-sin-precio"
+                  className="text-xs px-2.5 py-1.5 rounded-lg bg-status-amber/15 border border-status-amber/30 text-on-surface flex items-center gap-1.5"
+                >
+                  <span>⚠️</span>
+                  <span>
+                    {sinCotizacionFinal} {sinCotizacionFinal === 1 ? 'botella sin cotización' : 'botellas sin cotización'}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3">
             {alertas.map(({ bebida, stockMinimoMl, volumenRestanteMl, volumenFaltanteMl, porcentajeRestante }) => (
               <div
                 key={bebida.id}
@@ -126,18 +193,39 @@ export const AlertasStockModal: React.FC<AlertasStockModalProps> = ({
                     <h4 className="text-sm font-bold text-on-surface mt-1 truncate" title={bebida.nombre}>
                       {bebida.nombre}
                     </h4>
-                    <p className="text-xs text-on-surface-variant truncate" title={bebida.marca}>
-                      {bebida.marca}
-                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-xs text-on-surface-variant truncate" title={bebida.marca}>
+                        {bebida.marca}
+                      </p>
+                      {bebida.recomprar === true && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-status-amber/15 text-status-amber border border-status-amber/30">
+                          Recomprar
+                        </span>
+                      )}
+                      {bebida.recomprar === false && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-surface text-on-surface-variant border border-outline">
+                          No recomprar
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="text-right">
                     <span className="text-xs font-bold text-status-amber block">
                       {porcentajeRestante}%
                     </span>
-                    <span className="text-[10px] text-on-surface-variant">
+                    <span className="text-[10px] text-on-surface-variant block">
                       Umbral: {stockMinimoMl} ml
                     </span>
+                    {typeof bebida.precioEstimado === 'number' && bebida.precioEstimado > 0 ? (
+                      <span className="text-[11px] font-semibold text-on-surface block mt-0.5">
+                        {formatearDinero(bebida.precioEstimado)}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-on-surface-variant block mt-0.5">
+                        Sin cotizar
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -193,7 +281,8 @@ export const AlertasStockModal: React.FC<AlertasStockModalProps> = ({
               </div>
             ))}
           </div>
-        )}
+        </div>
+      )}
 
         {/* Botón de Cierre */}
         <div className="flex items-center justify-end pt-2 border-t border-outline">
