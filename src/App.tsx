@@ -2,9 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   useAlmacen,
   useCategoriasOpcional,
+  useCloudSync,
   useInventoryRepository,
   useRecetas,
 } from './context/InventoryContext';
+import { useAuth } from './context/AuthContext';
 import { useTheme } from './hooks/useTheme';
 import {
   Bebida,
@@ -61,6 +63,8 @@ export function App() {
   } = useAlmacen();
 
   const { theme, toggleTheme } = useTheme();
+  const { user, firebaseEnabled, signInWithGoogle } = useAuth();
+  const { isCloudActive, syncingCloud } = useCloudSync();
   const [bebidas, setBebidas] = useState<Bebida[]>([]);
   const [loading, setLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -422,9 +426,49 @@ export function App() {
                 ● En línea
               </span>
             )}
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-container text-on-primary-container border border-outline-variant">
+            <span className="hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-container text-on-primary-container border border-outline-variant">
               PWA Ready
             </span>
+
+            {/* Estado / Botón de Sesión Cloud */}
+            {firebaseEnabled && (
+              user ? (
+                <button
+                  type="button"
+                  onClick={() => handleAbrirConfiguracion('respaldo')}
+                  data-testid="header-user-button"
+                  title={`Conectado como ${user.email || user.displayName || 'Usuario'} (${
+                    syncingCloud ? 'Sincronizando...' : isCloudActive ? 'Nube activa' : 'Modo local'
+                  })`}
+                  className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline transition-colors flex items-center gap-1.5 text-xs font-medium cursor-pointer shadow-xs"
+                >
+                  <span>{syncingCloud ? '⏳' : '☁️'}</span>
+                  <span className="hidden sm:inline max-w-28 truncate">
+                    {user.displayName?.split(' ')[0] || user.email?.split('@')[0] || 'Mi Cuenta'}
+                  </span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const ok = await signInWithGoogle();
+                    if (ok) {
+                      setToastMensaje(
+                        '☁️ Sesión iniciada con Google. Sincronizando tus botellas locales a la nube...'
+                      );
+                    } else {
+                      handleAbrirConfiguracion('respaldo');
+                    }
+                  }}
+                  data-testid="header-login-button"
+                  title="Iniciar sesión con Google y respaldar tus botellas en la nube"
+                  className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-primary border border-outline transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer shadow-xs"
+                >
+                  <span>☁️</span>
+                  <span className="hidden sm:inline">Conectar Google</span>
+                </button>
+              )
+            )}
 
             {/* Alternancia Claro / Oscuro */}
             <button

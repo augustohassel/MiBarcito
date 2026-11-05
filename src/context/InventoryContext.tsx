@@ -10,6 +10,21 @@ import { Receta, RECETAS_PREDETERMINADAS } from '../domain/models/receta';
 import { IAlmacenRepository } from '../domain/repositories/almacen-repository.interface';
 import { createAlmacenRepository } from '../infrastructure/storage/almacen-repository-factory';
 import { InsumoAlmacen, INSUMOS_PREDETERMINADOS } from '../domain/models/insumo-almacen';
+import { useAuth } from './AuthContext';
+import { getFirebaseServices, traducirErrorFirebase } from '../infrastructure/firebase/firebase-client';
+import { FirestoreInventoryRepository } from '../infrastructure/storage/firestore-inventory-repository';
+import { FirestoreCategoriaRepository } from '../infrastructure/storage/firestore-categoria-repository';
+import { FirestoreRecetaRepository } from '../infrastructure/storage/firestore-receta-repository';
+import { FirestoreAlmacenRepository } from '../infrastructure/storage/firestore-almacen-repository';
+import {
+  CloudMigrationResult,
+  exportBackupPayload,
+  importBackupPayload,
+  inspectLocalInventory,
+  LocalStorageSummary,
+  mergeLocalInventoryToFirestore,
+  MiBarcitoBackupPayload,
+} from '../infrastructure/storage/cloud-migration.service';
 
 export interface CategoriaContextType {
   categoriaRepository: ICategoriaRepository;
@@ -44,7 +59,25 @@ export interface AlmacenContextType {
   toggleDisponibleInsumo: (id: string) => Promise<void>;
 }
 
-export interface InventoryContextType extends CategoriaContextType, RecetaContextType, AlmacenContextType {
+export interface CloudSyncContextType {
+  isCloudActive: boolean;
+  syncingCloud: boolean;
+  lastMigrationResult: CloudMigrationResult | null;
+  cloudSyncError: string | null;
+  clearCloudSyncError: () => void;
+  sincronizarDatosLocalesANube: () => Promise<CloudMigrationResult | null>;
+  obtenerResumenLocalDispositivo: () => Promise<LocalStorageSummary>;
+  exportarRespaldoJson: () => Promise<MiBarcitoBackupPayload>;
+  importarRespaldoJson: (
+    payload: Partial<MiBarcitoBackupPayload>
+  ) => Promise<{ bebidasImportadas: number; recetasImportadas: number; insumosImportados: number }>;
+}
+
+export interface InventoryContextType
+  extends CategoriaContextType,
+    RecetaContextType,
+    AlmacenContextType,
+    CloudSyncContextType {
   repository: IInventoryRepository;
 }
 
@@ -65,25 +98,164 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
   recetaRepository,
   almacenRepository,
 }) => {
-  const repoInstance = useMemo(
+  const { user, reportCloudError } = useAuth();
+  const firebaseServices = useMemo(() => getFirebaseServices(), []);
+
+  // Repositorios locales (IndexedDB / InMemory) que SIEMPRE permanecen en el dispositivo
+  const localInventoryRepo = useMemo(
     () => repository ?? createInventoryRepository(),
     [repository]
   );
 
-  const catRepoInstance = useMemo(
+  const localCatRepo = useMemo(
     () => categoriaRepository ?? createCategoriaRepository(),
     [categoriaRepository]
   );
 
-  const recetaRepoInstance = useMemo(
+  const localRecetaRepo = useMemo(
     () => recetaRepository ?? createRecetaRepository(),
     [recetaRepository]
   );
 
-  const almacenRepoInstance = useMemo(
+  const localAlmacenRepo = useMemo(
     () => almacenRepository ?? createAlmacenRepository(),
     [almacenRepository]
   );
+
+  const [syncingCloud, setSyncingCloud] = useState(false);
+  const [lastMigrationResult, setLastMigrationResult] = useState<CloudMigrationResult | null>(null);
+  const [cloudSyncError, setCloudSyncError] = useState<string | null>(null);
+  const [cloudReadyUid, setCloudReadyUid] = useState<string | null>(null);
+
+  const handleCloudRepoError = useCallback(
+    (err: unknown) => {
+      const msg = traducirErrorFirebase(err);
+      setCloudSyncError(msg);
+      reportCloudError(err);
+    },
+    [reportCloudError]
+  );
+
+  const clearCloudSyncError = useCallback(() => {
+    setCloudSyncError(null);
+  }, []);
+
+  const hasCustomInjectedRepos = Boolean(
+    repository || categoriaRepository || recetaRepository || almacenRepository
+  );
+
+  // Cuando el usuario inicia sesión con Google, primero fusionamos de forma aditiva IndexedDB -> Firestore
+  // antes de conmutar los repositorios activos a Firestore, garantizando que una cuenta vacía en la nube
+  // jamás oculte ni pise las botellas que el usuario ya tenía guardadas en su celular.
+  useEffect(() => {
+    if (!user || !firebaseServices || hasCustomInjectedRepos) {
+      setCloudReadyUid(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const inicializarSincronizacion = async () => {
+      try {
+        setSyncingCloud(true);
+        setCloudSyncError(null);
+
+        const resultado = await mergeLocalInventoryToFirestore(
+          firebaseServices.db,
+          user.uid,
+          {
+            inventoryRepo: localInventoryRepo,
+            categoriaRepo: localCatRepo,
+            recetaRepo: localRecetaRepo,
+            almacenRepo: localAlmacenRepo,
+          }
+        );
+
+        if (!cancelled) {
+          setLastMigrationResult(resultado);
+          setCloudReadyUid(user.uid);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          handleCloudRepoError(err);
+          // Si falla por permisos (ej. 403 permission-denied), mantenemos los repositorios locales activos
+          // para no perder operatividad ni mostrar pantalla vacía.
+          setCloudReadyUid(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setSyncingCloud(false);
+        }
+      }
+    };
+
+    inicializarSincronizacion();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    user,
+    firebaseServices,
+    hasCustomInjectedRepos,
+    localInventoryRepo,
+    localCatRepo,
+    localRecetaRepo,
+    localAlmacenRepo,
+    handleCloudRepoError,
+  ]);
+
+  const isCloudActive = Boolean(
+    user && firebaseServices && cloudReadyUid === user.uid && !hasCustomInjectedRepos
+  );
+
+  const repoInstance = useMemo<IInventoryRepository>(() => {
+    if (isCloudActive && firebaseServices && user) {
+      return new FirestoreInventoryRepository(
+        firebaseServices.db,
+        user.uid,
+        localInventoryRepo,
+        handleCloudRepoError
+      );
+    }
+    return localInventoryRepo;
+  }, [isCloudActive, firebaseServices, user, localInventoryRepo, handleCloudRepoError]);
+
+  const catRepoInstance = useMemo<ICategoriaRepository>(() => {
+    if (isCloudActive && firebaseServices && user) {
+      return new FirestoreCategoriaRepository(
+        firebaseServices.db,
+        user.uid,
+        localCatRepo,
+        handleCloudRepoError
+      );
+    }
+    return localCatRepo;
+  }, [isCloudActive, firebaseServices, user, localCatRepo, handleCloudRepoError]);
+
+  const recetaRepoInstance = useMemo<IRecetaRepository>(() => {
+    if (isCloudActive && firebaseServices && user) {
+      return new FirestoreRecetaRepository(
+        firebaseServices.db,
+        user.uid,
+        localRecetaRepo,
+        handleCloudRepoError
+      );
+    }
+    return localRecetaRepo;
+  }, [isCloudActive, firebaseServices, user, localRecetaRepo, handleCloudRepoError]);
+
+  const almacenRepoInstance = useMemo<IAlmacenRepository>(() => {
+    if (isCloudActive && firebaseServices && user) {
+      return new FirestoreAlmacenRepository(
+        firebaseServices.db,
+        user.uid,
+        localAlmacenRepo,
+        handleCloudRepoError
+      );
+    }
+    return localAlmacenRepo;
+  }, [isCloudActive, firebaseServices, user, localAlmacenRepo, handleCloudRepoError]);
 
   // Estados de Categorías
   const [categorias, setCategorias] = useState<Categoria[]>(CATEGORIAS_PREDETERMINADAS);
@@ -141,6 +313,89 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
     recargarRecetas();
     recargarAlmacen();
   }, [recargarCategorias, recargarRecetas, recargarAlmacen]);
+
+  const sincronizarDatosLocalesANube = useCallback(async (): Promise<CloudMigrationResult | null> => {
+    if (!user || !firebaseServices) {
+      return null;
+    }
+
+    try {
+      setSyncingCloud(true);
+      setCloudSyncError(null);
+
+      const resultado = await mergeLocalInventoryToFirestore(
+        firebaseServices.db,
+        user.uid,
+        {
+          inventoryRepo: localInventoryRepo,
+          categoriaRepo: localCatRepo,
+          recetaRepo: localRecetaRepo,
+          almacenRepo: localAlmacenRepo,
+        }
+      );
+
+      setLastMigrationResult(resultado);
+      setCloudReadyUid(user.uid);
+      await Promise.all([recargarCategorias(), recargarRecetas(), recargarAlmacen()]);
+      return resultado;
+    } catch (err) {
+      handleCloudRepoError(err);
+      return null;
+    } finally {
+      setSyncingCloud(false);
+    }
+  }, [
+    user,
+    firebaseServices,
+    localInventoryRepo,
+    localCatRepo,
+    localRecetaRepo,
+    localAlmacenRepo,
+    recargarCategorias,
+    recargarRecetas,
+    recargarAlmacen,
+    handleCloudRepoError,
+  ]);
+
+  const obtenerResumenLocalDispositivo = useCallback(async (): Promise<LocalStorageSummary> => {
+    return inspectLocalInventory({
+      inventoryRepo: localInventoryRepo,
+      categoriaRepo: localCatRepo,
+      recetaRepo: localRecetaRepo,
+      almacenRepo: localAlmacenRepo,
+    });
+  }, [localInventoryRepo, localCatRepo, localRecetaRepo, localAlmacenRepo]);
+
+  const exportarRespaldoJson = useCallback(async (): Promise<MiBarcitoBackupPayload> => {
+    return exportBackupPayload({
+      inventoryRepo: repoInstance,
+      categoriaRepo: catRepoInstance,
+      recetaRepo: recetaRepoInstance,
+      almacenRepo: almacenRepoInstance,
+    });
+  }, [repoInstance, catRepoInstance, recetaRepoInstance, almacenRepoInstance]);
+
+  const importarRespaldoJson = useCallback(
+    async (payload: Partial<MiBarcitoBackupPayload>) => {
+      const res = await importBackupPayload(payload, {
+        inventoryRepo: repoInstance,
+        categoriaRepo: catRepoInstance,
+        recetaRepo: recetaRepoInstance,
+        almacenRepo: almacenRepoInstance,
+      });
+      await Promise.all([recargarCategorias(), recargarRecetas(), recargarAlmacen()]);
+      return res;
+    },
+    [
+      repoInstance,
+      catRepoInstance,
+      recetaRepoInstance,
+      almacenRepoInstance,
+      recargarCategorias,
+      recargarRecetas,
+      recargarAlmacen,
+    ]
+  );
 
   const guardarCategoria = useCallback(
     async (categoria: Categoria) => {
@@ -333,6 +588,15 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
       guardarInsumo,
       eliminarInsumo,
       toggleDisponibleInsumo,
+      isCloudActive,
+      syncingCloud,
+      lastMigrationResult,
+      cloudSyncError,
+      clearCloudSyncError,
+      sincronizarDatosLocalesANube,
+      obtenerResumenLocalDispositivo,
+      exportarRespaldoJson,
+      importarRespaldoJson,
     }),
     [
       repoInstance,
@@ -357,6 +621,15 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
       guardarInsumo,
       eliminarInsumo,
       toggleDisponibleInsumo,
+      isCloudActive,
+      syncingCloud,
+      lastMigrationResult,
+      cloudSyncError,
+      clearCloudSyncError,
+      sincronizarDatosLocalesANube,
+      obtenerResumenLocalDispositivo,
+      exportarRespaldoJson,
+      importarRespaldoJson,
     ]
   );
 
@@ -467,5 +740,23 @@ export function useCategoriasOpcional(): CategoriaContextType | null {
     recargarCategorias: context.recargarCategorias,
     guardarCategoria: context.guardarCategoria,
     eliminarCategoria: context.eliminarCategoria,
+  };
+}
+
+export function useCloudSync(): CloudSyncContextType {
+  const context = useContext(InventoryContext);
+  if (!context) {
+    throw new Error('useCloudSync debe ser utilizado dentro de un InventoryProvider');
+  }
+  return {
+    isCloudActive: context.isCloudActive,
+    syncingCloud: context.syncingCloud,
+    lastMigrationResult: context.lastMigrationResult,
+    cloudSyncError: context.cloudSyncError,
+    clearCloudSyncError: context.clearCloudSyncError,
+    sincronizarDatosLocalesANube: context.sincronizarDatosLocalesANube,
+    obtenerResumenLocalDispositivo: context.obtenerResumenLocalDispositivo,
+    exportarRespaldoJson: context.exportarRespaldoJson,
+    importarRespaldoJson: context.importarRespaldoJson,
   };
 }

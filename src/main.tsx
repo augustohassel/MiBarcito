@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import App from './App';
+import { AuthProvider } from './context/AuthContext';
 import { InventoryProvider } from './context/InventoryContext';
 import './index.css';
 
@@ -10,9 +11,12 @@ registerSW({ immediate: true });
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <InventoryProvider>
-      <App />
-    </InventoryProvider>
+    <AuthProvider>
+      <InventoryProvider>
+        <App />
+      </InventoryProvider>
+    </AuthProvider>
   </React.StrictMode>
 );
+
 

@@ -10,6 +10,3 @@ authorized_domains = [
   "augustohassel.github.io"
 ]
 
-# Opcional: restringir las Firestore Security Rules exclusivamente a tu cuenta de Google personal
-allowed_user_email = ""
-

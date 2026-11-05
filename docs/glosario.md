@@ -113,6 +113,14 @@ Este documento reúne la terminología, entidades de negocio y conceptos funcion
 
 ### Persistencia Cloud y Aislamiento por Propietario (Firestore / Identity Platform)
 - **Definición**: Arquitectura de almacenamiento y autenticación serverless en Google Cloud Platform (Cloud Firestore en modo Native + Identity Platform / Firebase Auth) gestionada como código mediante Terraform dentro del propio repositorio (`infra/`), operando en el nivel gratuito perpetuo ($0/mes).
-- **Alcance / Propósito**: Permitir el respaldo en la nube y el acceso sincronizado multi-dispositivo (celular y PC) a las colecciones de bebidas, categorías, recetas e insumos del usuario autenticado con Google, aislando estrictamente los documentos bajo la ruta `/users/{userId}/...` mediante reglas de seguridad de servidor (`firestore.rules`) que verifican `request.auth.uid == userId` (y opcionalmente el correo del propietario autorizado). Convive con el almacenamiento `IndexedDB` para preservar la experiencia Local-First y offline.
-- **Lo que NO es**: No es una base de datos pública ni compartida entre distintos usuarios; toda lectura o escritura anónima o cruzada es rechazada con `PERMISSION_DENIED`.
+- **Alcance / Propósito**: Permitir que cualquier usuario autenticado con Google respalde en la nube y sincronice entre dispositivos (celular y PC) sus propias colecciones de bebidas, categorías, recetas e insumos, aislando estrictamente los documentos de cada persona bajo su ruta privada `/users/{userId}/...` mediante reglas de seguridad de servidor (`firestore.rules`) que verifican `request.auth != null && request.auth.uid == userId`. Convive con el almacenamiento `IndexedDB` para preservar la experiencia Local-First y offline.
+- **Lo que NO es**: No es una base de datos pública ni compartida entre distintos usuarios; ningún usuario puede leer ni modificar las botellas de otro usuario (`PERMISSION_DENIED`).
+
+---
+
+### Fusión Aditiva Local-a-Nube (Migración No Destructiva)
+- **Definición**: Proceso de sincronización segura ejecutado al iniciar sesión con Google (y disponible manualmente en `Configuración ➔ Respaldo & Nube`) que combina el inventario local existente en `IndexedDB` del dispositivo hacia la cuenta de Cloud Firestore (`users/{uid}/...`) sin vaciar ni sobrescribir la base local.
+- **Alcance / Propósito**: Garantizar que si un usuario ya cargó botellas, recetas propias, categorías o estados de almacén en un dispositivo (ej. celular en modo local) e inicia sesión —incluso después de haber estrenado su cuenta desde otro dispositivo vacío—, todas sus entidades locales se incorporen a la nube resolviendo colisiones por fecha de actualización más reciente (`fechaActualizacion`) o unión de subcategorías/favoritos. Complementariamente, ofrece exportación e importación manual de respaldo en archivo `.json`.
+- **Lo que NO es**: No es una sincronización destructiva donde una cuenta en la nube recién creada o vacía pisa o elimina las botellas previamente guardadas en `IndexedDB`.
+
 
