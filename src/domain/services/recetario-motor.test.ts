@@ -324,10 +324,46 @@ describe('Motor de Recomendación de Tragos (recetario-motor)', () => {
   });
 
   describe('evaluarIngrediente', () => {
-    it('marca disponible un ingrediente de tipo guarnición sin chequear botellas', () => {
+    it('marca disponible un ingrediente de tipo guarnición sin chequear botellas cuando no se provee almacén', () => {
       const ing: IngredienteReceta = { nombre: 'Rodaja de naranja', tipo: 'guarnicion_insumo' };
       const evalRes = evaluarIngrediente(ing, []);
       expect(evalRes.disponible).toBe(true);
+    });
+
+    it('evalúa guarniciones e insumos contra el catálogo del Almacén cuando se provee insumosAlmacen', () => {
+      const ingAceituna: IngredienteReceta = {
+        nombre: 'Aceituna verde',
+        insumoId: 'insumo-aceituna',
+        tipo: 'guarnicion_insumo',
+        opcional: true,
+      };
+
+      const almacenSinAceitunas = [
+        {
+          id: 'insumo-aceituna',
+          nombre: 'Aceitunas verdes',
+          categoria: 'encurtidos_decoracion' as const,
+          disponible: false,
+          esPredeterminado: true,
+          fechaCreacion: '2026-11-01T00:00:00.000Z',
+          fechaActualizacion: '2026-11-01T00:00:00.000Z',
+        },
+      ];
+
+      const evalFaltante = evaluarIngrediente(ingAceituna, [], almacenSinAceitunas);
+      expect(evalFaltante.disponible).toBe(false);
+      expect(evalFaltante.motivo).toBe('sin_insumo');
+
+      const almacenConAceitunas = [
+        {
+          ...almacenSinAceitunas[0],
+          disponible: true,
+        },
+      ];
+
+      const evalDisponible = evaluarIngrediente(ingAceituna, [], almacenConAceitunas);
+      expect(evalDisponible.disponible).toBe(true);
+      expect(evalDisponible.motivo).toBeUndefined();
     });
 
     it('marca disponible si hay botella compatible con stock suficiente', () => {

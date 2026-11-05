@@ -2,6 +2,7 @@ import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { Bebida } from '../../domain/models/bebida';
 import { Categoria, CATEGORIAS_PREDETERMINADAS } from '../../domain/models/categoria';
 import { Receta, RECETAS_PREDETERMINADAS } from '../../domain/models/receta';
+import { InsumoAlmacen, INSUMOS_PREDETERMINADOS } from '../../domain/models/insumo-almacen';
 
 export interface MiBarcitoDB extends DBSchema {
   bebidas: {
@@ -29,18 +30,27 @@ export interface MiBarcitoDB extends DBSchema {
       'by-favorito': string;
     };
   };
+  almacen: {
+    key: string;
+    value: InsumoAlmacen;
+    indexes: {
+      'by-categoria': string;
+      'by-nombre': string;
+    };
+  };
 }
 
 export const DB_NAME = 'mibarcito_db';
-export const DB_VERSION = 3;
+export const DB_VERSION = 4;
 export const STORE_BEBIDAS = 'bebidas';
 export const STORE_CATEGORIAS = 'categorias';
 export const STORE_RECETAS = 'recetas';
+export const STORE_ALMACEN = 'almacen';
 
 let dbPromise: Promise<IDBPDatabase<MiBarcitoDB>> | null = null;
 
 /**
- * Obtiene la conexión centralizada a IndexedDB (v3).
+ * Obtiene la conexión centralizada a IndexedDB (v4).
  * Maneja la creación y migración segura de ObjectStores y el seeding inicial.
  */
 export function getDatabase(): Promise<IDBPDatabase<MiBarcitoDB>> {
@@ -76,6 +86,18 @@ export function getDatabase(): Promise<IDBPDatabase<MiBarcitoDB>> {
           const recStore = transaction.objectStore(STORE_RECETAS);
           for (const rec of RECETAS_PREDETERMINADAS) {
             recStore.put(rec);
+          }
+        }
+
+        // v4: Store de almacén (guarniciones e insumos)
+        if (!db.objectStoreNames.contains(STORE_ALMACEN)) {
+          const storeAlmacen = db.createObjectStore(STORE_ALMACEN, { keyPath: 'id' });
+          storeAlmacen.createIndex('by-categoria', 'categoria');
+          storeAlmacen.createIndex('by-nombre', 'nombre');
+
+          const almStore = transaction.objectStore(STORE_ALMACEN);
+          for (const ins of INSUMOS_PREDETERMINADOS) {
+            almStore.put(ins);
           }
         }
       },

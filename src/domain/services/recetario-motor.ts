@@ -1,5 +1,6 @@
 import { Bebida } from '../models/bebida';
 import { IngredienteReceta, Receta } from '../models/receta';
+import { InsumoAlmacen } from '../models/insumo-almacen';
 
 /**
  * Normaliza una cadena de texto para comparaciones flexibles:
@@ -120,30 +121,55 @@ export function esBotellaCompatible(
 }
 
 /**
- * Resultado de evaluar un ingrediente individual contra el stock del bar
+ * Resultado de evaluar un ingrediente individual contra el stock del bar y del almacén
  */
 export interface EvaluacionIngrediente {
   ingrediente: IngredienteReceta;
   disponible: boolean;
-  motivo?: 'sin_botella' | 'stock_insuficiente';
+  motivo?: 'sin_botella' | 'stock_insuficiente' | 'sin_insumo';
   botellaSugerida?: Bebida;
+  insumoSugerido?: InsumoAlmacen;
   botellasCompatibles: Bebida[];
   volumenRequeridoMl: number;
   volumenDisponibleMl: number;
 }
 
 /**
- * Evalúa un ingrediente de una receta frente a la lista de bebidas de la despensa.
+ * Evalúa un ingrediente de una receta frente a la lista de bebidas de la despensa
+ * y a los insumos disponibles en el almacén.
  */
 export function evaluarIngrediente(
   ingrediente: IngredienteReceta,
-  bebidas: Bebida[]
+  bebidas: Bebida[],
+  insumosAlmacen?: InsumoAlmacen[]
 ): EvaluacionIngrediente {
-  // Los insumos o guarniciones frescas no bloquean la preparación ni descuentan botellas
   if (ingrediente.tipo === 'guarnicion_insumo') {
+    if (!insumosAlmacen) {
+      return {
+        ingrediente,
+        disponible: true,
+        botellasCompatibles: [],
+        volumenRequeridoMl: 0,
+        volumenDisponibleMl: 0,
+      };
+    }
+
+    const insumoEncontrado = ingrediente.insumoId
+      ? insumosAlmacen.find((item) => item.id === ingrediente.insumoId)
+      : insumosAlmacen.find(
+          (item) =>
+            normalizarTexto(item.nombre) === normalizarTexto(ingrediente.nombre) ||
+            (item.aliases ?? []).some(
+              (alias) => normalizarTexto(alias) === normalizarTexto(ingrediente.nombre)
+            )
+        );
+
+    const estaDisponible = Boolean(insumoEncontrado?.disponible);
     return {
       ingrediente,
-      disponible: true,
+      disponible: estaDisponible,
+      motivo: estaDisponible ? undefined : 'sin_insumo',
+      insumoSugerido: insumoEncontrado,
       botellasCompatibles: [],
       volumenRequeridoMl: 0,
       volumenDisponibleMl: 0,
@@ -208,11 +234,15 @@ export interface EvaluacionReceta {
 }
 
 /**
- * Evalúa una receta completa comparando cada uno de sus ingredientes contra la despensa.
+ * Evalúa una receta completa comparando cada uno de sus ingredientes contra la despensa y el almacén.
  */
-export function evaluarReceta(receta: Receta, bebidas: Bebida[]): EvaluacionReceta {
+export function evaluarReceta(
+  receta: Receta,
+  bebidas: Bebida[],
+  insumosAlmacen?: InsumoAlmacen[]
+): EvaluacionReceta {
   const ingredientesEvaluados = receta.ingredientes.map((ing) =>
-    evaluarIngrediente(ing, bebidas)
+    evaluarIngrediente(ing, bebidas, insumosAlmacen)
   );
 
   const ingredientesDisponibles = ingredientesEvaluados.filter((i) => i.disponible);
@@ -261,9 +291,10 @@ export interface ClasificacionRecetario {
  */
 export function clasificarRecetas(
   recetas: Receta[],
-  bebidas: Bebida[]
+  bebidas: Bebida[],
+  insumosAlmacen?: InsumoAlmacen[]
 ): ClasificacionRecetario {
-  const evaluaciones = recetas.map((r) => evaluarReceta(r, bebidas));
+  const evaluaciones = recetas.map((r) => evaluarReceta(r, bebidas, insumosAlmacen));
 
   const armarHoy = evaluaciones
     .filter((e) => e.seccion === 'armar_hoy')

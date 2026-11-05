@@ -8,7 +8,8 @@ import {
   ErroresValidacionReceta,
 } from '../domain/models/receta';
 import { CATEGORIAS_PREDETERMINADAS, Categoria } from '../domain/models/categoria';
-import { useCategoriasOpcional } from '../context/InventoryContext';
+import { INSUMOS_PREDETERMINADOS, InsumoAlmacen } from '../domain/models/insumo-almacen';
+import { useCategoriasOpcional, useAlmacenOpcional } from '../context/InventoryContext';
 
 export interface RecetaFormModalProps {
   isOpen: boolean;
@@ -100,6 +101,13 @@ export const RecetaFormModal: React.FC<RecetaFormModalProps> = ({
       : CATEGORIAS_PREDETERMINADAS;
   }, [categoriasCtx?.categorias]);
 
+  const almacenCtx = useAlmacenOpcional();
+  const insumosDisponibles = useMemo<InsumoAlmacen[]>(() => {
+    return almacenCtx && almacenCtx.insumos.length > 0
+      ? almacenCtx.insumos
+      : INSUMOS_PREDETERMINADOS;
+  }, [almacenCtx?.insumos]);
+
   const crearIngredienteInicial = (): IngredienteReceta => {
     const cat =
       categoriasDisponibles.find((c) => c.id === 'destilado') ??
@@ -174,14 +182,36 @@ export const RecetaFormModal: React.FC<RecetaFormModalProps> = ({
             opcional: Boolean(ing.opcional),
           };
         }
+        const primerInsumo = insumosDisponibles[0];
         return {
-          nombre: '',
+          nombre: primerInsumo?.nombre || 'Hielo',
+          insumoId: primerInsumo?.id,
           tipo: 'guarnicion_insumo',
           categoriaId: undefined,
           subcategoria: undefined,
           cantidadMl: undefined,
-          unidad: undefined,
+          unidad: 'al gusto',
           opcional: Boolean(ing.opcional),
+        };
+      })
+    );
+  };
+
+  const handleCambiarInsumoIngrediente = (index: number, nuevoInsumoId: string) => {
+    const insumo = insumosDisponibles.find((ins) => ins.id === nuevoInsumoId);
+    setIngredientes((prev) =>
+      prev.map((ing, i) => {
+        if (i !== index) return ing;
+        if (!insumo) {
+          return {
+            ...ing,
+            insumoId: undefined,
+          };
+        }
+        return {
+          ...ing,
+          insumoId: insumo.id,
+          nombre: insumo.nombre,
         };
       })
     );
@@ -513,16 +543,32 @@ export const RecetaFormModal: React.FC<RecetaFormModalProps> = ({
                         </div>
                       </>
                     ) : (
-                      <div className="flex-1 w-full sm:w-auto">
+                      <div className="flex-1 w-full sm:w-auto flex flex-col sm:flex-row gap-2">
+                        <select
+                          value={ing.insumoId || ''}
+                          aria-label={`Insumo de almacén ${idx + 1}`}
+                          data-testid={`select-ingrediente-insumo-${idx}`}
+                          onChange={(e) =>
+                            handleCambiarInsumoIngrediente(idx, e.target.value)
+                          }
+                          className="flex-1 px-2.5 py-1.5 rounded-lg bg-surface-container border border-outline text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                          <option value="">Personalizado / Otro...</option>
+                          {insumosDisponibles.map((ins) => (
+                            <option key={ins.id} value={ins.id}>
+                              {ins.nombre} ({ins.disponible ? '✓ Tengo' : '✕ No tengo'})
+                            </option>
+                          ))}
+                        </select>
                         <input
                           type="text"
                           value={ing.nombre}
                           onChange={(e) =>
                             handleModificarIngrediente(idx, 'nombre', e.target.value)
                           }
-                          placeholder="Insumo o guarnición (ej. Hielo, Rodaja de lima, Menta)"
+                          placeholder="Presentación o detalle (ej. Rodaja de lima, Aceituna verde)"
                           data-testid={`input-ingrediente-nombre-${idx}`}
-                          className="w-full px-3 py-1.5 rounded-lg bg-surface-container border border-outline text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+                          className="flex-1 px-3 py-1.5 rounded-lg bg-surface-container border border-outline text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
                         />
                       </div>
                     )}

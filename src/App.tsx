@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  useAlmacen,
   useCategoriasOpcional,
   useInventoryRepository,
   useRecetas,
@@ -31,6 +32,7 @@ import { RecetarioFiltros, FiltroSeccionRecetario } from './components/Recetario
 import { RecetaFormModal } from './components/RecetaFormModal';
 import { RecetaDetalleModal } from './components/RecetaDetalleModal';
 import { PrepararTragoModal } from './components/PrepararTragoModal';
+import { AlmacenView } from './components/AlmacenView';
 
 const FILTROS_DEFAULT: FiltrosEstado = {
   busqueda: '',
@@ -51,13 +53,20 @@ export function App() {
     prepararTrago,
   } = useRecetas();
 
+  const {
+    insumos,
+    guardarInsumo,
+    eliminarInsumo,
+    toggleDisponibleInsumo,
+  } = useAlmacen();
+
   const { theme, toggleTheme } = useTheme();
   const [bebidas, setBebidas] = useState<Bebida[]>([]);
   const [loading, setLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   // Navegación principal de solapas
-  const [tabActiva, setTabActiva] = useState<'despensa' | 'recetario'>('despensa');
+  const [tabActiva, setTabActiva] = useState<'despensa' | 'almacen' | 'recetario'>('despensa');
 
   // Filtros de Despensa
   const [filtros, setFiltros] = useState<FiltrosEstado>(FILTROS_DEFAULT);
@@ -131,10 +140,10 @@ export function App() {
     return filtrarYOrdenarBebidas(bebidas, filtros);
   }, [bebidas, filtros]);
 
-  // Clasificación algorítmica del Recetario en tiempo real
+  // Clasificación algorítmica del Recetario en tiempo real (cruzando Despensa y Almacén)
   const clasificacionRecetas = useMemo(() => {
-    return clasificarRecetas(recetas, bebidas);
-  }, [recetas, bebidas]);
+    return clasificarRecetas(recetas, bebidas, insumos);
+  }, [recetas, bebidas, insumos]);
 
   // Filtrado de recetas en Recetario
   const recetasFiltradasEvaluadas = useMemo(() => {
@@ -443,16 +452,16 @@ export function App() {
         </div>
       </header>
 
-      {/* Selector de Solapas Principal (Despensa | Recetario) */}
+      {/* Selector de Solapas Principal (Despensa | Almacén | Recetario) */}
       <nav aria-label="Navegación principal" className="border-b border-outline bg-surface-container px-4 sm:px-6">
-        <div className="max-w-5xl mx-auto flex items-center gap-1 pt-2" role="tablist">
+        <div className="max-w-5xl mx-auto flex items-center gap-1 pt-2 overflow-x-auto" role="tablist">
           <button
             type="button"
             role="tab"
             aria-selected={tabActiva === 'despensa'}
             onClick={() => setTabActiva('despensa')}
             data-testid="tab-despensa"
-            className={`px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-t-xl transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-t-xl transition-all border-b-2 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
               tabActiva === 'despensa'
                 ? 'border-primary text-primary bg-surface/50'
                 : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
@@ -467,10 +476,28 @@ export function App() {
           <button
             type="button"
             role="tab"
+            aria-selected={tabActiva === 'almacen'}
+            onClick={() => setTabActiva('almacen')}
+            data-testid="tab-almacen"
+            className={`px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-t-xl transition-all border-b-2 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+              tabActiva === 'almacen'
+                ? 'border-primary text-primary bg-surface/50'
+                : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
+            }`}
+          >
+            <span>🍋 Almacén</span>
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-surface-container-high border border-outline">
+              {insumos.filter((i) => i.disponible).length}/{insumos.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            role="tab"
             aria-selected={tabActiva === 'recetario'}
             onClick={() => setTabActiva('recetario')}
             data-testid="tab-recetario"
-            className={`px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-t-xl transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-t-xl transition-all border-b-2 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
               tabActiva === 'recetario'
                 ? 'border-primary text-primary bg-surface/50'
                 : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
@@ -673,6 +700,16 @@ export function App() {
               </div>
             )}
           </>
+        )}
+
+        {/* ================= VISTA DE ALMACÉN ================= */}
+        {tabActiva === 'almacen' && (
+          <AlmacenView
+            insumos={insumos}
+            onToggleDisponible={toggleDisponibleInsumo}
+            onGuardarInsumo={guardarInsumo}
+            onEliminarInsumo={eliminarInsumo}
+          />
         )}
 
         {/* ================= VISTA DE RECETARIO DINÁMICO ================= */}

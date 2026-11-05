@@ -7,6 +7,9 @@ import { Categoria, puedeEliminarCategoria } from '../domain/models/categoria';
 import { IRecetaRepository } from '../domain/repositories/receta-repository.interface';
 import { createRecetaRepository } from '../infrastructure/storage/receta-repository-factory';
 import { Receta } from '../domain/models/receta';
+import { IAlmacenRepository } from '../domain/repositories/almacen-repository.interface';
+import { createAlmacenRepository } from '../infrastructure/storage/almacen-repository-factory';
+import { InsumoAlmacen } from '../domain/models/insumo-almacen';
 
 export interface CategoriaContextType {
   categoriaRepository: ICategoriaRepository;
@@ -31,7 +34,17 @@ export interface RecetaContextType {
   ) => Promise<{ ok: boolean; motivo?: string }>;
 }
 
-export interface InventoryContextType extends CategoriaContextType, RecetaContextType {
+export interface AlmacenContextType {
+  almacenRepository: IAlmacenRepository;
+  insumos: InsumoAlmacen[];
+  loadingAlmacen: boolean;
+  recargarAlmacen: () => Promise<void>;
+  guardarInsumo: (insumo: InsumoAlmacen) => Promise<void>;
+  eliminarInsumo: (id: string) => Promise<{ ok: boolean; motivo?: string }>;
+  toggleDisponibleInsumo: (id: string) => Promise<void>;
+}
+
+export interface InventoryContextType extends CategoriaContextType, RecetaContextType, AlmacenContextType {
   repository: IInventoryRepository;
 }
 
@@ -42,6 +55,7 @@ export interface InventoryProviderProps {
   repository?: IInventoryRepository;
   categoriaRepository?: ICategoriaRepository;
   recetaRepository?: IRecetaRepository;
+  almacenRepository?: IAlmacenRepository;
 }
 
 export const InventoryProvider: React.FC<InventoryProviderProps> = ({
@@ -49,6 +63,7 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
   repository,
   categoriaRepository,
   recetaRepository,
+  almacenRepository,
 }) => {
   const repoInstance = useMemo(
     () => repository ?? createInventoryRepository(),
@@ -65,6 +80,11 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
     [recetaRepository]
   );
 
+  const almacenRepoInstance = useMemo(
+    () => almacenRepository ?? createAlmacenRepository(),
+    [almacenRepository]
+  );
+
   // Estados de Categorías
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [loadingCategorias, setLoadingCategorias] = useState(true);
@@ -72,6 +92,10 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
   // Estados de Recetas
   const [recetas, setRecetas] = useState<Receta[]>([]);
   const [loadingRecetas, setLoadingRecetas] = useState(true);
+
+  // Estados de Almacén
+  const [insumos, setInsumos] = useState<InsumoAlmacen[]>([]);
+  const [loadingAlmacen, setLoadingAlmacen] = useState(true);
 
   const recargarCategorias = useCallback(async () => {
     try {
@@ -99,10 +123,24 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
     }
   }, [recetaRepoInstance]);
 
+  const recargarAlmacen = useCallback(async () => {
+    try {
+      setLoadingAlmacen(true);
+      await almacenRepoInstance.seedDefaults();
+      const list = await almacenRepoInstance.getAll();
+      setInsumos(list);
+    } catch (err) {
+      console.error('Error al cargar almacén:', err);
+    } finally {
+      setLoadingAlmacen(false);
+    }
+  }, [almacenRepoInstance]);
+
   useEffect(() => {
     recargarCategorias();
     recargarRecetas();
-  }, [recargarCategorias, recargarRecetas]);
+    recargarAlmacen();
+  }, [recargarCategorias, recargarRecetas, recargarAlmacen]);
 
   const guardarCategoria = useCallback(
     async (categoria: Categoria) => {
@@ -164,6 +202,41 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
     [recetaRepoInstance, recargarRecetas]
   );
 
+  const guardarInsumo = useCallback(
+    async (insumo: InsumoAlmacen) => {
+      await almacenRepoInstance.save(insumo);
+      await recargarAlmacen();
+    },
+    [almacenRepoInstance, recargarAlmacen]
+  );
+
+  const eliminarInsumo = useCallback(
+    async (id: string): Promise<{ ok: boolean; motivo?: string }> => {
+      const insumo = await almacenRepoInstance.getById(id);
+      if (!insumo) {
+        return { ok: false, motivo: 'El insumo no existe en el almacén.' };
+      }
+      if (insumo.esPredeterminado) {
+        return {
+          ok: false,
+          motivo: 'Los insumos predeterminados del catálogo básico no pueden eliminarse (podés marcarlos como "No tengo").',
+        };
+      }
+      await almacenRepoInstance.delete(id);
+      await recargarAlmacen();
+      return { ok: true };
+    },
+    [almacenRepoInstance, recargarAlmacen]
+  );
+
+  const toggleDisponibleInsumo = useCallback(
+    async (id: string) => {
+      await almacenRepoInstance.toggleDisponible(id);
+      await recargarAlmacen();
+    },
+    [almacenRepoInstance, recargarAlmacen]
+  );
+
   /**
    * Descuenta stock de forma atómica y segura al preparar un trago.
    * Valida que ninguna botella quede con saldo negativo antes de guardar.
@@ -219,6 +292,7 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
       repository: repoInstance,
       categoriaRepository: catRepoInstance,
       recetaRepository: recetaRepoInstance,
+      almacenRepository: almacenRepoInstance,
       categorias,
       loadingCategorias,
       recargarCategorias,
@@ -231,11 +305,18 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
       eliminarReceta,
       toggleFavoritoReceta,
       prepararTrago,
+      insumos,
+      loadingAlmacen,
+      recargarAlmacen,
+      guardarInsumo,
+      eliminarInsumo,
+      toggleDisponibleInsumo,
     }),
     [
       repoInstance,
       catRepoInstance,
       recetaRepoInstance,
+      almacenRepoInstance,
       categorias,
       loadingCategorias,
       recargarCategorias,
@@ -248,6 +329,12 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
       eliminarReceta,
       toggleFavoritoReceta,
       prepararTrago,
+      insumos,
+      loadingAlmacen,
+      recargarAlmacen,
+      guardarInsumo,
+      eliminarInsumo,
+      toggleDisponibleInsumo,
     ]
   );
 
@@ -311,6 +398,38 @@ export function useRecetas(): RecetaContextType {
     eliminarReceta: context.eliminarReceta,
     toggleFavoritoReceta: context.toggleFavoritoReceta,
     prepararTrago: context.prepararTrago,
+  };
+}
+
+export function useAlmacen(): AlmacenContextType {
+  const context = useContext(InventoryContext);
+  if (!context) {
+    throw new Error('useAlmacen debe ser utilizado dentro de un InventoryProvider');
+  }
+  return {
+    almacenRepository: context.almacenRepository,
+    insumos: context.insumos,
+    loadingAlmacen: context.loadingAlmacen,
+    recargarAlmacen: context.recargarAlmacen,
+    guardarInsumo: context.guardarInsumo,
+    eliminarInsumo: context.eliminarInsumo,
+    toggleDisponibleInsumo: context.toggleDisponibleInsumo,
+  };
+}
+
+export function useAlmacenOpcional(): AlmacenContextType | null {
+  const context = useContext(InventoryContext);
+  if (!context) {
+    return null;
+  }
+  return {
+    almacenRepository: context.almacenRepository,
+    insumos: context.insumos,
+    loadingAlmacen: context.loadingAlmacen,
+    recargarAlmacen: context.recargarAlmacen,
+    guardarInsumo: context.guardarInsumo,
+    eliminarInsumo: context.eliminarInsumo,
+    toggleDisponibleInsumo: context.toggleDisponibleInsumo,
   };
 }
 

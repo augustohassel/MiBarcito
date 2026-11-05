@@ -27,6 +27,7 @@ export interface IngredienteReceta {
   tipo: TipoIngrediente;
   categoriaId?: string;
   subcategoria?: string;
+  insumoId?: string;
   opcional?: boolean;
   alternativas?: string[];
 }
@@ -176,8 +177,8 @@ export const RECETAS_PREDETERMINADAS: Receta[] = [
       { nombre: 'Gin', cantidadMl: 30, unidad: 'ml', tipo: 'bebida', categoriaId: 'destilado', subcategoria: 'Gin', alternativas: ['London Dry', 'Ginebra'] },
       { nombre: 'Campari', cantidadMl: 30, unidad: 'ml', tipo: 'bebida', categoriaId: 'aperitivo_bitter', subcategoria: 'Bitter Rojo', alternativas: ['Bitter Rojo'] },
       { nombre: 'Vermut Rosso', cantidadMl: 30, unidad: 'ml', tipo: 'bebida', categoriaId: 'aperitivo_bitter', subcategoria: 'Vermut Rosso', alternativas: ['Vermut Rosso', 'Vermouth Rosso', 'Vermouth', 'Rosso'] },
-      { nombre: 'Hielo en cubos', tipo: 'guarnicion_insumo', opcional: false },
-      { nombre: 'Media rodaja o piel de naranja', tipo: 'guarnicion_insumo', opcional: true },
+      { nombre: 'Hielo en cubos', tipo: 'guarnicion_insumo', insumoId: 'insumo-hielo', opcional: false },
+      { nombre: 'Media rodaja o piel de naranja', tipo: 'guarnicion_insumo', insumoId: 'insumo-naranja', opcional: true },
     ],
     pasos: [
       'Llenar un vaso de composición o el vaso bajo con abundante hielo cristalino.',
@@ -198,8 +199,8 @@ export const RECETAS_PREDETERMINADAS: Receta[] = [
     ingredientes: [
       { nombre: 'Gin', cantidadMl: 50, unidad: 'ml', tipo: 'bebida', categoriaId: 'destilado', subcategoria: 'Gin', alternativas: ['London Dry', 'Ginebra'] },
       { nombre: 'Agua Tónica', cantidadMl: 150, unidad: 'ml', tipo: 'bebida', categoriaId: 'mixer_sin_alcohol', subcategoria: 'Tónica', alternativas: ['Tonica', 'Tónica', 'Indian Tonic'] },
-      { nombre: 'Hielo en rocas', tipo: 'guarnicion_insumo', opcional: false },
-      { nombre: 'Rodaja de limón o pepino', tipo: 'guarnicion_insumo', opcional: true },
+      { nombre: 'Hielo en rocas', tipo: 'guarnicion_insumo', insumoId: 'insumo-hielo', opcional: false },
+      { nombre: 'Rodaja de limón o pepino', tipo: 'guarnicion_insumo', insumoId: 'insumo-limon', opcional: true },
     ],
     pasos: [
       'Llenar la copa balón con hielo hasta el borde y enfriar la copa haciendo girar los hielos.',
@@ -222,8 +223,8 @@ export const RECETAS_PREDETERMINADAS: Receta[] = [
       { nombre: 'Vino Espumante', cantidadMl: 90, unidad: 'ml', tipo: 'bebida', categoriaId: 'vino', subcategoria: 'Espumante', alternativas: ['Prosecco', 'Champagne', 'Espumante'] },
       { nombre: 'Aperol', cantidadMl: 60, unidad: 'ml', tipo: 'bebida', categoriaId: 'aperitivo_bitter', subcategoria: 'Aperitivo Cítrico', alternativas: ['Aperitivo Cítrico', 'Bitter Naranja'] },
       { nombre: 'Soda', cantidadMl: 30, unidad: 'ml', tipo: 'bebida', categoriaId: 'mixer_sin_alcohol', subcategoria: 'Soda / Agua con gas', alternativas: ['Agua con gas', 'Club Soda', 'Sifón'] },
-      { nombre: 'Hielo', tipo: 'guarnicion_insumo', opcional: false },
-      { nombre: 'Rodaja de naranja fresca', tipo: 'guarnicion_insumo', opcional: true },
+      { nombre: 'Hielo', tipo: 'guarnicion_insumo', insumoId: 'insumo-hielo', opcional: false },
+      { nombre: 'Rodaja de naranja fresca', tipo: 'guarnicion_insumo', insumoId: 'insumo-naranja', opcional: true },
     ],
     pasos: [
       'Llenar la copa con hielo abundante.',
@@ -244,7 +245,7 @@ export const RECETAS_PREDETERMINADAS: Receta[] = [
     ingredientes: [
       { nombre: 'Fernet', cantidadMl: 50, unidad: 'ml', tipo: 'bebida', categoriaId: 'aperitivo_bitter', subcategoria: 'Fernet', alternativas: ['Fernet Branca', 'Amaro'] },
       { nombre: 'Bebida Cola', cantidadMl: 150, unidad: 'ml', tipo: 'bebida', categoriaId: 'mixer_sin_alcohol', subcategoria: 'Cola', alternativas: ['Coca Cola', 'Pepsi', 'Gaseosa Cola', 'Cola'] },
-      { nombre: 'Hielo en cubos', tipo: 'guarnicion_insumo', opcional: false },
+      { nombre: 'Hielo en cubos', tipo: 'guarnicion_insumo', insumoId: 'insumo-hielo', opcional: false },
     ],
     pasos: [
       'Colocar abundante hielo hasta completar el vaso.',
@@ -265,8 +266,8 @@ export const RECETAS_PREDETERMINADAS: Receta[] = [
     ingredientes: [
       { nombre: 'Whisky', cantidadMl: 50, unidad: 'ml', tipo: 'bebida', categoriaId: 'destilado', subcategoria: 'Whisky', alternativas: ['Bourbon', 'Rye', 'Scotch', 'Whiskey'] },
       { nombre: 'Bitter Angostura', cantidadMl: 5, unidad: 'ml', tipo: 'bebida', categoriaId: 'aperitivo_bitter', subcategoria: 'Bitter Rojo', alternativas: ['Angostura', 'Aromatic Bitter'] },
-      { nombre: 'Terrón de azúcar o syrup', tipo: 'guarnicion_insumo', opcional: false },
-      { nombre: 'Piel de naranja', tipo: 'guarnicion_insumo', opcional: true },
+      { nombre: 'Terrón de azúcar o syrup', tipo: 'guarnicion_insumo', insumoId: 'insumo-azucar', opcional: false },
+      { nombre: 'Piel de naranja', tipo: 'guarnicion_insumo', insumoId: 'insumo-naranja', opcional: true },
     ],
     pasos: [
       'En el vaso bajo, impregnar el azúcar con las gotas de bitter aromático y un toque mínimo de agua.',
@@ -289,8 +290,8 @@ export const RECETAS_PREDETERMINADAS: Receta[] = [
       { nombre: 'Tequila', cantidadMl: 50, unidad: 'ml', tipo: 'bebida', categoriaId: 'destilado', subcategoria: 'Tequila', alternativas: ['Mezcal'] },
       { nombre: 'Licor de Naranja', cantidadMl: 25, unidad: 'ml', tipo: 'bebida', categoriaId: 'licor', subcategoria: 'Triple Sec / Naranja', alternativas: ['Triple Sec', 'Cointreau', 'Curacao'] },
       { nombre: 'Jugo de Lima fresca', cantidadMl: 25, unidad: 'ml', tipo: 'bebida', categoriaId: 'mixer_sin_alcohol', subcategoria: 'Jugo Cítrico', alternativas: ['Jugo de Lima', 'Jugo de Limon', 'Lima'] },
-      { nombre: 'Sal fina para coronar', tipo: 'guarnicion_insumo', opcional: true },
-      { nombre: 'Hielo para batir', tipo: 'guarnicion_insumo', opcional: false },
+      { nombre: 'Sal fina para coronar', tipo: 'guarnicion_insumo', insumoId: 'insumo-sal', opcional: true },
+      { nombre: 'Hielo para batir', tipo: 'guarnicion_insumo', insumoId: 'insumo-hielo', opcional: false },
     ],
     pasos: [
       'Pasar una rodaja de lima por el borde de la copa y pasarla por un plato con sal fina (escarchado parcial).',
@@ -311,10 +312,10 @@ export const RECETAS_PREDETERMINADAS: Receta[] = [
     ingredientes: [
       { nombre: 'Ron Blanco', cantidadMl: 50, unidad: 'ml', tipo: 'bebida', categoriaId: 'destilado', subcategoria: 'Ron', alternativas: ['Ron', 'Rum'] },
       { nombre: 'Soda', cantidadMl: 50, unidad: 'ml', tipo: 'bebida', categoriaId: 'mixer_sin_alcohol', subcategoria: 'Soda / Agua con gas', alternativas: ['Agua con gas', 'Club Soda', 'Sifón'] },
-      { nombre: 'Ramas de menta fresca', tipo: 'guarnicion_insumo', opcional: false },
+      { nombre: 'Ramas de menta fresca', tipo: 'guarnicion_insumo', insumoId: 'insumo-menta', opcional: false },
       { nombre: 'Jugo de lima fresco', cantidadMl: 20, unidad: 'ml', tipo: 'bebida', categoriaId: 'mixer_sin_alcohol', subcategoria: 'Jugo Cítrico', opcional: false, alternativas: ['Lima', 'Jugo de Limon', 'Jugo de Lima'] },
-      { nombre: 'Azúcar blanco', tipo: 'guarnicion_insumo', opcional: false },
-      { nombre: 'Hielo picado', tipo: 'guarnicion_insumo', opcional: false },
+      { nombre: 'Azúcar blanco', tipo: 'guarnicion_insumo', insumoId: 'insumo-azucar', opcional: false },
+      { nombre: 'Hielo picado', tipo: 'guarnicion_insumo', insumoId: 'insumo-hielo', opcional: false },
     ],
     pasos: [
       'En el vaso alto, colocar 2 cucharaditas de azúcar y las ramas de menta con el jugo de lima.',
@@ -337,8 +338,8 @@ export const RECETAS_PREDETERMINADAS: Receta[] = [
       { nombre: 'Whisky', cantidadMl: 50, unidad: 'ml', tipo: 'bebida', categoriaId: 'destilado', subcategoria: 'Whisky', alternativas: ['Rye', 'Bourbon', 'Scotch', 'Whiskey'] },
       { nombre: 'Vermut Rosso', cantidadMl: 25, unidad: 'ml', tipo: 'bebida', categoriaId: 'aperitivo_bitter', subcategoria: 'Vermut Rosso', alternativas: ['Vermut Rosso', 'Vermouth Rosso', 'Vermouth', 'Rosso'] },
       { nombre: 'Bitter Angostura', cantidadMl: 5, unidad: 'ml', tipo: 'bebida', categoriaId: 'aperitivo_bitter', subcategoria: 'Bitter Rojo', alternativas: ['Angostura', 'Aromatic Bitter'] },
-      { nombre: 'Hielo para refrescar', tipo: 'guarnicion_insumo', opcional: false },
-      { nombre: 'Cereza al marrasquino', tipo: 'guarnicion_insumo', opcional: true },
+      { nombre: 'Hielo para refrescar', tipo: 'guarnicion_insumo', insumoId: 'insumo-hielo', opcional: false },
+      { nombre: 'Cereza al marrasquino', tipo: 'guarnicion_insumo', insumoId: 'insumo-cereza', opcional: true },
     ],
     pasos: [
       'En el vaso de composición con hielo, agregar el Whisky, el Vermut Rosso y las gotas de Bitter.',
@@ -359,8 +360,8 @@ export const RECETAS_PREDETERMINADAS: Receta[] = [
     ingredientes: [
       { nombre: 'Gin', cantidadMl: 60, unidad: 'ml', tipo: 'bebida', categoriaId: 'destilado', subcategoria: 'Gin', alternativas: ['London Dry', 'Ginebra'] },
       { nombre: 'Vermut Dry', cantidadMl: 10, unidad: 'ml', tipo: 'bebida', categoriaId: 'aperitivo_bitter', subcategoria: 'Vermut Dry', alternativas: ['Vermut Extra Dry', 'Vermut Seco', 'Vermouth Dry', 'French Vermouth'] },
-      { nombre: 'Hielo para refrescar', tipo: 'guarnicion_insumo', opcional: false },
-      { nombre: 'Aceituna verde o piel de limón', tipo: 'guarnicion_insumo', opcional: true },
+      { nombre: 'Hielo para refrescar', tipo: 'guarnicion_insumo', insumoId: 'insumo-hielo', opcional: false },
+      { nombre: 'Aceituna verde o piel de limón', tipo: 'guarnicion_insumo', insumoId: 'insumo-aceituna', opcional: true },
     ],
     pasos: [
       'Enfriar la copa martini con hielo mientras se prepara el cóctel.',
@@ -383,8 +384,8 @@ export const RECETAS_PREDETERMINADAS: Receta[] = [
       { nombre: 'Ron', cantidadMl: 50, unidad: 'ml', tipo: 'bebida', categoriaId: 'destilado', subcategoria: 'Ron', alternativas: ['Ron Dorado', 'Ron Blanco', 'Rum'] },
       { nombre: 'Bebida Cola', cantidadMl: 120, unidad: 'ml', tipo: 'bebida', categoriaId: 'mixer_sin_alcohol', subcategoria: 'Cola', alternativas: ['Coca Cola', 'Pepsi', 'Gaseosa Cola', 'Cola'] },
       { nombre: 'Jugo de Lima fresca', cantidadMl: 10, unidad: 'ml', tipo: 'bebida', categoriaId: 'mixer_sin_alcohol', subcategoria: 'Jugo Cítrico', opcional: true, alternativas: ['Jugo de Lima', 'Jugo de Limon', 'Lima'] },
-      { nombre: 'Hielo', tipo: 'guarnicion_insumo', opcional: false },
-      { nombre: 'Rodaja de lima', tipo: 'guarnicion_insumo', opcional: true },
+      { nombre: 'Hielo', tipo: 'guarnicion_insumo', insumoId: 'insumo-hielo', opcional: false },
+      { nombre: 'Rodaja de lima', tipo: 'guarnicion_insumo', insumoId: 'insumo-lima', opcional: true },
     ],
     pasos: [
       'Llenar el vaso con hielo fresco.',

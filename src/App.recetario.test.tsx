@@ -5,18 +5,21 @@ import { InventoryProvider } from './context/InventoryContext';
 import { InMemoryInventoryRepository } from './infrastructure/storage/in-memory-inventory-repository';
 import { InMemoryCategoriaRepository } from './infrastructure/storage/in-memory-categoria-repository';
 import { InMemoryRecetaRepository } from './infrastructure/storage/in-memory-receta-repository';
+import { InMemoryAlmacenRepository } from './infrastructure/storage/in-memory-almacen-repository';
 import { Bebida } from './domain/models/bebida';
 
 describe('App Component - Integración del Recetario Dinámico (Issue #5)', () => {
   let mockInventoryRepo: InMemoryInventoryRepository;
   let mockCatRepo: InMemoryCategoriaRepository;
   let mockRecetaRepo: InMemoryRecetaRepository;
+  let mockAlmacenRepo: InMemoryAlmacenRepository;
 
   beforeEach(() => {
     localStorage.clear();
     mockInventoryRepo = new InMemoryInventoryRepository();
     mockCatRepo = new InMemoryCategoriaRepository();
     mockRecetaRepo = new InMemoryRecetaRepository();
+    mockAlmacenRepo = new InMemoryAlmacenRepository();
   });
 
   const renderApp = () =>
@@ -25,6 +28,7 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
         repository={mockInventoryRepo}
         categoriaRepository={mockCatRepo}
         recetaRepository={mockRecetaRepo}
+        almacenRepository={mockAlmacenRepo}
       >
         <App />
       </InventoryProvider>
@@ -279,6 +283,47 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
       expect(screen.getAllByText('Jugo de Lima fresca').length).toBeGreaterThanOrEqual(1);
       // Debe indicar explícitamente "Opcional — No disponible en tu despensa"
       expect(screen.getByText('Opcional — No disponible en tu despensa')).toBeInTheDocument();
+    });
+  });
+
+  it('permite gestionar guarniciones en la pestaña Almacén y refleja su disponibilidad real en las recetas', async () => {
+    renderApp();
+
+    // 1. Verificar en Recetario que Dry Martini muestra "Aceituna verde" como NO disponible en el almacén por defecto
+    fireEvent.click(screen.getByTestId('tab-recetario'));
+    await waitFor(() => {
+      expect(screen.getByText('Dry Martini')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('detalle-receta-receta-dry-martini'));
+    await waitFor(() => {
+      expect(screen.getAllByText(/Aceituna verde/i).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText('Opcional — No disponible en tu almacén')).toBeInTheDocument();
+    });
+
+    // Cerrar modal de detalle
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }));
+
+    // 2. Ir a la pestaña Almacén y activar "Aceitunas verdes" ("Tengo")
+    fireEvent.click(screen.getByTestId('tab-almacen'));
+    await waitFor(() => {
+      expect(screen.getByText('Aceitunas verdes')).toBeInTheDocument();
+    });
+
+    const toggleAceitunas = screen.getByTestId('toggle-insumo-insumo-aceituna');
+    expect(toggleAceitunas).toHaveTextContent('No tengo');
+    fireEvent.click(toggleAceitunas);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('toggle-insumo-insumo-aceituna')).toHaveTextContent('Tengo');
+    });
+
+    // 3. Volver al Recetario y verificar que Dry Martini ahora marca "Aceituna verde" como "En tu almacén: Disponible"
+    fireEvent.click(screen.getByTestId('tab-recetario'));
+    fireEvent.click(screen.getByTestId('detalle-receta-receta-dry-martini'));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('En tu almacén: Disponible').length).toBeGreaterThanOrEqual(1);
     });
   });
 });

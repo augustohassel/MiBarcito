@@ -45,8 +45,15 @@ Este documento reúne la terminología, entidades de negocio y conceptos funcion
 ---
 
 ### Clasificación de Ingredientes (Bebida vs. Guarnición / Insumo)
-- **Definición**: Tipificación semántica (`tipo: 'bebida' | 'guarnicion_insumo'`) para diferenciar botellas que forman parte del inventario físico medible en mililitros de insumos frescos o de despensa general (hielo, azúcar, ramas de menta, frutas, sal).
-- **Alcance / Propósito**: Los insumos de tipo `guarnicion_insumo` se detallan en el paso a paso pero no descuentan stock en ml ni bloquean la receta en *"¿Qué puedo armar hoy?"*.
+- **Definición**: Tipificación semántica (`tipo: 'bebida' | 'guarnicion_insumo'`) para diferenciar botellas que forman parte del inventario físico medible en mililitros (Despensa) de insumos sólidos, frescos o guarniciones gestionados mediante disponibilidad booleana (Almacén).
+- **Alcance / Propósito**: Los ingredientes de tipo `bebida` descuentan mililitros de las botellas en la Despensa al preparar un cóctel, mientras que los de tipo `guarnicion_insumo` consultan su disponibilidad (`Tengo / No tengo`) en el **Almacén** sin descontar volumen líquido.
+
+---
+
+### Almacén (Insumos y Guarniciones)
+- **Definición**: Módulo e inventario no líquido (`InsumoAlmacen`, accesible desde la solapa `🍋 Almacén`) donde el usuario gestiona las guarniciones, cítricos, hierbas, encurtidos, endulzantes y básicos de coctelería (ej. Hielo, Naranja, Limón, Lima, Pepino, Menta fresca, Romero fresco, Aceitunas verdes, Cerezas al marrasquino, Azúcar, Sal fina) mediante un interruptor rápido de disponibilidad booleana (`disponible: true | false`, *"Tengo / No tengo"*).
+- **Alcance / Propósito**: Permite que el motor del recetario y el modal de detalle de cada cóctel reflejen con exactitud qué guarniciones o insumos posee realmente el usuario (evitando marcar como disponibles guarniciones ausentes como aceitunas o menta), además de admitir el alta y baja de insumos personalizados.
+- **Lo que NO es**: No controla gramaje, peso ni mililitros ni descuenta unidades automáticamente al preparar un trago.
 
 ---
 

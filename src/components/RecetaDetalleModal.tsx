@@ -169,9 +169,19 @@ export const RecetaDetalleModal: React.FC<RecetaDetalleModalProps> = ({
                               En despensa: {item.botellaSugerida.marca} - {item.botellaSugerida.nombre} ({item.botellaSugerida.volumenRestanteMl} ml)
                             </div>
                           ) : item.ingrediente.tipo === 'guarnicion_insumo' ? (
-                            <div className="text-[11px] text-on-surface-variant italic">
-                              Insumo o guarnición de almacén
-                            </div>
+                            item.disponible ? (
+                              <div className="text-[11px] text-on-surface-variant">
+                                En tu almacén: Disponible
+                              </div>
+                            ) : esOpcionalFaltante ? (
+                              <div className="text-[11px] text-on-surface-variant">
+                                Opcional — No disponible en tu almacén
+                              </div>
+                            ) : (
+                              <div className="text-[11px] text-status-rose font-medium">
+                                No disponible en tu almacén
+                              </div>
+                            )
                           ) : esOpcionalFaltante ? (
                             <div className="text-[11px] text-on-surface-variant">
                               Opcional — No disponible en tu despensa

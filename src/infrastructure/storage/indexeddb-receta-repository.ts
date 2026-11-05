@@ -68,7 +68,9 @@ export class IndexedDBRecetaRepository implements IRecetaRepository {
       for (const existente of existentes) {
         if (!existente.esPropia) {
           const faltaTaxonomia = existente.ingredientes.some(
-            (i) => i.tipo === 'bebida' && !i.categoriaId
+            (i) =>
+              (i.tipo === 'bebida' && !i.categoriaId) ||
+              (i.tipo === 'guarnicion_insumo' && !i.insumoId)
           );
           if (faltaTaxonomia) {
             await tx.store.put(enriquecerRecetaPredeterminada(existente));
