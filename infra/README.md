@@ -93,6 +93,8 @@ Una vez ejecutado `terraform apply`:
 2. Habilita el proveedor **Google** (seleccionando tu correo de soporte del proyecto), ya que Google exige configurar el correo de consentimiento OAuth de forma interactiva o con credenciales OAuth específicas.
 3. En **Configuración del proyecto** → **Tus apps**, registra una **App Web (`</>`)** para obtener los identificadores públicos (`apiKey`, `appId`, `projectId`, `authDomain`) que se utilizarán en las variables `VITE_FIREBASE_*` del frontend (Issue #41).
 
+> 📌 **¿Dónde mirar en GCP/Firebase que todo funcione?**: Consulta la [Guía APB de Verificación y Monitoreo en GCP (`docs/guia-verificacion-gcp.md`)](../docs/guia-verificacion-gcp.md) con todos los enlaces directos a tu proyecto `mibarcito-app`.
+
 ---
 
 ## (Opcional) Configuración de Backend Remoto en Google Cloud Storage (GCS)
