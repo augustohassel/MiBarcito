@@ -78,7 +78,9 @@ export const RespaldoCloudTab: React.FC<RespaldoCloudTabProps> = ({
     const res = await sincronizarDatosLocalesANube();
     if (res) {
       setStatusMessage(
-        `☁️ Fusión completada: ${res.bebidasSubidas} botella(s), ${res.recetasSubidas} receta(s), ${res.categoriasSubidas} categoría(s) y ${res.insumosSubidos} insumo(s) sincronizados desde este dispositivo hacia tu cuenta.`
+        res.bebidasSubidas > 0 || res.recetasSubidas > 0 || res.categoriasSubidas > 0 || res.insumosSubidos > 0
+          ? `☁️ Fusión completada: se subieron ${res.bebidasSubidas} botella(s) nueva(s)/actualizada(s), ${res.recetasSubidas} receta(s), ${res.categoriasSubidas} categoría(s) y ${res.insumosSubidos} insumo(s). Total en tu nube: ${res.totalBebidasEnNube} botella(s).`
+          : `✅ Tu cuenta en la nube ya está 100% al día (${res.totalBebidasEnNube} botella(s) y ${res.totalRecetasEnNube} receta(s) guardadas en Firestore).`
       );
       await cargarResumenLocal();
       await onInventarioActualizado?.();
@@ -235,8 +237,11 @@ export const RespaldoCloudTab: React.FC<RespaldoCloudTabProps> = ({
 
             {lastMigrationResult && isCloudActive && (
               <p className="text-[11px] text-status-emerald font-medium">
-                ✅ Cuenta conectada y sincronizada ({lastMigrationResult.bebidasSubidas} botella(s) y{' '}
-                {lastMigrationResult.recetasSubidas} receta(s) fusionadas con la nube).
+                ✅ Nube al día: {lastMigrationResult.totalBebidasEnNube} botella(s) y{' '}
+                {lastMigrationResult.totalRecetasEnNube} receta(s) guardadas en tu cuenta de Firestore
+                {lastMigrationResult.bebidasSubidas > 0
+                  ? ` (${lastMigrationResult.bebidasSubidas} subida(s) en esta sesión)`
+                  : ' (sin cambios pendientes por subir)'}.
               </p>
             )}
           </div>

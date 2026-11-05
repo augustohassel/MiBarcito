@@ -27,6 +27,8 @@ export interface CloudMigrationResult {
   recetasSubidas: number;
   insumosSubidos: number;
   totalOperaciones: number;
+  totalBebidasEnNube: number;
+  totalRecetasEnNube: number;
 }
 
 export interface MiBarcitoBackupPayload {
@@ -151,6 +153,7 @@ export async function mergeLocalInventoryToFirestore(
     if (!remota || esMasReciente(localBebida.fechaActualizacion, remota.fechaActualizacion)) {
       const ref = doc(db, 'users', uid, 'bebidas', localBebida.id);
       batch.set(ref, sanitizeForFirestore(localBebida));
+      cloudBebidas.set(localBebida.id, localBebida);
       batchWritesCount++;
       bebidasSubidas++;
     }
@@ -271,6 +274,8 @@ export async function mergeLocalInventoryToFirestore(
     recetasSubidas,
     insumosSubidos,
     totalOperaciones,
+    totalBebidasEnNube: cloudBebidas.size,
+    totalRecetasEnNube: Math.max(cloudRecetas.size, localData.recetas.length),
   };
 }
 
