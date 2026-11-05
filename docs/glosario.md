@@ -108,3 +108,11 @@ Este documento reúne la terminología, entidades de negocio y conceptos funcion
 - **Definición**: Identidad visual semántica inspirada en Google Material 3 que adopta un modelo mental binario y determinístico (`'light' | 'dark'`), independiente de la configuración del sistema operativo.
 - **Alcance / Propósito**: Garantizar legibilidad, contraste y confort visual tanto en entornos iluminados como nocturnos mediante tokens semánticos sobre Tailwind CSS v4, alternancia rápida con botón en el encabezado, persistencia local (`mibarcito_theme`) y prevención de parpadeo (FOUC).
 - **Lo que NO es**: No es un selector multitema con colores personalizados ni una sincronización dependiente de `prefers-color-scheme`.
+
+---
+
+### Persistencia Cloud y Aislamiento por Propietario (Firestore / Identity Platform)
+- **Definición**: Arquitectura de almacenamiento y autenticación serverless en Google Cloud Platform (Cloud Firestore en modo Native + Identity Platform / Firebase Auth) gestionada como código mediante Terraform dentro del propio repositorio (`infra/`), operando en el nivel gratuito perpetuo ($0/mes).
+- **Alcance / Propósito**: Permitir el respaldo en la nube y el acceso sincronizado multi-dispositivo (celular y PC) a las colecciones de bebidas, categorías, recetas e insumos del usuario autenticado con Google, aislando estrictamente los documentos bajo la ruta `/users/{userId}/...` mediante reglas de seguridad de servidor (`firestore.rules`) que verifican `request.auth.uid == userId` (y opcionalmente el correo del propietario autorizado). Convive con el almacenamiento `IndexedDB` para preservar la experiencia Local-First y offline.
+- **Lo que NO es**: No es una base de datos pública ni compartida entre distintos usuarios; toda lectura o escritura anónima o cruzada es rechazada con `PERMISSION_DENIED`.
+

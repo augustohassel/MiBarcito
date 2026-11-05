@@ -1,0 +1,15 @@
+# Copiar este archivo a `terraform.tfvars` (ignorado por Git) y completar con los datos reales de tu proyecto GCP:
+# cp terraform.tfvars.example terraform.tfvars
+
+project_id = "mibarcito-app"
+region     = "nam5"
+
+authorized_domains = [
+  "localhost",
+  "127.0.0.1",
+  "augustohassel.github.io"
+]
+
+# Opcional: restringir las Firestore Security Rules exclusivamente a tu cuenta de Google personal
+allowed_user_email = ""
+
