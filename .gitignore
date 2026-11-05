@@ -34,3 +34,23 @@ Thumbs.db
 !.vscode/settings.json
 .idea/
 
+# Terraform & GCP Credentials
+**/.terraform/*
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+crash.log
+crash.*.log
+.terraformrc
+terraform.rc
+.terraform.tfstate.lock.info
+*-gcp-key.json
+*service-account*.json
+gcp-credentials*.json
+application_default_credentials.json
+
+

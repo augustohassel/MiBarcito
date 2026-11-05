@@ -1,0 +1,21 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Función auxiliar: verifica sesión activa y que el UID coincida con el segmento {userId}
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Espacio aislado del usuario propietario: bebidas, categorías, recetas, insumos y metadatos
+    match /users/{userId}/{document=**} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Denegación explícita por defecto para cualquier otra ruta o acceso no autenticado
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
