@@ -113,8 +113,8 @@ Este documento reúne la terminología, entidades de negocio y conceptos funcion
 
 ### Persistencia Cloud y Aislamiento por Propietario (Firestore / Identity Platform)
 - **Definición**: Arquitectura de almacenamiento y autenticación serverless en Google Cloud Platform (Cloud Firestore en modo Native + Identity Platform / Firebase Auth) gestionada como código mediante Terraform dentro del propio repositorio (`infra/`), operando en el nivel gratuito perpetuo ($0/mes).
-- **Alcance / Propósito**: Permitir el respaldo en la nube y el acceso sincronizado multi-dispositivo (celular y PC) a las colecciones de bebidas, categorías, recetas e insumos del usuario autenticado con Google, aislando estrictamente los documentos bajo la ruta `/users/{userId}/...` mediante reglas de seguridad de servidor (`firestore.rules`) que verifican `request.auth.uid == userId` (y opcionalmente el correo del propietario autorizado). Convive con el almacenamiento `IndexedDB` para preservar la experiencia Local-First y offline.
-- **Lo que NO es**: No es una base de datos pública ni compartida entre distintos usuarios; toda lectura o escritura anónima o cruzada es rechazada con `PERMISSION_DENIED`.
+- **Alcance / Propósito**: Permitir que cualquier usuario autenticado con Google respalde en la nube y sincronice entre dispositivos (celular y PC) sus propias colecciones de bebidas, categorías, recetas e insumos, aislando estrictamente los documentos de cada persona bajo su ruta privada `/users/{userId}/...` mediante reglas de seguridad de servidor (`firestore.rules`) que verifican `request.auth != null && request.auth.uid == userId`. Convive con el almacenamiento `IndexedDB` para preservar la experiencia Local-First y offline.
+- **Lo que NO es**: No es una base de datos pública ni compartida entre distintos usuarios; ningún usuario puede leer ni modificar las botellas de otro usuario (`PERMISSION_DENIED`).
 
 ---
 

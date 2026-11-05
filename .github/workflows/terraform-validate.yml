@@ -80,7 +80,6 @@ jobs:
       - name: Ejecutar Terraform Plan
         env:
           TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID || 'mibarcito-app' }}
-          TF_VAR_allowed_user_email: ${{ secrets.TF_VAR_ALLOWED_USER_EMAIL || vars.TF_VAR_ALLOWED_USER_EMAIL || '' }}
         run: terraform plan -no-color
 
   apply:
@@ -112,5 +111,4 @@ jobs:
       - name: Aplicar cambios en GCP (terraform apply)
         env:
           TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID || 'mibarcito-app' }}
-          TF_VAR_allowed_user_email: ${{ secrets.TF_VAR_ALLOWED_USER_EMAIL || vars.TF_VAR_ALLOWED_USER_EMAIL || '' }}
         run: terraform apply -auto-approve -no-color

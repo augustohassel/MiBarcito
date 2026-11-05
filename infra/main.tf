@@ -19,12 +19,8 @@ locals {
     ]
   ))
 
-  # Si se define allowed_user_email, inyecta la restricción adicional de correo verificado en la función isOwner(userId)
-  firestore_rules_content = var.allowed_user_email != "" ? replace(
-    file("${path.module}/firestore.rules"),
-    "return request.auth != null && request.auth.uid == userId;",
-    "return request.auth != null && request.auth.uid == userId && request.auth.token.email == '${var.allowed_user_email}' && request.auth.token.email_verified == true;"
-  ) : file("${path.module}/firestore.rules")
+  # Aislamiento multi-tenant por UID: cada usuario autenticado con Google accede únicamente a su propio espacio /users/{uid}/...
+  firestore_rules_content = file("${path.module}/firestore.rules")
 }
 
 # 1. Activación declarativa de APIs de GCP

@@ -135,7 +135,7 @@ export function traducirErrorFirebase(err: unknown): string {
     code === 'firestore/permission-denied' ||
     message.includes('Missing or insufficient permissions')
   ) {
-    return 'Acceso denegado por las reglas de seguridad de Firestore (permission-denied). Verificá haber iniciado sesión con la cuenta propietaria autorizada.';
+    return 'Acceso denegado por las reglas de seguridad de Firestore (permission-denied). Verificá que las reglas en Firebase permitan el acceso a /users/{userId}/{document=**}.';
   }
 
   return message || 'Ocurrió un error al comunicarse con los servicios en la nube.';

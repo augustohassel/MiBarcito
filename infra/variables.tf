@@ -25,12 +25,6 @@ variable "authorized_domains" {
   ]
 }
 
-variable "allowed_user_email" {
-  description = "Correo electrónico opcional del propietario único del bar para restringir adicionalmente las reglas de Firestore (dejar vacío '' para permitir cualquier usuario autenticado en su propio espacio /users/{uid})."
-  type        = string
-  default     = ""
-}
-
 variable "github_repository" {
   description = "Repositorio de GitHub (owner/repo) autorizado mediante Workload Identity Federation (OIDC) para ejecutar Terraform en CI/CD."
   type        = string
