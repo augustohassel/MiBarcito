@@ -48,42 +48,81 @@ Este documento explica paso a paso —con enlaces directos— **dónde entrar y 
 
 ---
 
-### 3. Autenticación con Google y Dominios Autorizados
+### 3. Autenticación con Google y Dominios Autorizados (Paso a Paso APB)
 - **Dirección de Proveedores**: https://console.firebase.google.com/project/mibarcito-app/authentication/providers
 - **Dirección de Dominios Autorizados**: https://console.firebase.google.com/project/mibarcito-app/authentication/settings
 - **Dirección de Usuarios Conectados**: https://console.firebase.google.com/project/mibarcito-app/authentication/users
-- **Qué tenés que verificar**:
-  1. En **Sign-in method (`providers`)**: Asegurate de que el proveedor **Google** diga **"Habilitado" (Enabled)**. *(Si es la primera vez que entrás después del `terraform apply`, hacé clic en Google, activalo, elegí tu email de soporte en el desplegable y dale a Guardar).*
-  2. En **Settings -> Dominios autorizados (`settings`)**: Deberías ver cargados por Terraform:
-     - `localhost`
-     - `127.0.0.1`
-     - `augustohassel.github.io`
-     - `mibarcito-app.firebaseapp.com`
-     - `mibarcito-app.web.app`
-  3. En **Users (`users`)**: Apenas inicies sesión desde MiBarcito en tu celular o PC, aparecerá tu correo de Google, la fecha de último acceso y tu **UID de usuario** (el mismo que da nombre a tu carpeta en Firestore).
+
+#### 🔍 Cómo saber si el proveedor de Google está habilitado (y cómo activarlo si no lo está)
+1. Entrá a https://console.firebase.google.com/project/mibarcito-app/authentication/providers (o en el menú izquierdo de Firebase: **Compilación -> Authentication -> pestaña "Método de acceso" / "Sign-in method"**).
+2. Mirá la tabla de **"Proveedores de acceso" (Sign-in providers)**:
+   - **Caso A — Ya aparece "Google" en la lista con un tilde verde que dice `Habilitado` (`Enabled`)**: ¡Ya está listo! No tenés que tocar nada más ahí.
+   - **Caso B — No aparece "Google" en la lista o dice `Inhabilitado` (`Disabled`)**:
+     1. Hacé clic en el botón **"Agregar proveedor nuevo" (Add new provider)** (o hacé clic sobre la fila de **Google** si ya figura).
+     2. En la ventana que se abre, elegí **Google**.
+     3. Activá el interruptor (switch) de arriba a la derecha que dice **"Habilitar" (Enable)**.
+     4. En el desplegable **"Correo electrónico de asistencia del proyecto" (Project support email)**, seleccioná tu propio correo de Google.
+     5. Hacé clic en el botón **"Guardar" (Save)**.
+     6. Vas a ver que ahora **Google** figura en la tabla con el estado **`Habilitado` (`Enabled`)**.
+
+#### 🌐 Verificación de Dominios Autorizados y Usuarios
+- En **Settings -> Dominios autorizados (`settings`)**: Deberías ver cargados por Terraform:
+  - `localhost`
+  - `127.0.0.1`
+  - `augustohassel.github.io`
+  - `mibarcito-app.firebaseapp.com`
+  - `mibarcito-app.web.app`
+- En **Users (`users`)**: Apenas inicies sesión desde MiBarcito en tu celular o PC, aparecerá tu correo de Google, la fecha de último acceso y tu **UID de usuario** (el mismo que da nombre a tu carpeta en Firestore).
 
 ---
 
-### 4. Obtener las 4 Variables `VITE_FIREBASE_*` para conectar GitHub Pages
-Para que la PWA publicada en `https://augustohassel.github.io/MiBarcito/` sepa conectarse a tu proyecto `mibarcito-app`:
+### 4. Obtener las 4 Variables `VITE_FIREBASE_*` (Para `.env.local` y GitHub Pages)
+Si al abrir **MiBarcito** en `⚙️ Configuración -> 💾 Respaldo & Nube` ves el aviso:
+> *"ℹ️ Las variables `VITE_FIREBASE_*` no están definidas en este entorno. MiBarcito está operando 100% sobre `IndexedDB` local."*
+
+Significa que la app está funcionando en **modo seguro local** porque aún no le pasaste los 4 identificadores públicos de tu app web de Firebase. Para obtenerlos y configurarlos:
 
 1. Entrá a **Configuración del Proyecto en Firebase**:
    - **Dirección**: https://console.firebase.google.com/project/mibarcito-app/settings/general
-2. Bajá hasta la sección **"Tus apps" (Your apps)**:
-   - Si todavía no hay ninguna app web creada, hacé clic en el ícono **`</>` (Web)**, ponele de apodo `MiBarcito PWA` (sin tildar Firebase Hosting) y hacé clic en **Registrar app**.
+2. Bajá hasta el final a la sección **"Tus apps" (Your apps)**:
+   - Si todavía dice *"No hay apps en tu proyecto"*, hacé clic en el botón redondo **`</>` (Web)**, ponele de apodo `MiBarcito PWA` (sin tildar Firebase Hosting) y hacé clic en **Registrar app**.
 3. Copiá los 4 valores que te muestra el bloque `firebaseConfig`:
    - `apiKey` $\rightarrow$ **`VITE_FIREBASE_API_KEY`**
-   - `authDomain` $\rightarrow$ **`VITE_FIREBASE_AUTH_DOMAIN`** (normalmente `mibarcito-app.firebaseapp.com`)
+   - `authDomain` $\rightarrow$ **`VITE_FIREBASE_AUTH_DOMAIN`** (`mibarcito-app.firebaseapp.com`)
    - `projectId` $\rightarrow$ **`VITE_FIREBASE_PROJECT_ID`** (`mibarcito-app`)
    - `appId` $\rightarrow$ **`VITE_FIREBASE_APP_ID`**
-4. Cargalos en tu repositorio de GitHub:
+4. **Para probar en tu entorno de desarrollo local (`npm run dev`)**:
+   - Creá o editá el archivo `.env.local` en la raíz del repositorio (basado en `.env.example`, ignorado por Git):
+     ```env
+     VITE_FIREBASE_API_KEY="AIzaSy..."
+     VITE_FIREBASE_AUTH_DOMAIN="mibarcito-app.firebaseapp.com"
+     VITE_FIREBASE_PROJECT_ID="mibarcito-app"
+     VITE_FIREBASE_APP_ID="1:...:web:..."
+     ```
+   - Reiniciá `npm run dev` (Vite recarga las variables `.env.local` al iniciar el servidor).
+5. **Para dejarlo activo en producción (GitHub Pages)**:
    - **Dirección en GitHub**: https://github.com/augustohassel/MiBarcito/settings/variables/actions
-   - Hacé clic en **"New repository variable"** y creá esas 4 variables (`VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID`).
-   - En el próximo despliegue de GitHub Actions (`deploy.yml`), la app ya saldrá conectada a tu nube.
+   - Hacé clic en **"New repository variable"** y creá esas mismas 4 variables (`VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID`).
+   - En el próximo despliegue de GitHub Actions (`deploy.yml`), la PWA publicada ya saldrá conectada a tu nube.
 
 ---
 
-### 5. Control de Costo $0.00 USD/mes (Cuotas del Free Tier)
+### 5. Cómo Iniciar Sesión, Migrar las Botellas del Celular y Cerrar Sesión en la App
+1. **Iniciar sesión**:
+   - Podés tocar el botón **`☁️ Conectar Google`** en la barra superior (Header) o ir a **`⚙️ Configuración -> 💾 Respaldo & Nube`** y tocar **`🔐 Iniciar sesión con Google`**.
+2. **Migración automática y manual de tus botellas**:
+   - Al iniciar sesión, MiBarcito **nunca borra tu `IndexedDB` local**: fusiona automáticamente todas tus botellas, categorías, recetas de autor, favoritos e insumos locales hacia `users/{uid}/...` en Firestore.
+   - Además, en **`⚙️ Configuración -> 💾 Respaldo & Nube`** tenés:
+     - El contador en vivo de cuántas botellas hay guardadas en el dispositivo local.
+     - El botón **`☁️ Migrar / Subir datos de este dispositivo a mi cuenta`** para forzar la sincronización cuando quieras.
+     - Los botones **`📥 Descargar backup JSON`** y **`📤 Importar backup JSON`** para guardar un archivo `.json` de resguardo en tu teléfono o PC.
+3. **Cerrar sesión (Desloguearse)**:
+   - Cuando estás conectado, en **`⚙️ Configuración -> 💾 Respaldo & Nube`** verás tu foto de perfil, nombre, correo, el cartel verde **`Nube Activa`** y el botón **`Cerrar sesión`**.
+   - Al tocar **`Cerrar sesión`**, se cierra el vínculo con Google Cloud y la app vuelve a trabajar sobre el almacenamiento local del dispositivo sin perder tus datos.
+
+---
+
+### 6. Control de Costo $0.00 USD/mes (Cuotas del Free Tier)
 - **Dirección de Consumo de Firestore**: https://console.firebase.google.com/project/mibarcito-app/firestore/databases/-default-/usage
 - **Dirección de Facturación en GCP**: https://console.cloud.google.com/billing?project=mibarcito-app
 - **Qué tenés que ver**:
@@ -97,7 +136,7 @@ Para que la PWA publicada en `https://augustohassel.github.io/MiBarcito/` sepa c
 
 ---
 
-### 6. Infraestructura de Terraform y Conexión OIDC con GitHub Actions
+### 7. Infraestructura de Terraform y Conexión OIDC con GitHub Actions
 Si querés auditar los recursos internos de GCP que mantienen la automatización:
 
 - **APIs activas del proyecto**:
@@ -112,3 +151,4 @@ Si querés auditar los recursos internos de GCP que mantienen la automatización
 - **Federación de Identidad (Workload Identity Pool OIDC sin claves JSON)**:
   - https://console.cloud.google.com/iam-admin/workload-identity-pools?project=mibarcito-app
   - *Verás el pool*: `github-actions-pool` y adentro el proveedor `github-oidc` restringido exclusivamente al repositorio `augustohassel/MiBarcito`.
+
