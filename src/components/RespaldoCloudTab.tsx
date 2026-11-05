@@ -58,9 +58,6 @@ export const RespaldoCloudTab: React.FC<RespaldoCloudTabProps> = ({
     setLocalError(null);
     const ok = await signInWithGoogle();
     if (ok) {
-      setStatusMessage(
-        '✅ Sesión iniciada con Google. Tus botellas y datos locales del dispositivo se sincronizaron con tu cuenta en la nube.'
-      );
       await cargarResumenLocal();
       await onInventarioActualizado?.();
     }
@@ -159,7 +156,7 @@ export const RespaldoCloudTab: React.FC<RespaldoCloudTabProps> = ({
         </div>
       )}
 
-      {statusMessage && (
+      {statusMessage && !errorMostrado && (
         <div
           role="status"
           data-testid="cloud-status-message"
@@ -236,10 +233,10 @@ export const RespaldoCloudTab: React.FC<RespaldoCloudTabProps> = ({
               </button>
             </div>
 
-            {lastMigrationResult && (
-              <p className="text-[11px] text-on-surface-variant">
-                Última fusión automática: {lastMigrationResult.bebidasSubidas} botella(s) y{' '}
-                {lastMigrationResult.recetasSubidas} receta(s) sincronizadas.
+            {lastMigrationResult && isCloudActive && (
+              <p className="text-[11px] text-status-emerald font-medium">
+                ✅ Cuenta conectada y sincronizada ({lastMigrationResult.bebidasSubidas} botella(s) y{' '}
+                {lastMigrationResult.recetasSubidas} receta(s) fusionadas con la nube).
               </p>
             )}
           </div>
