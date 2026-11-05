@@ -1,5 +1,6 @@
 import { Bebida } from '../models/bebida';
 import { IngredienteReceta, Receta } from '../models/receta';
+import { InsumoAlmacen } from '../models/insumo-almacen';
 
 /**
  * Normaliza una cadena de texto para comparaciones flexibles:
@@ -16,8 +17,52 @@ export function normalizarTexto(texto: string): string {
 }
 
 /**
+ * Escapa caracteres especiales para su uso seguro en expresiones regulares.
+ */
+export function escapeRegExp(cadena: string): string {
+  return cadena.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Evalúa si una cadena coincide con un término candidato respetando límites de palabras completas,
+ * previniendo falsos positivos por substrings dentro de otras palabras
+ * (ej. "gin" en "ginger ale" o "tonica original", "ron" en "corona", "dry" en "londry").
+ */
+export function coincidePalabraCompleta(texto: string, candidato: string): boolean {
+  if (!texto || !candidato) return false;
+  const normTexto = normalizarTexto(texto);
+  const normCandidato = normalizarTexto(candidato);
+  if (!normTexto || !normCandidato) return false;
+
+  // Coincidencia idéntica exacta
+  if (normTexto === normCandidato) {
+    return true;
+  }
+
+  // Búsqueda delimitada por límites de palabra o caracteres no alfanuméricos
+  const regex = new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(normCandidato)}(?:[^a-z0-9]|$)`, 'i');
+  if (regex.test(normTexto)) {
+    return true;
+  }
+
+  // Si el candidato es multipalabra (ej. "London Dry Gin", "Vermut Rosso"),
+  // chequear si todas las palabras clave (>2 caracteres) están presentes como palabras delimitadas
+  const tokensCandidato = normCandidato.split(' ').filter((t) => t.length > 2);
+  if (tokensCandidato.length > 1) {
+    return tokensCandidato.every((tc) => {
+      const tokenRegex = new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(tc)}(?:[^a-z0-9]|$)`, 'i');
+      return tokenRegex.test(normTexto);
+    });
+  }
+
+  return false;
+}
+
+/**
  * Evalúa si una botella de la despensa es compatible con un ingrediente de receta.
- * Compara por nombre, marca, categoría y alternativas semánticas.
+ * Cuando el ingrediente define `categoriaId` (estándar del recetario), evalúa estrictamente
+ * por coincidencia taxonómica de Categoría y Subcategoría (sin usar palabras clave del nombre).
+ * Mantiene soporte retrocompatible para ingredientes legacy que no posean `categoriaId`.
  */
 export function esBotellaCompatible(
   botella: Bebida,
@@ -27,66 +72,104 @@ export function esBotellaCompatible(
     return false;
   }
 
-  const candidatos = [ingrediente.nombre, ...(ingrediente.alternativas ?? [])];
+  // 1. Regla principal: Matching taxonómico estricto por Categoría y Subcategoría
+  if (ingrediente.categoriaId && ingrediente.categoriaId.trim() !== '') {
+    if (normalizarTexto(botella.categoria) !== normalizarTexto(ingrediente.categoriaId)) {
+      return false;
+    }
+
+    // Si el ingrediente no exige subcategoría específica, cualquier botella de la categoría es compatible
+    if (!ingrediente.subcategoria || ingrediente.subcategoria.trim() === '') {
+      return true;
+    }
+
+    // Si el ingrediente exige subcategoría, la botella debe tener esa misma subcategoría asignada
+    if (!botella.subcategoria || botella.subcategoria.trim() === '') {
+      return false;
+    }
+
+    return normalizarTexto(botella.subcategoria) === normalizarTexto(ingrediente.subcategoria);
+  }
+
+  // 2. Fallback retrocompatible únicamente para ingredientes legacy sin `categoriaId`
+  const candidatos = [
+    ...(ingrediente.subcategoria ? [ingrediente.subcategoria] : []),
+    ingrediente.nombre,
+    ...(ingrediente.alternativas ?? []),
+  ];
+
+  if (botella.subcategoria) {
+    const coincideSubcat = candidatos.some((candidato) =>
+      coincidePalabraCompleta(botella.subcategoria!, candidato)
+    );
+    if (coincideSubcat) {
+      return true;
+    }
+  }
+
   const camposBotella = [
     botella.nombre,
     botella.marca,
     `${botella.marca} ${botella.nombre}`,
-    `${botella.nombre} ${botella.marca}`,
-  ].map(normalizarTexto);
+  ];
 
   return candidatos.some((candidato) => {
-    const normCandidato = normalizarTexto(candidato);
-    if (!normCandidato) return false;
-
     return camposBotella.some((campo) => {
-      if (!campo) return false;
-
-      // Coincidencia exacta o si la botella contiene el candidato
-      // (ej. "london dry gin" contiene "gin", o "campari bitter" contiene "campari")
-      if (campo.includes(normCandidato)) {
-        return true;
-      }
-
-      // Si el candidato es multipalabra (ej. "Vermut Rosso", "Agua Tónica"),
-      // chequear si todas las palabras clave (>2 caracteres) están en la botella
-      const tokensCandidato = normCandidato.split(' ').filter((t) => t.length > 2);
-      if (tokensCandidato.length > 1) {
-        if (tokensCandidato.every((tc) => campo.includes(tc))) {
-          return true;
-        }
-      }
-
-      return false;
+      return coincidePalabraCompleta(campo, candidato);
     });
   });
 }
 
 /**
- * Resultado de evaluar un ingrediente individual contra el stock del bar
+ * Resultado de evaluar un ingrediente individual contra el stock del bar y del almacén
  */
 export interface EvaluacionIngrediente {
   ingrediente: IngredienteReceta;
   disponible: boolean;
-  motivo?: 'sin_botella' | 'stock_insuficiente';
+  motivo?: 'sin_botella' | 'stock_insuficiente' | 'sin_insumo';
   botellaSugerida?: Bebida;
+  insumoSugerido?: InsumoAlmacen;
   botellasCompatibles: Bebida[];
   volumenRequeridoMl: number;
   volumenDisponibleMl: number;
 }
 
 /**
- * Evalúa un ingrediente de una receta frente a la lista de bebidas de la despensa.
+ * Evalúa un ingrediente de una receta frente a la lista de bebidas de la despensa
+ * y a los insumos disponibles en el almacén.
  */
 export function evaluarIngrediente(
   ingrediente: IngredienteReceta,
-  bebidas: Bebida[]
+  bebidas: Bebida[],
+  insumosAlmacen?: InsumoAlmacen[]
 ): EvaluacionIngrediente {
-  // Los insumos o guarniciones frescas no bloquean la preparación ni descuentan botellas
-  if (ingrediente.tipo === 'guarnicion_insumo' || ingrediente.opcional) {
+  if (ingrediente.tipo === 'guarnicion_insumo') {
+    if (!insumosAlmacen) {
+      return {
+        ingrediente,
+        disponible: true,
+        botellasCompatibles: [],
+        volumenRequeridoMl: 0,
+        volumenDisponibleMl: 0,
+      };
+    }
+
+    const insumoEncontrado = ingrediente.insumoId
+      ? insumosAlmacen.find((item) => item.id === ingrediente.insumoId)
+      : insumosAlmacen.find(
+          (item) =>
+            normalizarTexto(item.nombre) === normalizarTexto(ingrediente.nombre) ||
+            (item.aliases ?? []).some(
+              (alias) => normalizarTexto(alias) === normalizarTexto(ingrediente.nombre)
+            )
+        );
+
+    const estaDisponible = Boolean(insumoEncontrado?.disponible);
     return {
       ingrediente,
-      disponible: true,
+      disponible: estaDisponible,
+      motivo: estaDisponible ? undefined : 'sin_insumo',
+      insumoSugerido: insumoEncontrado,
       botellasCompatibles: [],
       volumenRequeridoMl: 0,
       volumenDisponibleMl: 0,
@@ -151,18 +234,23 @@ export interface EvaluacionReceta {
 }
 
 /**
- * Evalúa una receta completa comparando cada uno de sus ingredientes contra la despensa.
+ * Evalúa una receta completa comparando cada uno de sus ingredientes contra la despensa y el almacén.
  */
-export function evaluarReceta(receta: Receta, bebidas: Bebida[]): EvaluacionReceta {
+export function evaluarReceta(
+  receta: Receta,
+  bebidas: Bebida[],
+  insumosAlmacen?: InsumoAlmacen[]
+): EvaluacionReceta {
   const ingredientesEvaluados = receta.ingredientes.map((ing) =>
-    evaluarIngrediente(ing, bebidas)
+    evaluarIngrediente(ing, bebidas, insumosAlmacen)
   );
 
   const ingredientesDisponibles = ingredientesEvaluados.filter((i) => i.disponible);
   const ingredientesFaltantes = ingredientesEvaluados.filter((i) => !i.disponible);
+  const faltantesObligatorios = ingredientesFaltantes.filter((i) => !i.ingrediente.opcional);
 
-  const puedePreparar = ingredientesFaltantes.length === 0;
-  const cantidadFaltantes = ingredientesFaltantes.length;
+  const puedePreparar = faltantesObligatorios.length === 0;
+  const cantidadFaltantes = faltantesObligatorios.length;
 
   let seccion: 'armar_hoy' | 'casi_listos' | 'otras' = 'otras';
   if (puedePreparar) {
@@ -203,9 +291,10 @@ export interface ClasificacionRecetario {
  */
 export function clasificarRecetas(
   recetas: Receta[],
-  bebidas: Bebida[]
+  bebidas: Bebida[],
+  insumosAlmacen?: InsumoAlmacen[]
 ): ClasificacionRecetario {
-  const evaluaciones = recetas.map((r) => evaluarReceta(r, bebidas));
+  const evaluaciones = recetas.map((r) => evaluarReceta(r, bebidas, insumosAlmacen));
 
   const armarHoy = evaluaciones
     .filter((e) => e.seccion === 'armar_hoy')

@@ -1,4 +1,8 @@
-import { Categoria, CATEGORIAS_PREDETERMINADAS } from '../../domain/models/categoria';
+import {
+  Categoria,
+  CATEGORIAS_PREDETERMINADAS,
+  enriquecerSubcategorias,
+} from '../../domain/models/categoria';
 import { ICategoriaRepository } from '../../domain/repositories/categoria-repository.interface';
 
 /**
@@ -22,13 +26,13 @@ export class InMemoryCategoriaRepository implements ICategoriaRepository {
   }
 
   async getAll(): Promise<Categoria[]> {
-    const list = Array.from(this.items.values());
+    const list = Array.from(this.items.values()).map(enriquecerSubcategorias);
     return list.sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre));
   }
 
   async getById(id: string): Promise<Categoria | undefined> {
     const item = this.items.get(id);
-    return item ? { ...item } : undefined;
+    return item ? enriquecerSubcategorias(item) : undefined;
   }
 
   async save(categoria: Categoria): Promise<void> {

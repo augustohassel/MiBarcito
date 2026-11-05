@@ -6,7 +6,10 @@ import {
   CATEGORIAS_BEBIDA,
   ErroresValidacionBebida,
   validarBebida,
+  calcularPorcentajeRestante,
+  estaEnAlertaStockBajo,
 } from '../domain/models/bebida';
+import { CATEGORIAS_PREDETERMINADAS } from '../domain/models/categoria';
 import { compressAndResizeImage } from '../utils/image-processor';
 import { analizarFotoBotella } from '../domain/services/gemini-botella.service';
 import { hasGeminiApiKey } from '../infrastructure/ai/ai-config';
@@ -16,6 +19,7 @@ export interface BebidaFormValues {
   nombre: string;
   marca: string;
   categoria: CategoriaBebida;
+  subcategoria?: string;
   volumenTotalMl: number;
   volumenRestanteMl: number;
   graduacionAlcoholica?: number;
@@ -27,6 +31,7 @@ export interface BebidaFormValues {
 export interface BebidaFormModalProps {
   isOpen: boolean;
   bebidaAEditar?: Bebida | null;
+  modoInicialLectura?: boolean;
   onSave: (datos: BebidaFormValues) => Promise<void> | void;
   onClose: () => void;
   fotoInicial?: File | null;
@@ -37,6 +42,7 @@ const VALORES_INICIALES: BebidaFormValues = {
   nombre: '',
   marca: '',
   categoria: 'destilado',
+  subcategoria: '',
   volumenTotalMl: 750,
   volumenRestanteMl: 750,
   graduacionAlcoholica: undefined,
@@ -48,6 +54,7 @@ const VALORES_INICIALES: BebidaFormValues = {
 export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
   isOpen,
   bebidaAEditar,
+  modoInicialLectura = false,
   onSave,
   onClose,
   fotoInicial,
@@ -63,6 +70,25 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
   const [formData, setFormData] = useState<BebidaFormValues>(VALORES_INICIALES);
   const [errores, setErrores] = useState<ErroresValidacionBebida>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isModoLectura, setIsModoLectura] = useState(() =>
+    Boolean(modoInicialLectura && bebidaAEditar)
+  );
+
+  useEffect(() => {
+    if (isOpen) {
+      setIsModoLectura(Boolean(modoInicialLectura && bebidaAEditar));
+    }
+  }, [isOpen, modoInicialLectura, bebidaAEditar]);
+
+  // Subcategorías disponibles según la categoría seleccionada
+  const subcategoriasDisponibles = useMemo(() => {
+    const cat = categoriasCtx?.categorias.find((c) => c.id === formData.categoria);
+    return (
+      cat?.subcategorias ??
+      CATEGORIAS_PREDETERMINADAS.find((c) => c.id === formData.categoria)?.subcategorias ??
+      []
+    );
+  }, [categoriasCtx?.categorias, formData.categoria]);
 
   // Estados de IA y Carga por Foto
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
@@ -157,11 +183,22 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
 
   useEffect(() => {
     if (bebidaAEditar) {
+      const cat = categoriasCtx?.categorias.find((c) => c.id === bebidaAEditar.categoria);
+      const subcatsValidas =
+        cat?.subcategorias ??
+        CATEGORIAS_PREDETERMINADAS.find((c) => c.id === bebidaAEditar.categoria)?.subcategorias ??
+        [];
+      const subcategoriaValida =
+        bebidaAEditar.subcategoria && subcatsValidas.includes(bebidaAEditar.subcategoria)
+          ? bebidaAEditar.subcategoria
+          : '';
+
       setFormData({
         id: bebidaAEditar.id,
         nombre: bebidaAEditar.nombre,
         marca: bebidaAEditar.marca,
         categoria: bebidaAEditar.categoria,
+        subcategoria: subcategoriaValida,
         volumenTotalMl: bebidaAEditar.volumenTotalMl,
         volumenRestanteMl: bebidaAEditar.volumenRestanteMl,
         graduacionAlcoholica: bebidaAEditar.graduacionAlcoholica,
@@ -176,6 +213,7 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
       setFormData({
         ...VALORES_INICIALES,
         categoria: opcionesCategorias[0]?.value || 'destilado',
+        subcategoria: '',
       });
       setFotoPreview(null);
       setAiError(null);
@@ -220,6 +258,28 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
     }
   };
 
+  const handleCategoriaChange = (nuevaCategoria: CategoriaBebida) => {
+    // Al cambiar la categoría principal, se resetea la subcategoría para evitar combinaciones incoherentes
+    const updated: BebidaFormValues = {
+      ...formData,
+      categoria: nuevaCategoria,
+      subcategoria: '',
+    };
+    setFormData(updated);
+
+    if (errores.categoria || errores.subcategoria) {
+      const nuevosErrores = validarBebida(
+        updated,
+        opcionesCategorias.map((c) => c.value)
+      );
+      setErrores((prevErr) => ({
+        ...prevErr,
+        categoria: nuevosErrores.categoria,
+        subcategoria: nuevosErrores.subcategoria,
+      }));
+    }
+  };
+
   const handleLlenar100 = () => {
     handleChange('volumenRestanteMl', formData.volumenTotalMl);
   };
@@ -235,8 +295,12 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const datosParaGuardar: BebidaFormValues = {
+      ...formData,
+      subcategoria: formData.subcategoria?.trim() ? formData.subcategoria.trim() : undefined,
+    };
     const resultadoErrores = validarBebida(
-      formData,
+      datosParaGuardar,
       opcionesCategorias.map((c) => c.value)
     );
 
@@ -247,7 +311,7 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
 
     try {
       setIsSubmitting(true);
-      await onSave(formData);
+      await onSave(datosParaGuardar);
       onClose();
     } catch (err) {
       console.error('Error al guardar bebida:', err);
@@ -258,6 +322,208 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
   };
 
   const esEdicion = Boolean(bebidaAEditar);
+
+  // Datos calculados para la Ficha Técnica (modo lectura)
+  const categoriaFicha = categoriasCtx?.categorias.find(
+    (c) => c.id === (bebidaAEditar?.categoria || formData.categoria)
+  );
+  const categoriaFichaLabel =
+    categoriaFicha?.nombre ||
+    CATEGORIAS_BEBIDA.find(
+      (c) => c.value === (bebidaAEditar?.categoria || formData.categoria)
+    )?.label ||
+    bebidaAEditar?.categoria ||
+    formData.categoria;
+
+  const subcatsValidasFicha =
+    categoriaFicha?.subcategorias ??
+    CATEGORIAS_PREDETERMINADAS.find((c) => c.id === bebidaAEditar?.categoria)?.subcategorias ??
+    [];
+  const subcategoriaFichaValida =
+    bebidaAEditar?.subcategoria && subcatsValidasFicha.includes(bebidaAEditar.subcategoria)
+      ? bebidaAEditar.subcategoria
+      : null;
+
+  const porcentajeFicha = bebidaAEditar ? calcularPorcentajeRestante(bebidaAEditar) : 0;
+  const bajoStockFicha = bebidaAEditar ? estaEnAlertaStockBajo(bebidaAEditar) : false;
+
+  if (isModoLectura && bebidaAEditar) {
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ficha-tecnica-title"
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-on-surface/50 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-150"
+      >
+        <div
+          className="w-full max-w-lg bg-surface-container border border-outline rounded-2xl shadow-xl p-6 text-on-surface my-8 flex flex-col gap-5 max-h-[90vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Cabecera del Modal de Ficha Técnica */}
+          <div className="flex items-center justify-between border-b border-outline pb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">📋</span>
+              <div className="flex items-center gap-2">
+                <h2 id="ficha-tecnica-title" className="text-lg font-bold text-on-surface">
+                  Ficha Técnica
+                </h2>
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant border border-outline">
+                  Modo Lectura
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg hover:bg-surface-container-high transition-colors cursor-pointer"
+              aria-label="Cerrar modal"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Cuerpo de la Ficha Técnica */}
+          <div className="space-y-4">
+            <div className="p-4 rounded-xl bg-surface border border-outline flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-surface-container-high text-primary border border-outline">
+                    {categoriaFichaLabel}
+                  </span>
+                  {subcategoriaFichaValida && (
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-surface-container-high text-secondary border border-outline">
+                      {subcategoriaFichaValida}
+                    </span>
+                  )}
+                  {bajoStockFicha && (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-status-amber/20 text-status-amber border border-status-amber/30 flex items-center gap-1">
+                      ⚠️ Stock Bajo
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-xl font-bold text-on-surface truncate" title={bebidaAEditar.nombre}>
+                  {bebidaAEditar.nombre}
+                </h3>
+                <p className="text-sm text-on-surface-variant truncate" title={bebidaAEditar.marca}>
+                  {bebidaAEditar.marca}
+                </p>
+              </div>
+              {bebidaAEditar.esFavorito && (
+                <span
+                  className="text-xs font-semibold px-2.5 py-1 rounded-xl bg-status-amber/15 text-status-amber border border-status-amber/30 flex items-center gap-1 shrink-0"
+                  title="Bebida favorita"
+                >
+                  ★ Favorito
+                </span>
+              )}
+            </div>
+
+            {/* Nivel de Botella */}
+            <div className="p-4 rounded-xl bg-surface border border-outline space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-on-surface-variant font-medium">Nivel de Botella</span>
+                <span className="font-bold text-on-surface">
+                  {bebidaAEditar.volumenRestanteMl} / {bebidaAEditar.volumenTotalMl} ml ({porcentajeFicha}%)
+                </span>
+              </div>
+              <div className="w-full h-3 bg-surface-container-high rounded-full overflow-hidden border border-outline">
+                <div
+                  className={`h-full transition-all duration-300 rounded-full ${
+                    bajoStockFicha
+                      ? 'bg-gradient-to-r from-status-amber to-status-rose'
+                      : 'bg-primary'
+                  }`}
+                  style={{ width: `${porcentajeFicha}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-on-surface-variant pt-1">
+                <span>Umbral de alerta mínima de reposición:</span>
+                <span className="font-semibold text-on-surface">
+                  {bebidaAEditar.stockMinimoMl ?? 150} ml
+                </span>
+              </div>
+            </div>
+
+            {/* Grilla de Atributos */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded-xl bg-surface border border-outline">
+                <span className="text-[11px] text-on-surface-variant block uppercase font-medium tracking-wider">
+                  Graduación Alcohólica
+                </span>
+                <span className="text-sm sm:text-base font-bold text-on-surface mt-1 block">
+                  {bebidaAEditar.graduacionAlcoholica !== undefined
+                    ? `${bebidaAEditar.graduacionAlcoholica}% ABV`
+                    : 'No especificada'}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-surface border border-outline">
+                <span className="text-[11px] text-on-surface-variant block uppercase font-medium tracking-wider">
+                  Precio Estimado
+                </span>
+                <span className="text-sm sm:text-base font-bold text-on-surface mt-1 block">
+                  {bebidaAEditar.precioEstimado !== undefined
+                    ? `$${bebidaAEditar.precioEstimado.toLocaleString('es-AR')}`
+                    : 'Sin cotizar'}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-surface border border-outline">
+                <span className="text-[11px] text-on-surface-variant block uppercase font-medium tracking-wider">
+                  Categoría Maestra
+                </span>
+                <span className="text-sm font-semibold text-on-surface mt-1 block truncate">
+                  {categoriaFichaLabel}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-surface border border-outline">
+                <span className="text-[11px] text-on-surface-variant block uppercase font-medium tracking-wider">
+                  Subcategoría
+                </span>
+                <span className="text-sm font-semibold text-on-surface mt-1 block truncate">
+                  {subcategoriaFichaValida || 'Sin subcategoría'}
+                </span>
+              </div>
+            </div>
+
+            {/* Fechas de Auditoría */}
+            {(bebidaAEditar.fechaCreacion || bebidaAEditar.fechaActualizacion) && (
+              <div className="text-[11px] text-on-surface-variant text-right px-1 pt-1 opacity-80">
+                Última actualización:{' '}
+                {new Date(
+                  bebidaAEditar.fechaActualizacion || bebidaAEditar.fechaCreacion || ''
+                ).toLocaleDateString('es-AR', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Footer de Ficha Técnica */}
+          <div className="flex items-center justify-between border-t border-outline pt-4 mt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-medium text-on-surface bg-surface-container-high hover:bg-surface border border-outline rounded-xl transition-colors cursor-pointer"
+            >
+              Cerrar
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsModoLectura(false)}
+              className="px-4 py-2 text-xs font-semibold bg-primary hover:bg-primary-hover text-on-primary rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+            >
+              <span>✏️</span>
+              <span>Editar Bebida</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -279,6 +545,17 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
             </h2>
           </div>
           <div className="flex items-center gap-2">
+            {modoInicialLectura && esEdicion && (
+              <button
+                type="button"
+                onClick={() => setIsModoLectura(true)}
+                className="text-xs font-medium text-on-surface-variant hover:text-on-surface px-2.5 py-1 rounded-lg border border-outline hover:bg-surface-container-high transition-colors cursor-pointer flex items-center gap-1"
+                title="Volver a la ficha técnica en modo lectura"
+              >
+                <span>←</span>
+                <span>Ficha</span>
+              </button>
+            )}
             {!esEdicion && (
               <>
                 <input
@@ -437,8 +714,8 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
             </div>
           </div>
 
-          {/* Categoría y Favorito */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+          {/* Categoría y Subcategoría */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="categoria" className="block text-xs font-medium text-on-surface-variant mb-1">
                 Categoría *
@@ -447,7 +724,7 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
                 id="categoria"
                 name="categoria"
                 value={formData.categoria}
-                onChange={(e) => handleChange('categoria', e.target.value as CategoriaBebida)}
+                onChange={(e) => handleCategoriaChange(e.target.value as CategoriaBebida)}
                 className={`w-full px-3 py-2 bg-surface border rounded-xl text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-colors ${
                   errores.categoria ? 'border-status-rose ring-1 ring-status-rose' : 'border-outline'
                 }`}
@@ -463,17 +740,42 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
               )}
             </div>
 
-            <div className="flex items-center gap-2 pt-5">
-              <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={formData.esFavorito}
-                  onChange={(e) => handleChange('esFavorito', e.target.checked)}
-                  className="w-4 h-4 rounded text-primary bg-surface border-outline focus:ring-primary"
-                />
-                <span>⭐ Marcar como Favorito</span>
+            <div>
+              <label htmlFor="subcategoria" className="block text-xs font-medium text-on-surface-variant mb-1">
+                Subcategoría (Opcional)
               </label>
+              <select
+                id="subcategoria"
+                name="subcategoria"
+                value={formData.subcategoria || ''}
+                onChange={(e) => handleChange('subcategoria', e.target.value || undefined)}
+                disabled={subcategoriasDisponibles.length === 0}
+                className="w-full px-3 py-2 bg-surface border border-outline rounded-xl text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="">Sin subcategoría</option>
+                {subcategoriasDisponibles.map((sub) => (
+                  <option key={sub} value={sub}>
+                    {sub}
+                  </option>
+                ))}
+              </select>
+              {errores.subcategoria && (
+                <p className="text-status-rose text-xs mt-1">{errores.subcategoria}</p>
+              )}
             </div>
+          </div>
+
+          {/* Favorito */}
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={formData.esFavorito}
+                onChange={(e) => handleChange('esFavorito', e.target.checked)}
+                className="w-4 h-4 rounded text-primary bg-surface border-outline focus:ring-primary"
+              />
+              <span>⭐ Marcar como Favorito</span>
+            </label>
           </div>
 
           {/* Volúmenes */}

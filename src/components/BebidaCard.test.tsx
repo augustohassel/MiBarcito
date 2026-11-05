@@ -119,5 +119,67 @@ describe('BebidaCard Component', () => {
     fireEvent.click(screen.getByRole('button', { name: /Eliminar/i }));
     expect(onEliminar).toHaveBeenCalledWith(bebidaMock);
   });
+
+  it('permite abrir la ficha técnica mediante el botón Ficha o la cabecera interactiva', () => {
+    const onVerFicha = vi.fn();
+
+    render(
+      <BebidaCard
+        bebida={bebidaMock}
+        onEditar={vi.fn()}
+        onEliminar={vi.fn()}
+        onToggleFavorito={vi.fn()}
+        onAjustarVolumen={vi.fn()}
+        onVerFicha={onVerFicha}
+      />
+    );
+
+    // Botón Ficha en el footer
+    const btnFicha = screen.getByRole('button', { name: /^Ver ficha técnica/i });
+    fireEvent.click(btnFicha);
+    expect(onVerFicha).toHaveBeenCalledTimes(1);
+    expect(onVerFicha).toHaveBeenCalledWith(bebidaMock);
+
+    // Cabecera interactiva
+    const headerFicha = screen.getByRole('button', { name: /^Abrir ficha técnica/i });
+    fireEvent.click(headerFicha);
+    expect(onVerFicha).toHaveBeenCalledTimes(2);
+  });
+
+  it('muestra la subcategoría si es válida y la oculta si fue eliminada de la taxonomía', () => {
+    const bebidaConSubcat: Bebida = {
+      ...bebidaMock,
+      subcategoria: 'Whisky',
+    };
+
+    const { rerender } = render(
+      <BebidaCard
+        bebida={bebidaConSubcat}
+        onEditar={vi.fn()}
+        onEliminar={vi.fn()}
+        onToggleFavorito={vi.fn()}
+        onAjustarVolumen={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Whisky')).toBeInTheDocument();
+
+    const bebidaConSubcatInvalida: Bebida = {
+      ...bebidaMock,
+      subcategoria: 'SubcatInexistente',
+    };
+
+    rerender(
+      <BebidaCard
+        bebida={bebidaConSubcatInvalida}
+        onEditar={vi.fn()}
+        onEliminar={vi.fn()}
+        onToggleFavorito={vi.fn()}
+        onAjustarVolumen={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByText('SubcatInexistente')).not.toBeInTheDocument();
+  });
 });
 

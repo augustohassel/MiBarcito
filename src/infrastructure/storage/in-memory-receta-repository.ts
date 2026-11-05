@@ -1,4 +1,8 @@
-import { Receta, RECETAS_PREDETERMINADAS } from '../../domain/models/receta';
+import {
+  Receta,
+  RECETAS_PREDETERMINADAS,
+  enriquecerRecetaPredeterminada,
+} from '../../domain/models/receta';
 import { IRecetaRepository } from '../../domain/repositories/receta-repository.interface';
 
 /**
@@ -11,7 +15,7 @@ export class InMemoryRecetaRepository implements IRecetaRepository {
   constructor(initialItems?: Receta[]) {
     if (initialItems && initialItems.length > 0) {
       for (const item of initialItems) {
-        this.items.set(item.id, { ...item });
+        this.items.set(item.id, enriquecerRecetaPredeterminada({ ...item }));
       }
     } else {
       for (const rec of RECETAS_PREDETERMINADAS) {
@@ -21,13 +25,13 @@ export class InMemoryRecetaRepository implements IRecetaRepository {
   }
 
   async getAll(): Promise<Receta[]> {
-    const list = Array.from(this.items.values());
+    const list = Array.from(this.items.values()).map((r) => enriquecerRecetaPredeterminada(r));
     return list.sort((a, b) => a.nombre.localeCompare(b.nombre));
   }
 
   async getById(id: string): Promise<Receta | undefined> {
     const item = this.items.get(id);
-    return item ? { ...item } : undefined;
+    return item ? enriquecerRecetaPredeterminada({ ...item }) : undefined;
   }
 
   async save(receta: Receta): Promise<void> {

@@ -13,6 +13,7 @@ export interface Categoria {
   nombre: string;
   esPredeterminada: boolean;
   orden: number;
+  subcategorias?: string[];
   fechaCreacion: string;
   fechaActualizacion: string;
 }
@@ -27,6 +28,7 @@ export const CATEGORIAS_PREDETERMINADAS: Categoria[] = [
     nombre: 'Destilado',
     esPredeterminada: true,
     orden: 1,
+    subcategorias: ['Gin', 'Vodka', 'Ron', 'Tequila', 'Whisky', 'Pisco', 'Brandy'],
     fechaCreacion: '2026-11-03T00:00:00.000Z',
     fechaActualizacion: '2026-11-03T00:00:00.000Z',
   },
@@ -35,6 +37,7 @@ export const CATEGORIAS_PREDETERMINADAS: Categoria[] = [
     nombre: 'Licor',
     esPredeterminada: true,
     orden: 2,
+    subcategorias: ['Triple Sec / Naranja', 'Café', 'Crema', 'Amaretto', 'Frutales', 'Herbal'],
     fechaCreacion: '2026-11-03T00:00:00.000Z',
     fechaActualizacion: '2026-11-03T00:00:00.000Z',
   },
@@ -43,6 +46,7 @@ export const CATEGORIAS_PREDETERMINADAS: Categoria[] = [
     nombre: 'Vino',
     esPredeterminada: true,
     orden: 3,
+    subcategorias: ['Tinto', 'Blanco', 'Rosado', 'Espumante'],
     fechaCreacion: '2026-11-03T00:00:00.000Z',
     fechaActualizacion: '2026-11-03T00:00:00.000Z',
   },
@@ -51,6 +55,7 @@ export const CATEGORIAS_PREDETERMINADAS: Categoria[] = [
     nombre: 'Cerveza',
     esPredeterminada: true,
     orden: 4,
+    subcategorias: ['Rubia / Lager', 'IPA / APA', 'Negra / Stout', 'Roja', 'Trigo'],
     fechaCreacion: '2026-11-03T00:00:00.000Z',
     fechaActualizacion: '2026-11-03T00:00:00.000Z',
   },
@@ -59,6 +64,7 @@ export const CATEGORIAS_PREDETERMINADAS: Categoria[] = [
     nombre: 'Aperitivo / Bitter',
     esPredeterminada: true,
     orden: 5,
+    subcategorias: ['Bitter Rojo', 'Fernet', 'Vermut Rosso', 'Vermut Dry', 'Aperitivo Cítrico'],
     fechaCreacion: '2026-11-03T00:00:00.000Z',
     fechaActualizacion: '2026-11-03T00:00:00.000Z',
   },
@@ -67,6 +73,7 @@ export const CATEGORIAS_PREDETERMINADAS: Categoria[] = [
     nombre: 'Mixer sin Alcohol',
     esPredeterminada: true,
     orden: 6,
+    subcategorias: ['Tónica', 'Cola', 'Soda / Agua con gas', 'Jugo Cítrico', 'Ginger Ale'],
     fechaCreacion: '2026-11-03T00:00:00.000Z',
     fechaActualizacion: '2026-11-03T00:00:00.000Z',
   },
@@ -75,6 +82,7 @@ export const CATEGORIAS_PREDETERMINADAS: Categoria[] = [
     nombre: 'Syrup / Endulzante',
     esPredeterminada: true,
     orden: 7,
+    subcategorias: ['Simple', 'Frutales', 'Miel', 'Especiado'],
     fechaCreacion: '2026-11-03T00:00:00.000Z',
     fechaActualizacion: '2026-11-03T00:00:00.000Z',
   },
@@ -83,10 +91,26 @@ export const CATEGORIAS_PREDETERMINADAS: Categoria[] = [
     nombre: 'Otro',
     esPredeterminada: true,
     orden: 8,
+    subcategorias: [],
     fechaCreacion: '2026-11-03T00:00:00.000Z',
     fechaActualizacion: '2026-11-03T00:00:00.000Z',
   },
 ];
+
+/**
+ * Función pura para enriquecer transparentemente una categoría con sus subcategorías por defecto
+ * si fue persistida en versiones previas sin dicho atributo (backfill retrocompatible).
+ */
+export function enriquecerSubcategorias(categoria: Categoria): Categoria {
+  if (Array.isArray(categoria.subcategorias)) {
+    return categoria;
+  }
+  const predeterminada = CATEGORIAS_PREDETERMINADAS.find((p) => p.id === categoria.id);
+  return {
+    ...categoria,
+    subcategorias: predeterminada?.subcategorias ? [...predeterminada.subcategorias] : [],
+  };
+}
 
 /**
  * Errores de validación de una categoría
@@ -139,6 +163,39 @@ export function validarCategoria(
   }
 
   return errores;
+}
+
+/**
+ * Valida un nombre de subcategoría para agregarla o editarla dentro de una categoría.
+ * Reglas: obligatorio, entre 2 y 50 caracteres, y no duplicada (case-insensitive) dentro de la categoría.
+ */
+export function validarSubcategoria(
+  nombre: string,
+  subcategoriasExistentes: string[] = []
+): { valido: boolean; error?: string } {
+  if (!nombre || nombre.trim().length === 0) {
+    return { valido: false, error: 'El nombre de la subcategoría es obligatorio' };
+  }
+
+  const nombreLimpio = nombre.trim();
+  if (nombreLimpio.length < 2) {
+    return { valido: false, error: 'El nombre de la subcategoría debe tener al menos 2 caracteres' };
+  }
+
+  if (nombreLimpio.length > 50) {
+    return { valido: false, error: 'El nombre de la subcategoría no puede superar los 50 caracteres' };
+  }
+
+  const normalizado = normalizarNombreCategoria(nombreLimpio);
+  const esDuplicado = subcategoriasExistentes.some(
+    (s) => normalizarNombreCategoria(s) === normalizado
+  );
+
+  if (esDuplicado) {
+    return { valido: false, error: 'Ya existe esta subcategoría en la categoría' };
+  }
+
+  return { valido: true };
 }
 
 /**

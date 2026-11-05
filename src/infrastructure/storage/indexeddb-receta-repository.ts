@@ -1,4 +1,8 @@
-import { Receta, RECETAS_PREDETERMINADAS } from '../../domain/models/receta';
+import {
+  Receta,
+  RECETAS_PREDETERMINADAS,
+  enriquecerRecetaPredeterminada,
+} from '../../domain/models/receta';
 import { IRecetaRepository } from '../../domain/repositories/receta-repository.interface';
 import { getDatabase, STORE_RECETAS } from './indexeddb-database';
 
@@ -9,12 +13,15 @@ export class IndexedDBRecetaRepository implements IRecetaRepository {
   async getAll(): Promise<Receta[]> {
     const db = await getDatabase();
     const recetas = await db.getAll(STORE_RECETAS);
-    return recetas.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    return recetas
+      .map((r) => enriquecerRecetaPredeterminada(r))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
   }
 
   async getById(id: string): Promise<Receta | undefined> {
     const db = await getDatabase();
-    return db.get(STORE_RECETAS, id);
+    const receta = await db.get(STORE_RECETAS, id);
+    return receta ? enriquecerRecetaPredeterminada(receta) : undefined;
   }
 
   async save(receta: Receta): Promise<void> {
@@ -31,9 +38,10 @@ export class IndexedDBRecetaRepository implements IRecetaRepository {
     const db = await getDatabase();
     const receta = await db.get(STORE_RECETAS, id);
     if (!receta) return undefined;
+    const enriquecida = enriquecerRecetaPredeterminada(receta);
     const updated: Receta = {
-      ...receta,
-      esFavorito: !receta.esFavorito,
+      ...enriquecida,
+      esFavorito: !enriquecida.esFavorito,
       fechaActualizacion: new Date().toISOString(),
     };
     await db.put(STORE_RECETAS, updated);
@@ -52,6 +60,15 @@ export class IndexedDBRecetaRepository implements IRecetaRepository {
       const tx = db.transaction(STORE_RECETAS, 'readwrite');
       for (const rec of RECETAS_PREDETERMINADAS) {
         await tx.store.put(rec);
+      }
+      await tx.done;
+    } else {
+      const existentes = await db.getAll(STORE_RECETAS);
+      const tx = db.transaction(STORE_RECETAS, 'readwrite');
+      for (const existente of existentes) {
+        if (!existente.esPropia) {
+          await tx.store.put(enriquecerRecetaPredeterminada(existente));
+        }
       }
       await tx.done;
     }

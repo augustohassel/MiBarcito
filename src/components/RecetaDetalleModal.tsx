@@ -1,6 +1,12 @@
 import React from 'react';
 import { Receta } from '../domain/models/receta';
 import { EvaluacionReceta } from '../domain/services/recetario-motor';
+import { CATEGORIAS_PREDETERMINADAS } from '../domain/models/categoria';
+import {
+  obtenerIconoCategoriaInsumo,
+  obtenerLabelCategoriaInsumo,
+} from '../domain/models/insumo-almacen';
+import { useCategoriasOpcional } from '../context/InventoryContext';
 
 export interface RecetaDetalleModalProps {
   isOpen: boolean;
@@ -23,7 +29,17 @@ export const RecetaDetalleModal: React.FC<RecetaDetalleModalProps> = ({
   onEditar,
   onDuplicar,
 }) => {
+  const categoriasCtx = useCategoriasOpcional();
+  const categorias = categoriasCtx?.categorias?.length
+    ? categoriasCtx.categorias
+    : CATEGORIAS_PREDETERMINADAS;
+
   if (!isOpen || !receta) return null;
+
+  const obtenerNombreCategoria = (catId?: string) => {
+    if (!catId) return undefined;
+    return categorias.find((c) => c.id === catId)?.nombre ?? catId;
+  };
 
   const puedePreparar = evaluacion?.puedePreparar ?? false;
 
@@ -105,49 +121,93 @@ export const RecetaDetalleModal: React.FC<RecetaDetalleModalProps> = ({
             </div>
           </div>
 
-          {/* Ingredientes y Disponibilidad en Despensa */}
+          {/* Ingredientes y Disponibilidad en Despensa / Almacén */}
           <div>
             <h3 className="text-sm font-semibold text-on-surface mb-2.5">
-              Ingredientes y Estado en Despensa
+              Ingredientes y Estado en Despensa / Almacén
             </h3>
             <div className="space-y-2">
               {evaluacion?.ingredientesEvaluados ? (
-                evaluacion.ingredientesEvaluados.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className={`p-3 rounded-2xl border flex items-center justify-between gap-3 text-xs ${
-                      item.disponible
-                        ? 'bg-status-emerald/5 border-status-emerald/30 text-on-surface'
-                        : 'bg-status-rose/5 border-status-rose/30 text-on-surface'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span
-                        className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 ${
-                          item.disponible
-                            ? 'bg-status-emerald text-white'
-                            : 'bg-status-rose text-white'
-                        }`}
-                      >
-                        {item.disponible ? '✓' : '✕'}
-                      </span>
-                      <div>
-                        <div className="font-medium">{item.ingrediente.nombre}</div>
-                        {item.botellaSugerida ? (
-                          <div className="text-[11px] text-on-surface-variant">
-                            En despensa: {item.botellaSugerida.marca} - {item.botellaSugerida.nombre} ({item.botellaSugerida.volumenRestanteMl} ml)
+                evaluacion.ingredientesEvaluados.map((item, idx) => {
+                  const esOpcionalFaltante = !item.disponible && Boolean(item.ingrediente.opcional);
+                  return (
+                    <div
+                      key={idx}
+                      className={`p-3 rounded-2xl border flex items-center justify-between gap-3 text-xs ${
+                        item.disponible
+                          ? 'bg-status-emerald/5 border-status-emerald/30 text-on-surface'
+                          : esOpcionalFaltante
+                          ? 'bg-surface border-outline-variant text-on-surface'
+                          : 'bg-status-rose/5 border-status-rose/30 text-on-surface'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 font-bold ${
+                            item.disponible
+                              ? 'bg-status-emerald text-white'
+                              : esOpcionalFaltante
+                              ? 'bg-surface-container-high text-on-surface-variant border border-outline'
+                              : 'bg-status-rose text-white'
+                          }`}
+                        >
+                          {item.disponible ? '✓' : esOpcionalFaltante ? '○' : '✕'}
+                        </span>
+                        <div>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-medium">{item.ingrediente.nombre}</span>
+                            {item.ingrediente.tipo === 'bebida' && item.ingrediente.categoriaId && (
+                              <span
+                                data-testid={`badge-taxonomia-${idx}`}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant"
+                              >
+                                {obtenerNombreCategoria(item.ingrediente.categoriaId)}
+                                {item.ingrediente.subcategoria
+                                  ? ` › ${item.ingrediente.subcategoria}`
+                                  : ''}
+                              </span>
+                            )}
+                            {item.ingrediente.tipo === 'guarnicion_insumo' &&
+                              item.insumoSugerido && (
+                                <span
+                                  data-testid={`badge-almacen-${idx}`}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant"
+                                >
+                                  {obtenerIconoCategoriaInsumo(item.insumoSugerido.categoria)}{' '}
+                                  {obtenerLabelCategoriaInsumo(item.insumoSugerido.categoria)} ›{' '}
+                                  {item.insumoSugerido.nombre}
+                                </span>
+                              )}
                           </div>
-                        ) : item.ingrediente.tipo === 'guarnicion_insumo' ? (
-                          <div className="text-[11px] text-on-surface-variant italic">
-                            Insumo o guarnición de almacén
-                          </div>
-                        ) : (
-                          <div className="text-[11px] text-status-rose font-medium">
-                            No disponible en tu despensa
-                          </div>
-                        )}
+                          {item.botellaSugerida && item.disponible ? (
+                            <div className="text-[11px] text-on-surface-variant">
+                              En despensa: {item.botellaSugerida.marca} - {item.botellaSugerida.nombre} ({item.botellaSugerida.volumenRestanteMl} ml)
+                            </div>
+                          ) : item.ingrediente.tipo === 'guarnicion_insumo' ? (
+                            item.disponible ? (
+                              <div className="text-[11px] text-on-surface-variant">
+                                En tu almacén: Disponible
+                              </div>
+                            ) : esOpcionalFaltante ? (
+                              <div className="text-[11px] text-on-surface-variant">
+                                Opcional — No disponible en tu almacén
+                              </div>
+                            ) : (
+                              <div className="text-[11px] text-status-rose font-medium">
+                                No disponible en tu almacén
+                              </div>
+                            )
+                          ) : esOpcionalFaltante ? (
+                            <div className="text-[11px] text-on-surface-variant">
+                              Opcional — No disponible en tu despensa
+                            </div>
+                          ) : (
+                            <div className="text-[11px] text-status-rose font-medium">
+                              No disponible en tu despensa
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
 
                     <div className="text-right shrink-0">
                       <span className="font-bold text-on-surface">
@@ -160,7 +220,8 @@ export const RecetaDetalleModal: React.FC<RecetaDetalleModalProps> = ({
                       )}
                     </div>
                   </div>
-                ))
+                );
+              })
               ) : (
                 receta.ingredientes.map((ing, idx) => (
                   <div

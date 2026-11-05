@@ -84,6 +84,31 @@ describe('Capa de Persistencia de Categorías e IndexedDB v2', () => {
       expect(await catRepo.getById('cat-tequila')).toBeUndefined();
     });
 
+    it('caso de falla / retrocompatibilidad: enriquece transparentemente con subcategorías si una categoría predeterminada viene sin subcategorias', async () => {
+      // Simular una categoría preexistente en IndexedDB guardada en versiones previas sin subcategorias
+      const catLegacySinSubcat: Categoria = {
+        id: 'destilado',
+        nombre: 'Destilado',
+        esPredeterminada: true,
+        orden: 1,
+        fechaCreacion: '2026-11-03T00:00:00.000Z',
+        fechaActualizacion: '2026-11-03T00:00:00.000Z',
+      };
+      await catRepo.save(catLegacySinSubcat);
+
+      const recuperada = await catRepo.getById('destilado');
+      expect(recuperada).toBeDefined();
+      expect(recuperada?.subcategorias).toEqual(
+        expect.arrayContaining(['Gin', 'Vodka', 'Ron', 'Tequila', 'Whisky', 'Pisco', 'Brandy'])
+      );
+
+      const todas = await catRepo.getAll();
+      const destiladoEnTodas = todas.find((c) => c.id === 'destilado');
+      expect(destiladoEnTodas?.subcategorias).toEqual(
+        expect.arrayContaining(['Gin', 'Vodka', 'Ron', 'Tequila', 'Whisky', 'Pisco', 'Brandy'])
+      );
+    });
+
     it('coexiste de forma segura con bebidas sin corromper datos de inventario', async () => {
       const bebida: Bebida = {
         id: 'beb-test-coexistencia',

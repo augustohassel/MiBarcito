@@ -1,4 +1,8 @@
-import { Categoria, CATEGORIAS_PREDETERMINADAS } from '../../domain/models/categoria';
+import {
+  Categoria,
+  CATEGORIAS_PREDETERMINADAS,
+  enriquecerSubcategorias,
+} from '../../domain/models/categoria';
 import { ICategoriaRepository } from '../../domain/repositories/categoria-repository.interface';
 import { getDatabase, STORE_CATEGORIAS } from './indexeddb-database';
 
@@ -9,12 +13,14 @@ export class IndexedDBCategoriaRepository implements ICategoriaRepository {
   async getAll(): Promise<Categoria[]> {
     const db = await getDatabase();
     const categorias = await db.getAll(STORE_CATEGORIAS);
-    return categorias.sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre));
+    const enriquecidas = categorias.map(enriquecerSubcategorias);
+    return enriquecidas.sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre));
   }
 
   async getById(id: string): Promise<Categoria | undefined> {
     const db = await getDatabase();
-    return db.get(STORE_CATEGORIAS, id);
+    const cat = await db.get(STORE_CATEGORIAS, id);
+    return cat ? enriquecerSubcategorias(cat) : undefined;
   }
 
   async save(categoria: Categoria): Promise<void> {

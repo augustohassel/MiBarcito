@@ -5,6 +5,7 @@ import {
   normalizarNombreCategoria,
   puedeEliminarCategoria,
   validarCategoria,
+  validarSubcategoria,
   Categoria,
 } from './categoria';
 
@@ -96,6 +97,46 @@ describe('Dominio Categoría', () => {
       const resultado = puedeEliminarCategoria('cat-personalizada', 0);
       expect(resultado.puede).toBe(true);
       expect(resultado.motivo).toBeUndefined();
+    });
+  });
+
+  describe('Taxonomía y validarSubcategoria', () => {
+    it('las categorías predeterminadas principales tienen sus subcategorías estándar', () => {
+      const destilado = CATEGORIAS_PREDETERMINADAS.find((c) => c.id === 'destilado');
+      expect(destilado?.subcategorias).toEqual(
+        expect.arrayContaining(['Gin', 'Vodka', 'Ron', 'Tequila', 'Whisky', 'Pisco', 'Brandy'])
+      );
+
+      const mixer = CATEGORIAS_PREDETERMINADAS.find((c) => c.id === 'mixer_sin_alcohol');
+      expect(mixer?.subcategorias).toEqual(
+        expect.arrayContaining(['Tónica', 'Cola', 'Soda / Agua con gas', 'Ginger Ale'])
+      );
+
+      const otro = CATEGORIAS_PREDETERMINADAS.find((c) => c.id === CATEGORIA_COMODIN_ID);
+      expect(otro?.subcategorias).toEqual([]);
+    });
+
+    it('acepta una subcategoría válida', () => {
+      const res = validarSubcategoria('Bourbon', ['Scotch', 'Rye']);
+      expect(res.valido).toBe(true);
+      expect(res.error).toBeUndefined();
+    });
+
+    it('rechaza nombres vacíos o solo espacios', () => {
+      expect(validarSubcategoria('').valido).toBe(false);
+      expect(validarSubcategoria('   ').error).toBe('El nombre de la subcategoría es obligatorio');
+    });
+
+    it('rechaza nombres menores a 2 o mayores a 50 caracteres', () => {
+      expect(validarSubcategoria('A').valido).toBe(false);
+      expect(validarSubcategoria('A'.repeat(51)).valido).toBe(false);
+    });
+
+    it('rechaza subcategorías duplicadas case-insensitive y con espacios variables', () => {
+      const existentes = ['Gin', 'Vodka'];
+      const res = validarSubcategoria('  gin  ', existentes);
+      expect(res.valido).toBe(false);
+      expect(res.error).toBe('Ya existe esta subcategoría en la categoría');
     });
   });
 });
