@@ -8,6 +8,7 @@ export interface ConfiguracionModalProps {
   onClose: () => void;
   bebidas: Bebida[];
   initialTab?: TabConfig;
+  onBebidasActualizadas?: () => Promise<void> | void;
 }
 
 export type TabConfig = 'categorias' | 'ia' | 'respaldo';
@@ -17,6 +18,7 @@ export const ConfiguracionModal: React.FC<ConfiguracionModalProps> = ({
   onClose,
   bebidas,
   initialTab = 'categorias',
+  onBebidasActualizadas,
 }) => {
   const [activeTab, setActiveTab] = useState<TabConfig>(initialTab);
 
@@ -116,7 +118,12 @@ export const ConfiguracionModal: React.FC<ConfiguracionModalProps> = ({
 
         {/* Contenido de la solapa activa */}
         <div className="flex-1 overflow-y-auto pr-1">
-          {activeTab === 'categorias' && <CategoriasConfig bebidas={bebidas} />}
+          {activeTab === 'categorias' && (
+            <CategoriasConfig
+              bebidas={bebidas}
+              onBebidasActualizadas={onBebidasActualizadas}
+            />
+          )}
           {activeTab === 'ia' && <AiConfigTab />}
           {activeTab === 'respaldo' && (
             <div className="text-center py-12 text-on-surface-variant flex flex-col items-center gap-2">

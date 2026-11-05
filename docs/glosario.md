@@ -30,10 +30,10 @@ Este documento reúne la terminología, entidades de negocio y conceptos funcion
 ---
 
 ### Motor de Recomendación Dinámico
-- **Definición**: Algoritmo reactivo en tiempo real (`recetario-motor.ts`) que evalúa cada ingrediente de una receta frente a las botellas presentes en la despensa considerando coincidencia semántica de marca/nombre/alternativas y nivel de stock disponible en mililitros.
+- **Definición**: Algoritmo reactivo en tiempo real (`recetario-motor.ts`) que evalúa cada ingrediente de una receta frente a las botellas presentes en la **Despensa** (por Categoría, Subcategoría y volumen restante en mililitros) y frente a las guarniciones e insumos presentes en el **Almacén** (por vínculo directo `insumoId` y estado *"Tengo / No tengo"*).
 - **Alcance / Propósito**: Clasifica el recetario en tres sectores prioritarios:
-  1. **"¿Qué puedo armar hoy?"**: Cócteles donde el 100% de los ingredientes líquidos necesarios están presentes con `volumenRestanteMl >= medidaRequerida`.
-  2. **"Casi listos"**: Fórmulas a las que les falta únicamente 1 o 2 ingredientes para estar completas, destacando con precisión qué botellas faltan adquirir.
+  1. **"¿Qué puedo armar hoy?"**: Cócteles donde el 100% de los ingredientes obligatorios están disponibles (botellas con `volumenRestanteMl >= medidaRequerida` en Despensa e insumos obligatorios con `disponible: true` en Almacén).
+  2. **"Casi listos"**: Fórmulas a las que les falta únicamente 1 o 2 ingredientes obligatorios para estar completas, destacando qué botellas o insumos de almacén faltan adquirir.
   3. **"Catálogo general"**: Cócteles con más de 2 insumos faltantes.
 
 ---
@@ -45,8 +45,15 @@ Este documento reúne la terminología, entidades de negocio y conceptos funcion
 ---
 
 ### Clasificación de Ingredientes (Bebida vs. Guarnición / Insumo)
-- **Definición**: Tipificación semántica (`tipo: 'bebida' | 'guarnicion_insumo'`) para diferenciar botellas que forman parte del inventario físico medible en mililitros de insumos frescos o de despensa general (hielo, azúcar, ramas de menta, frutas, sal).
-- **Alcance / Propósito**: Los insumos de tipo `guarnicion_insumo` se detallan en el paso a paso pero no descuentan stock en ml ni bloquean la receta en *"¿Qué puedo armar hoy?"*.
+- **Definición**: Tipificación semántica (`tipo: 'bebida' | 'guarnicion_insumo'`) para diferenciar botellas que forman parte del inventario físico medible en mililitros (Despensa) de insumos sólidos, frescos o guarniciones gestionados mediante disponibilidad booleana (Almacén).
+- **Alcance / Propósito**: Los ingredientes de tipo `bebida` descuentan mililitros de las botellas en la Despensa al preparar un cóctel, mientras que los de tipo `guarnicion_insumo` consultan su disponibilidad (`Tengo / No tengo`) en el **Almacén** sin descontar volumen líquido.
+
+---
+
+### Almacén (Insumos y Guarniciones)
+- **Definición**: Módulo e inventario no líquido (`InsumoAlmacen`, accesible desde la solapa `🍋 Almacén`) donde el usuario gestiona las guarniciones, cítricos, hierbas, encurtidos, endulzantes y básicos de coctelería (ej. Hielo, Naranja, Limón, Lima, Pepino, Menta fresca, Romero fresco, Aceitunas verdes, Cerezas al marrasquino, Azúcar, Sal fina) mediante un interruptor rápido de disponibilidad booleana (`disponible: true | false`, *"Tengo / No tengo"*).
+- **Alcance / Propósito**: Permite que el motor del recetario y el modal de detalle de cada cóctel reflejen con exactitud qué guarniciones o insumos posee realmente el usuario (evitando marcar como disponibles guarniciones ausentes como aceitunas o menta), además de admitir el alta y baja de insumos personalizados.
+- **Lo que NO es**: No controla gramaje, peso ni mililitros ni descuenta unidades automáticamente al preparar un trago.
 
 ---
 
@@ -80,6 +87,13 @@ Este documento reúne la terminología, entidades de negocio y conceptos funcion
 - **Definición**: Clasificación taxonómica dinámica (`Categoria`) utilizada para catalogar las bebidas del bar hogareño según su naturaleza o rol en coctelería (ej. destilado, licor, vino, cerveza, aperitivo/bitter, etc.).
 - **Alcance / Propósito**: Permite filtrar y segmentar el inventario en la despensa, facilitando la búsqueda y la preparación de recetas. Soporta categorías predeterminadas del sistema y categorías personalizadas creadas por el usuario, con protección permanente de la categoría comodín (*"Otro"*) y bloqueo de eliminación si tiene bebidas asignadas.
 - **Lo que NO es**: No es un atributo inmutable fijado en código; es una entidad gestionable desde el sector de configuración y persistida localmente.
+
+---
+
+### Subcategoría de Bebida
+- **Definición**: Clasificación secundaria y granular opcional (`subcategoria` en `Bebida` y `subcategorias` en `Categoria`) que especifica el tipo concreto de bebida dentro de su categoría padre (ej. Gin, Vodka, Ron dentro de Destilado; Tinto, Blanco dentro de Vino; Triple Sec dentro de Licor; Bitter Rojo, Fernet, Vermut Rosso dentro de Aperitivo / Bitter).
+- **Alcance / Propósito**: Permite emparejar ingredientes de tipo bebida en el recetario (`IngredienteReceta`) y durante la preparación de tragos de manera taxonómica estricta por `categoriaId` y `subcategoria` (y no por palabras clave en el nombre comercial), seleccionándose mediante listas desplegables tanto al registrar botellas como al crear recetas de autor. Se gestiona de forma configurable desde el panel de configuración de categorías y cuenta con pre-siembra estándar y backfill transparente para bases de datos preexistentes.
+- **Lo que NO es**: No depende del texto libre o nombre de fantasía de la botella para evaluar disponibilidad en recetas estructuradas, ni constituye una estructura jerárquica de más de dos niveles.
 
 ---
 

@@ -112,7 +112,11 @@ export const RecetaCard: React.FC<RecetaCardProps> = ({
               <span className="flex items-center gap-1.5 truncate">
                 <span
                   className={`w-2 h-2 rounded-full shrink-0 ${
-                    item.disponible ? 'bg-status-emerald' : 'bg-status-rose'
+                    item.disponible
+                      ? 'bg-status-emerald'
+                      : item.ingrediente.opcional
+                      ? 'bg-on-surface-variant/40'
+                      : 'bg-status-rose'
                   }`}
                 />
                 <span className="truncate">{item.ingrediente.nombre}</span>

@@ -5,18 +5,21 @@ import { InventoryProvider } from './context/InventoryContext';
 import { InMemoryInventoryRepository } from './infrastructure/storage/in-memory-inventory-repository';
 import { InMemoryCategoriaRepository } from './infrastructure/storage/in-memory-categoria-repository';
 import { InMemoryRecetaRepository } from './infrastructure/storage/in-memory-receta-repository';
+import { InMemoryAlmacenRepository } from './infrastructure/storage/in-memory-almacen-repository';
 import { Bebida } from './domain/models/bebida';
 
 describe('App Component - Integración del Recetario Dinámico (Issue #5)', () => {
   let mockInventoryRepo: InMemoryInventoryRepository;
   let mockCatRepo: InMemoryCategoriaRepository;
   let mockRecetaRepo: InMemoryRecetaRepository;
+  let mockAlmacenRepo: InMemoryAlmacenRepository;
 
   beforeEach(() => {
     localStorage.clear();
     mockInventoryRepo = new InMemoryInventoryRepository();
     mockCatRepo = new InMemoryCategoriaRepository();
     mockRecetaRepo = new InMemoryRecetaRepository();
+    mockAlmacenRepo = new InMemoryAlmacenRepository();
   });
 
   const renderApp = () =>
@@ -25,6 +28,7 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
         repository={mockInventoryRepo}
         categoriaRepository={mockCatRepo}
         recetaRepository={mockRecetaRepo}
+        almacenRepository={mockAlmacenRepo}
       >
         <App />
       </InventoryProvider>
@@ -53,6 +57,7 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
       nombre: 'London Dry Gin',
       marca: 'Bombay Sapphire',
       categoria: 'destilado',
+      subcategoria: 'Gin',
       volumenTotalMl: 750,
       volumenRestanteMl: 500,
       precioEstimado: 25000,
@@ -65,6 +70,7 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
       nombre: 'Bitter',
       marca: 'Campari',
       categoria: 'aperitivo_bitter',
+      subcategoria: 'Bitter Rojo',
       volumenTotalMl: 750,
       volumenRestanteMl: 400,
       precioEstimado: 12000,
@@ -77,6 +83,7 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
       nombre: 'Rosso',
       marca: 'Carpano',
       categoria: 'aperitivo_bitter',
+      subcategoria: 'Vermut Rosso',
       volumenTotalMl: 1000,
       volumenRestanteMl: 300,
       precioEstimado: 8000,
@@ -108,7 +115,7 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
     });
   });
 
-  it('permite crear, editar y eliminar una receta de autor', async () => {
+  it('permite crear, editar y eliminar una receta de autor seleccionando categoría y subcategoría', async () => {
     renderApp();
     fireEvent.click(screen.getByTestId('tab-recetario'));
 
@@ -120,19 +127,35 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
     fireEvent.click(screen.getByTestId('btn-nueva-receta'));
     expect(screen.getByRole('heading', { name: 'Nueva Receta de Autor' })).toBeInTheDocument();
 
-    // Completar formulario
+    // Completar formulario seleccionando Categoría y Subcategoría (no palabra clave libre)
     fireEvent.change(screen.getByTestId('input-receta-nombre'), {
       target: { value: 'Mi Cóctel Especial' },
     });
     fireEvent.change(screen.getByTestId('input-receta-cristaleria'), {
       target: { value: 'Copa Coupé' },
     });
-    fireEvent.change(screen.getByTestId('input-ingrediente-nombre-0'), {
-      target: { value: 'Gin' },
+    fireEvent.change(screen.getByTestId('select-ingrediente-categoria-0'), {
+      target: { value: 'destilado' },
+    });
+    fireEvent.change(screen.getByTestId('select-ingrediente-subcategoria-0'), {
+      target: { value: 'Vodka' },
     });
     fireEvent.change(screen.getByTestId('input-ingrediente-ml-0'), {
       target: { value: '60' },
     });
+
+    // Agregar también un insumo del Almacén usando los selectores de Categoría e Insumo de Almacén
+    fireEvent.click(screen.getByTestId('btn-agregar-ingrediente'));
+    fireEvent.change(screen.getByTestId('select-ingrediente-tipo-1'), {
+      target: { value: 'guarnicion_insumo' },
+    });
+    fireEvent.change(screen.getByTestId('select-ingrediente-categoria-insumo-1'), {
+      target: { value: 'encurtidos_decoracion' },
+    });
+    fireEvent.change(screen.getByTestId('select-ingrediente-insumo-1'), {
+      target: { value: 'insumo-aceituna' },
+    });
+
     fireEvent.change(screen.getByTestId('input-paso-0'), {
       target: { value: 'Batir en coctelera y servir' },
     });
@@ -152,6 +175,7 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
       nombre: 'London Dry Gin',
       marca: 'Bombay Sapphire',
       categoria: 'destilado',
+      subcategoria: 'Gin',
       volumenTotalMl: 750,
       volumenRestanteMl: 500,
       precioEstimado: 25000,
@@ -164,6 +188,7 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
       nombre: 'Agua Tónica',
       marca: 'Paso de los Toros',
       categoria: 'mixer_sin_alcohol',
+      subcategoria: 'Tónica',
       volumenTotalMl: 1500,
       volumenRestanteMl: 1000,
       precioEstimado: 2000,
@@ -210,6 +235,7 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
       nombre: 'London Dry Gin',
       marca: 'Tanqueray',
       categoria: 'destilado',
+      subcategoria: 'Gin',
       volumenTotalMl: 750,
       volumenRestanteMl: 20, // Solo quedan 20 ml
       precioEstimado: 25000,
@@ -222,6 +248,7 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
       nombre: 'Agua Tónica',
       marca: 'Paso de los Toros',
       categoria: 'mixer_sin_alcohol',
+      subcategoria: 'Tónica',
       volumenTotalMl: 1500,
       volumenRestanteMl: 1000,
       precioEstimado: 2000,
@@ -252,6 +279,65 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
     // Comprobar que el volumen no se alteró en lo absoluto
     const ginIntacto = await mockInventoryRepo.getById('gin-vacio');
     expect(ginIntacto?.volumenRestanteMl).toBe(20);
+  });
+
+  it('en el modal de detalle muestra ingredientes opcionales faltantes sin tildar en verde contradictorio', async () => {
+    renderApp();
+    fireEvent.click(screen.getByTestId('tab-recetario'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Cuba Libre')).toBeInTheDocument();
+    });
+
+    // Abrir detalle de Cuba Libre
+    fireEvent.click(screen.getByTestId('detalle-receta-receta-cuba-libre'));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Jugo de Lima fresca').length).toBeGreaterThanOrEqual(1);
+      // Debe indicar explícitamente "Opcional — No disponible en tu despensa"
+      expect(screen.getByText('Opcional — No disponible en tu despensa')).toBeInTheDocument();
+    });
+  });
+
+  it('permite gestionar guarniciones en la pestaña Almacén y refleja su disponibilidad real en las recetas', async () => {
+    renderApp();
+
+    // 1. Verificar en Recetario que Dry Martini muestra "Aceituna verde" como NO disponible en el almacén por defecto
+    fireEvent.click(screen.getByTestId('tab-recetario'));
+    await waitFor(() => {
+      expect(screen.getByText('Dry Martini')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('detalle-receta-receta-dry-martini'));
+    await waitFor(() => {
+      expect(screen.getAllByText(/Aceituna verde/i).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText('Opcional — No disponible en tu almacén')).toBeInTheDocument();
+    });
+
+    // Cerrar modal de detalle
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }));
+
+    // 2. Ir a la pestaña Almacén y activar "Aceitunas verdes" ("Tengo")
+    fireEvent.click(screen.getByTestId('tab-almacen'));
+    await waitFor(() => {
+      expect(screen.getByText('Aceitunas verdes')).toBeInTheDocument();
+    });
+
+    const toggleAceitunas = screen.getByTestId('toggle-insumo-insumo-aceituna');
+    expect(toggleAceitunas).toHaveTextContent('No tengo');
+    fireEvent.click(toggleAceitunas);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('toggle-insumo-insumo-aceituna')).toHaveTextContent('Tengo');
+    });
+
+    // 3. Volver al Recetario y verificar que Dry Martini ahora marca "Aceituna verde" como "En tu almacén: Disponible"
+    fireEvent.click(screen.getByTestId('tab-recetario'));
+    fireEvent.click(screen.getByTestId('detalle-receta-receta-dry-martini'));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('En tu almacén: Disponible').length).toBeGreaterThanOrEqual(1);
+    });
   });
 });
 

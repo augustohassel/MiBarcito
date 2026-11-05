@@ -67,7 +67,7 @@ describe('BebidaFormModal Component', () => {
     fireEvent.change(screen.getByLabelText(/Marca \/ Destilería/i), {
       target: { value: 'Absolut' },
     });
-    fireEvent.change(screen.getByLabelText(/Categoría/i), {
+    fireEvent.change(screen.getByLabelText(/^Categoría/i), {
       target: { value: 'destilado' },
     });
     fireEvent.change(screen.getByLabelText(/Capacidad Total/i), {
@@ -88,6 +88,7 @@ describe('BebidaFormModal Component', () => {
         nombre: 'Vodka Absolut',
         marca: 'Absolut',
         categoria: 'destilado',
+        subcategoria: undefined,
         volumenTotalMl: 700,
         volumenRestanteMl: 700,
         graduacionAlcoholica: 40,
@@ -97,6 +98,56 @@ describe('BebidaFormModal Component', () => {
       });
       expect(onClose).toHaveBeenCalled();
     });
+  });
+
+  it('permite seleccionar una subcategoría coherente y la envía al guardar', async () => {
+    const onSave = vi.fn();
+    render(<BebidaFormModal isOpen={true} onSave={onSave} onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText(/Nombre de la Bebida/i), {
+      target: { value: 'Tanqueray London Dry' },
+    });
+    fireEvent.change(screen.getByLabelText(/Marca \/ Destilería/i), {
+      target: { value: 'Tanqueray' },
+    });
+    fireEvent.change(screen.getByLabelText(/^Categoría/i), {
+      target: { value: 'destilado' },
+    });
+
+    const selectSubcategoria = screen.getByLabelText(/Subcategoría/i);
+    fireEvent.change(selectSubcategoria, { target: { value: 'Gin' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /Crear Bebida/i }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          nombre: 'Tanqueray London Dry',
+          categoria: 'destilado',
+          subcategoria: 'Gin',
+        })
+      );
+    });
+  });
+
+  it('caso de borde / regla de integridad: reiniciar subcategoría al cambiar categoría padre', async () => {
+    render(<BebidaFormModal isOpen={true} onSave={vi.fn()} onClose={vi.fn()} />);
+
+    // Seleccionar categoría Destilado y subcategoría Gin
+    fireEvent.change(screen.getByLabelText(/^Categoría/i), {
+      target: { value: 'destilado' },
+    });
+    const selectSubcat = screen.getByLabelText(/Subcategoría/i) as HTMLSelectElement;
+    fireEvent.change(selectSubcat, { target: { value: 'Gin' } });
+    expect(selectSubcat.value).toBe('Gin');
+
+    // Cambiar categoría padre a Vino
+    fireEvent.change(screen.getByLabelText(/^Categoría/i), {
+      target: { value: 'vino' },
+    });
+
+    // Subcategoría debe haberse reseteado a vacía
+    expect(selectSubcat.value).toBe('');
   });
 
   it('carga datos existentes en modo edición y permite guardar cambios', async () => {
@@ -129,6 +180,84 @@ describe('BebidaFormModal Component', () => {
         })
       );
       expect(onClose).toHaveBeenCalled();
+    });
+  });
+
+  describe('Ficha Técnica en Modo Lectura', () => {
+    it('renderiza la ficha técnica en modo lectura sin campos editables', () => {
+      render(
+        <BebidaFormModal
+          isOpen={true}
+          bebidaAEditar={bebidaEjemplo}
+          modoInicialLectura={true}
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+
+      // Cabecera de Ficha Técnica
+      expect(screen.getByText('Ficha Técnica')).toBeInTheDocument();
+      expect(screen.getByText('Modo Lectura')).toBeInTheDocument();
+
+      // Datos en modo lectura
+      expect(screen.getByText('Aperol Spritz Base')).toBeInTheDocument();
+      expect(screen.getByText('Campari Group')).toBeInTheDocument();
+      expect(screen.getByText(/400 \/ 750 ml \(53%\)/i)).toBeInTheDocument();
+      expect(screen.getByText('11% ABV')).toBeInTheDocument();
+      expect(screen.getByText('$12.000')).toBeInTheDocument();
+      expect(screen.getByText('★ Favorito')).toBeInTheDocument();
+
+      // No debe haber botones de guardar ni inputs de formulario activos
+      expect(screen.queryByRole('button', { name: /Guardar Cambios/i })).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/Nombre de la Bebida/i)).not.toBeInTheDocument();
+    });
+
+    it('permite alternar de modo lectura a modo edición directamente mediante el botón Editar Bebida', () => {
+      render(
+        <BebidaFormModal
+          isOpen={true}
+          bebidaAEditar={bebidaEjemplo}
+          modoInicialLectura={true}
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+
+      // Click en "Editar Bebida"
+      const btnEditar = screen.getByRole('button', { name: /Editar Bebida/i });
+      fireEvent.click(btnEditar);
+
+      // Ahora debe mostrar el formulario editable
+      expect(screen.getByText('Editar Bebida')).toBeInTheDocument();
+      expect(screen.getByLabelText(/Nombre de la Bebida/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Guardar Cambios/i })).toBeInTheDocument();
+
+      // Botón para volver a la Ficha Técnica
+      const btnVolverFicha = screen.getByRole('button', { name: /Ficha/i });
+      fireEvent.click(btnVolverFicha);
+
+      // Vuelve a Ficha Técnica
+      expect(screen.getByText('Ficha Técnica')).toBeInTheDocument();
+    });
+
+    it('caso borde: si la subcategoría guardada ya no existe en la categoría, se limpia de forma transparente', () => {
+      const bebidaConSubcatObsoleta: Bebida = {
+        ...bebidaEjemplo,
+        subcategoria: 'SubcatInexistente',
+      };
+
+      render(
+        <BebidaFormModal
+          isOpen={true}
+          bebidaAEditar={bebidaConSubcatObsoleta}
+          modoInicialLectura={false}
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+
+      const selectSubcat = screen.getByLabelText(/Subcategoría/i) as HTMLSelectElement;
+      expect(selectSubcat.value).toBe('');
     });
   });
 

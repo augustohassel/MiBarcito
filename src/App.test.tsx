@@ -96,7 +96,7 @@ describe('App Component - Gestión de Despensa e Inventario', () => {
     fireEvent.change(screen.getByLabelText(/Marca \/ Destilería/i), {
       target: { value: 'Fratelli Branca' },
     });
-    fireEvent.change(screen.getByLabelText(/Categoría/i), {
+    fireEvent.change(screen.getByLabelText(/^Categoría/i), {
       target: { value: 'aperitivo_bitter' },
     });
     fireEvent.change(screen.getByLabelText(/Capacidad Total/i), {
@@ -141,6 +141,40 @@ describe('App Component - Gestión de Despensa e Inventario', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Gin London Dry Premium')).toBeInTheDocument();
+    });
+  });
+
+  it('permite abrir la ficha técnica en modo lectura desde la tarjeta de la botella', async () => {
+    render(
+      <InventoryProvider repository={mockRepo}>
+        <App />
+      </InventoryProvider>
+    );
+
+    // Agregar muestra inicial
+    fireEvent.click(screen.getByRole('button', { name: /\+ Botella de Prueba/i }));
+    await waitFor(() => {
+      expect(screen.getByText('Gin London Dry')).toBeInTheDocument();
+    });
+
+    // Abrir Ficha Técnica
+    const btnFicha = screen.getByRole('button', { name: /^Ver ficha técnica/i });
+    fireEvent.click(btnFicha);
+
+    // Debe abrir en modo lectura
+    expect(screen.getByText('Ficha Técnica')).toBeInTheDocument();
+    expect(screen.getByText('Modo Lectura')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Editar Bebida/i })).toBeInTheDocument();
+
+    // Pasar a edición
+    fireEvent.click(screen.getByRole('button', { name: /Editar Bebida/i }));
+    expect(screen.getByText('Editar Bebida')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Guardar Cambios/i })).toBeInTheDocument();
+
+    // Cerrar modal
+    fireEvent.click(screen.getByRole('button', { name: /Cancelar/i }));
+    await waitFor(() => {
+      expect(screen.queryByText('Editar Bebida')).not.toBeInTheDocument();
     });
   });
 
@@ -247,7 +281,7 @@ describe('App Component - Gestión de Despensa e Inventario', () => {
     expect(screen.getByText('Gestión de Categorías de Bebidas')).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByText('Destilado')).toBeInTheDocument();
+      expect(screen.getAllByText('Destilado').length).toBeGreaterThanOrEqual(1);
     });
 
     // Crear nueva categoría "Tequila Añejo"

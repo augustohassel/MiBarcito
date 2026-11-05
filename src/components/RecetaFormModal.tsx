@@ -1,11 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Receta,
   IngredienteReceta,
   MetodoPreparacion,
+  TipoIngrediente,
   validarReceta,
   ErroresValidacionReceta,
 } from '../domain/models/receta';
+import { CATEGORIAS_PREDETERMINADAS, Categoria } from '../domain/models/categoria';
+import {
+  INSUMOS_PREDETERMINADOS,
+  InsumoAlmacen,
+  CATEGORIAS_INSUMO,
+  CategoriaInsumo,
+} from '../domain/models/insumo-almacen';
+import { useCategoriasOpcional, useAlmacenOpcional } from '../context/InventoryContext';
 
 export interface RecetaFormModalProps {
   isOpen: boolean;
@@ -15,12 +24,96 @@ export interface RecetaFormModalProps {
 }
 
 const INGREDIENTE_INICIAL: IngredienteReceta = {
-  nombre: '',
+  nombre: 'Gin',
   cantidadMl: 50,
   unidad: 'ml',
   tipo: 'bebida',
+  categoriaId: 'destilado',
+  subcategoria: 'Gin',
   opcional: false,
 };
+
+function normalizarComparacion(texto: string): string {
+  return texto
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+function normalizarIngredienteConCatalogos(
+  ing: IngredienteReceta,
+  categorias: Categoria[],
+  insumos: InsumoAlmacen[]
+): IngredienteReceta {
+  if (ing.tipo !== 'bebida') {
+    if (ing.insumoId) {
+      const ins = insumos.find((i) => i.id === ing.insumoId);
+      if (ins) {
+        return {
+          ...ing,
+          insumoId: ins.id,
+          nombre: ins.nombre,
+        };
+      }
+    }
+    const nombreNorm = normalizarComparacion(ing.nombre || '');
+    const insMatch =
+      insumos.find(
+        (i) =>
+          normalizarComparacion(i.nombre) === nombreNorm ||
+          (i.aliases ?? []).some((a) => normalizarComparacion(a) === nombreNorm)
+      ) ?? insumos[0];
+    return {
+      ...ing,
+      insumoId: insMatch?.id,
+      nombre: insMatch?.nombre || ing.nombre || 'Hielo',
+    };
+  }
+
+  if (ing.categoriaId) {
+    const cat = categorias.find((c) => c.id === ing.categoriaId);
+    const nombreResuelto =
+      ing.nombre?.trim() || ing.subcategoria || cat?.nombre || ing.categoriaId;
+    return {
+      ...ing,
+      nombre: nombreResuelto,
+    };
+  }
+
+  // Inferir categoría y subcategoría si se edita una receta legacy sin categoriaId
+  const nombreNorm = normalizarComparacion(ing.nombre || '');
+  for (const cat of categorias) {
+    const subMatch = (cat.subcategorias ?? []).find(
+      (sub) => normalizarComparacion(sub) === nombreNorm
+    );
+    if (subMatch) {
+      return {
+        ...ing,
+        categoriaId: cat.id,
+        subcategoria: subMatch,
+        nombre: ing.nombre?.trim() || subMatch,
+      };
+    }
+    if (normalizarComparacion(cat.nombre) === nombreNorm || cat.id === nombreNorm) {
+      return {
+        ...ing,
+        categoriaId: cat.id,
+        subcategoria: undefined,
+        nombre: ing.nombre?.trim() || cat.nombre,
+      };
+    }
+  }
+
+  const catDefecto = categorias[0] ?? CATEGORIAS_PREDETERMINADAS[0];
+  const subDefecto = catDefecto.subcategorias?.[0];
+  return {
+    ...ing,
+    categoriaId: catDefecto.id,
+    subcategoria: subDefecto,
+    nombre: ing.nombre?.trim() || subDefecto || catDefecto.nombre,
+  };
+}
 
 export const RecetaFormModal: React.FC<RecetaFormModalProps> = ({
   isOpen,
@@ -28,6 +121,37 @@ export const RecetaFormModal: React.FC<RecetaFormModalProps> = ({
   onSave,
   recetaAEditar,
 }) => {
+  const categoriasCtx = useCategoriasOpcional();
+  const categoriasDisponibles = useMemo<Categoria[]>(() => {
+    return categoriasCtx && categoriasCtx.categorias.length > 0
+      ? categoriasCtx.categorias
+      : CATEGORIAS_PREDETERMINADAS;
+  }, [categoriasCtx?.categorias]);
+
+  const almacenCtx = useAlmacenOpcional();
+  const insumosDisponibles = useMemo<InsumoAlmacen[]>(() => {
+    return almacenCtx && almacenCtx.insumos.length > 0
+      ? almacenCtx.insumos
+      : INSUMOS_PREDETERMINADOS;
+  }, [almacenCtx?.insumos]);
+
+  const crearIngredienteInicial = (): IngredienteReceta => {
+    const cat =
+      categoriasDisponibles.find((c) => c.id === 'destilado') ??
+      categoriasDisponibles[0] ??
+      CATEGORIAS_PREDETERMINADAS[0];
+    const sub = cat.subcategorias?.[0];
+    return {
+      nombre: sub || cat.nombre,
+      cantidadMl: 50,
+      unidad: 'ml',
+      tipo: 'bebida',
+      categoriaId: cat.id,
+      subcategoria: sub,
+      opcional: false,
+    };
+  };
+
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [cristaleria, setCristaleria] = useState('');
@@ -44,8 +168,10 @@ export const RecetaFormModal: React.FC<RecetaFormModalProps> = ({
       setMetodo(recetaAEditar.metodoPreparacion || recetaAEditar.metodo || 'directo');
       setIngredientes(
         recetaAEditar.ingredientes.length > 0
-          ? recetaAEditar.ingredientes.map((i) => ({ ...i }))
-          : [INGREDIENTE_INICIAL]
+          ? recetaAEditar.ingredientes.map((i) =>
+              normalizarIngredienteConCatalogos(i, categoriasDisponibles, insumosDisponibles)
+            )
+          : [crearIngredienteInicial()]
       );
       setPasos(recetaAEditar.pasos.length > 0 ? [...recetaAEditar.pasos] : ['']);
     } else {
@@ -53,17 +179,17 @@ export const RecetaFormModal: React.FC<RecetaFormModalProps> = ({
       setDescripcion('');
       setCristaleria('Vaso Old Fashioned');
       setMetodo('directo');
-      setIngredientes([INGREDIENTE_INICIAL]);
+      setIngredientes([crearIngredienteInicial()]);
       setPasos(['']);
     }
     setErrores({});
-  }, [recetaAEditar, isOpen]);
+  }, [recetaAEditar, isOpen, categoriasDisponibles, insumosDisponibles]);
 
   if (!isOpen) return null;
 
   // Manejadores de ingredientes
   const handleAgregarIngrediente = () => {
-    setIngredientes([...ingredientes, { ...INGREDIENTE_INICIAL }]);
+    setIngredientes([...ingredientes, crearIngredienteInicial()]);
   };
 
   const handleEliminarIngrediente = (index: number) => {
@@ -71,10 +197,102 @@ export const RecetaFormModal: React.FC<RecetaFormModalProps> = ({
     setIngredientes(ingredientes.filter((_, i) => i !== index));
   };
 
+  const handleCambiarTipoIngrediente = (index: number, nuevoTipo: TipoIngrediente) => {
+    setIngredientes((prev) =>
+      prev.map((ing, i) => {
+        if (i !== index) return ing;
+        if (nuevoTipo === 'bebida') {
+          const base = crearIngredienteInicial();
+          return {
+            ...base,
+            cantidadMl: ing.cantidadMl || 50,
+            opcional: Boolean(ing.opcional),
+          };
+        }
+        const primerInsumo = insumosDisponibles[0];
+        return {
+          nombre: primerInsumo?.nombre || 'Hielo',
+          insumoId: primerInsumo?.id,
+          tipo: 'guarnicion_insumo',
+          categoriaId: undefined,
+          subcategoria: undefined,
+          cantidadMl: undefined,
+          unidad: 'al gusto',
+          opcional: Boolean(ing.opcional),
+        };
+      })
+    );
+  };
+
+  const handleCambiarCategoriaInsumoIngrediente = (
+    index: number,
+    nuevaCategoria: CategoriaInsumo
+  ) => {
+    const insumoDeCategoria =
+      insumosDisponibles.find((ins) => ins.categoria === nuevaCategoria) ??
+      insumosDisponibles[0];
+    setIngredientes((prev) =>
+      prev.map((ing, i) => {
+        if (i !== index) return ing;
+        return {
+          ...ing,
+          insumoId: insumoDeCategoria?.id,
+          nombre: insumoDeCategoria?.nombre || ing.nombre,
+        };
+      })
+    );
+  };
+
+  const handleCambiarInsumoIngrediente = (index: number, nuevoInsumoId: string) => {
+    const insumo = insumosDisponibles.find((ins) => ins.id === nuevoInsumoId);
+    setIngredientes((prev) =>
+      prev.map((ing, i) => {
+        if (i !== index) return ing;
+        if (!insumo) return ing;
+        return {
+          ...ing,
+          insumoId: insumo.id,
+          nombre: insumo.nombre,
+        };
+      })
+    );
+  };
+
+  const handleCambiarCategoriaIngrediente = (index: number, nuevaCategoriaId: string) => {
+    const cat = categoriasDisponibles.find((c) => c.id === nuevaCategoriaId);
+    const primeraSub = cat?.subcategorias?.[0];
+    setIngredientes((prev) =>
+      prev.map((ing, i) => {
+        if (i !== index) return ing;
+        return {
+          ...ing,
+          categoriaId: nuevaCategoriaId,
+          subcategoria: primeraSub,
+          nombre: primeraSub || cat?.nombre || nuevaCategoriaId,
+        };
+      })
+    );
+  };
+
+  const handleCambiarSubcategoriaIngrediente = (index: number, nuevaSubcategoria: string) => {
+    setIngredientes((prev) =>
+      prev.map((ing, i) => {
+        if (i !== index) return ing;
+        const cat = categoriasDisponibles.find((c) => c.id === ing.categoriaId);
+        const subLimpia = nuevaSubcategoria.trim() || undefined;
+        return {
+          ...ing,
+          subcategoria: subLimpia,
+          nombre: subLimpia || cat?.nombre || ing.nombre,
+        };
+      })
+    );
+  };
+
   const handleModificarIngrediente = (
     index: number,
     campo: keyof IngredienteReceta,
-    valor: any
+    valor: unknown
   ) => {
     setIngredientes((prev) =>
       prev.map((ing, i) => {
@@ -109,11 +327,31 @@ export const RecetaFormModal: React.FC<RecetaFormModalProps> = ({
       cristaleria: cristaleria.trim(),
       metodoPreparacion: metodo,
       metodo: metodo,
-      ingredientes: ingredientes.map((i) => ({
-        ...i,
-        nombre: i.nombre.trim(),
-        cantidadMl: i.tipo === 'bebida' ? Number(i.cantidadMl) : undefined,
-      })),
+      ingredientes: ingredientes.map((i) => {
+        if (i.tipo === 'bebida') {
+          const cat = categoriasDisponibles.find((c) => c.id === i.categoriaId);
+          const subLimpia = i.subcategoria?.trim() || undefined;
+          const nombreResuelto = subLimpia || cat?.nombre || i.nombre.trim();
+          return {
+            ...i,
+            nombre: nombreResuelto,
+            categoriaId: i.categoriaId,
+            subcategoria: subLimpia,
+            cantidadMl: Number(i.cantidadMl),
+          };
+        }
+        const insumoElegido =
+          insumosDisponibles.find((ins) => ins.id === i.insumoId) ??
+          insumosDisponibles[0];
+        return {
+          ...i,
+          insumoId: insumoElegido?.id || i.insumoId,
+          nombre: insumoElegido?.nombre || i.nombre.trim(),
+          categoriaId: undefined,
+          subcategoria: undefined,
+          cantidadMl: undefined,
+        };
+      }),
       pasos: pasos.map((p) => p.trim()).filter((p) => p.length > 0),
       esFavorito: recetaAEditar ? recetaAEditar.esFavorito : false,
       esPropia: true,
@@ -254,76 +492,190 @@ export const RecetaFormModal: React.FC<RecetaFormModalProps> = ({
             )}
 
             <div className="space-y-3">
-              {ingredientes.map((ing, idx) => (
-                <div
-                  key={idx}
-                  className="p-3 rounded-2xl bg-surface border border-outline-variant flex flex-col sm:flex-row items-start sm:items-center gap-2.5"
-                >
-                  <div className="flex-1 w-full sm:w-auto">
-                    <input
-                      type="text"
-                      value={ing.nombre}
-                      onChange={(e) => handleModificarIngrediente(idx, 'nombre', e.target.value)}
-                      placeholder="Nombre (ej. Gin, Vermut, Lima)"
-                      data-testid={`input-ingrediente-nombre-${idx}`}
-                      className="w-full px-3 py-1.5 rounded-lg bg-surface-container border border-outline text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
+              {ingredientes.map((ing, idx) => {
+                const catActual =
+                  categoriasDisponibles.find((c) => c.id === ing.categoriaId) ??
+                  categoriasDisponibles[0];
+                const subcategoriasCat = catActual?.subcategorias ?? [];
+                const opcionesSubcat =
+                  ing.subcategoria && !subcategoriasCat.includes(ing.subcategoria)
+                    ? [ing.subcategoria, ...subcategoriasCat]
+                    : subcategoriasCat;
 
-                  <div className="w-full sm:w-36">
-                    <select
-                      value={ing.tipo}
-                      onChange={(e) =>
-                        handleModificarIngrediente(idx, 'tipo', e.target.value as any)
-                      }
-                      className="w-full px-2.5 py-1.5 rounded-lg bg-surface-container border border-outline text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
-                    >
-                      <option value="bebida">Bebida (despensa)</option>
-                      <option value="guarnicion_insumo">Insumo / Guarnición</option>
-                    </select>
-                  </div>
-
-                  {ing.tipo === 'bebida' && (
-                    <div className="w-24">
-                      <div className="relative">
-                        <input
-                          type="number"
-                          min="1"
-                          max="2000"
-                          value={ing.cantidadMl || ''}
-                          onChange={(e) =>
-                            handleModificarIngrediente(
-                              idx,
-                              'cantidadMl',
-                              e.target.value ? Number(e.target.value) : undefined
-                            )
-                          }
-                          placeholder="ml"
-                          data-testid={`input-ingrediente-ml-${idx}`}
-                          className="w-full pl-2 pr-6 py-1.5 rounded-lg bg-surface-container border border-outline text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
-                        />
-                        <span className="absolute right-2 top-1.5 text-[10px] text-on-surface-variant">
-                          ml
-                        </span>
-                      </div>
+                return (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-2xl bg-surface border border-outline-variant flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2.5"
+                  >
+                    <div className="w-full sm:w-36">
+                      <select
+                        value={ing.tipo}
+                        aria-label={`Tipo de ingrediente ${idx + 1}`}
+                        data-testid={`select-ingrediente-tipo-${idx}`}
+                        onChange={(e) =>
+                          handleCambiarTipoIngrediente(idx, e.target.value as TipoIngrediente)
+                        }
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-surface-container border border-outline text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="bebida">Bebida (despensa)</option>
+                        <option value="guarnicion_insumo">Insumo / Guarnición</option>
+                      </select>
                     </div>
-                  )}
 
-                  {ingredientes.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => handleEliminarIngrediente(idx)}
-                      data-testid={`btn-eliminar-ingrediente-${idx}`}
-                      className="p-1 rounded-lg text-status-rose hover:bg-status-rose/10 self-end sm:self-center transition-colors"
-                      title="Eliminar ingrediente"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-              ))}
+                    {ing.tipo === 'bebida' ? (
+                      <>
+                        <div className="flex-1 min-w-[130px] w-full sm:w-auto">
+                          <select
+                            value={ing.categoriaId || catActual?.id || ''}
+                            aria-label={`Categoría del ingrediente ${idx + 1}`}
+                            data-testid={`select-ingrediente-categoria-${idx}`}
+                            onChange={(e) =>
+                              handleCambiarCategoriaIngrediente(idx, e.target.value)
+                            }
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-surface-container border border-outline text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+                          >
+                            {categoriasDisponibles.map((cat) => (
+                              <option key={cat.id} value={cat.id}>
+                                {cat.nombre}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="flex-1 min-w-[140px] w-full sm:w-auto">
+                          <select
+                            value={ing.subcategoria || ''}
+                            aria-label={`Subcategoría del ingrediente ${idx + 1}`}
+                            data-testid={`select-ingrediente-subcategoria-${idx}`}
+                            onChange={(e) =>
+                              handleCambiarSubcategoriaIngrediente(idx, e.target.value)
+                            }
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-surface-container border border-outline text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+                          >
+                            <option value="">
+                              Cualquiera ({catActual?.nombre || 'Categoría'})
+                            </option>
+                            {opcionesSubcat.map((sub) => (
+                              <option key={sub} value={sub}>
+                                {sub}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="w-24">
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min="1"
+                              max="2000"
+                              value={ing.cantidadMl || ''}
+                              onChange={(e) =>
+                                handleModificarIngrediente(
+                                  idx,
+                                  'cantidadMl',
+                                  e.target.value ? Number(e.target.value) : undefined
+                                )
+                              }
+                              placeholder="ml"
+                              data-testid={`input-ingrediente-ml-${idx}`}
+                              className="w-full pl-2 pr-6 py-1.5 rounded-lg bg-surface-container border border-outline text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                            <span className="absolute right-2 top-1.5 text-[10px] text-on-surface-variant">
+                              ml
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      (() => {
+                        const insumoActual =
+                          insumosDisponibles.find((ins) => ins.id === ing.insumoId) ??
+                          insumosDisponibles[0];
+                        const categoriaInsumoActual: CategoriaInsumo =
+                          insumoActual?.categoria ?? 'hielo';
+                        const insumosDeCategoria = insumosDisponibles.filter(
+                          (ins) => ins.categoria === categoriaInsumoActual
+                        );
+                        const opcionesInsumo =
+                          insumosDeCategoria.length > 0
+                            ? insumosDeCategoria
+                            : insumosDisponibles;
+
+                        return (
+                          <>
+                            <div className="flex-1 min-w-[140px] w-full sm:w-auto">
+                              <select
+                                value={categoriaInsumoActual}
+                                aria-label={`Categoría de almacén ${idx + 1}`}
+                                data-testid={`select-ingrediente-categoria-insumo-${idx}`}
+                                onChange={(e) =>
+                                  handleCambiarCategoriaInsumoIngrediente(
+                                    idx,
+                                    e.target.value as CategoriaInsumo
+                                  )
+                                }
+                                className="w-full px-2.5 py-1.5 rounded-lg bg-surface-container border border-outline text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+                              >
+                                {CATEGORIAS_INSUMO.map((cat) => (
+                                  <option key={cat.value} value={cat.value}>
+                                    {cat.icono} {cat.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="flex-1 min-w-[160px] w-full sm:w-auto">
+                              <select
+                                value={insumoActual?.id || ''}
+                                aria-label={`Insumo de almacén ${idx + 1}`}
+                                data-testid={`select-ingrediente-insumo-${idx}`}
+                                onChange={(e) =>
+                                  handleCambiarInsumoIngrediente(idx, e.target.value)
+                                }
+                                className="w-full px-2.5 py-1.5 rounded-lg bg-surface-container border border-outline text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+                              >
+                                {opcionesInsumo.map((ins) => (
+                                  <option key={ins.id} value={ins.id}>
+                                    {ins.nombre} ({ins.disponible ? '✓ Tengo' : '✕ No tengo'})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </>
+                        );
+                      })()
+                    )}
+
+                    <label className="flex items-center gap-1 text-[11px] text-on-surface-variant cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(ing.opcional)}
+                        data-testid={`checkbox-ingrediente-opcional-${idx}`}
+                        onChange={(e) =>
+                          handleModificarIngrediente(idx, 'opcional', e.target.checked)
+                        }
+                        className="rounded border-outline text-primary focus:ring-primary"
+                      />
+                      Opcional
+                    </label>
+
+                    {ingredientes.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleEliminarIngrediente(idx)}
+                        data-testid={`btn-eliminar-ingrediente-${idx}`}
+                        className="p-1 rounded-lg text-status-rose hover:bg-status-rose/10 self-end sm:self-center transition-colors"
+                        title="Eliminar ingrediente"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 

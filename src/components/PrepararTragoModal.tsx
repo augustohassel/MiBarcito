@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Receta } from '../domain/models/receta';
 import { Bebida } from '../domain/models/bebida';
-import { esBotellaCompatible } from '../domain/services/recetario-motor';
+import { esBotellaCompatible, evaluarIngrediente } from '../domain/services/recetario-motor';
+import { CATEGORIAS_PREDETERMINADAS } from '../domain/models/categoria';
+import {
+  INSUMOS_PREDETERMINADOS,
+  obtenerIconoCategoriaInsumo,
+  obtenerLabelCategoriaInsumo,
+} from '../domain/models/insumo-almacen';
+import { useCategoriasOpcional, useAlmacenOpcional } from '../context/InventoryContext';
 
 export interface PrepararTragoModalProps {
   isOpen: boolean;
@@ -51,13 +58,32 @@ export const PrepararTragoModal: React.FC<PrepararTragoModalProps> = ({
     setErrorValidacion(null);
   }, [receta, bebidasEnDespensa, isOpen]);
 
+  const categoriasCtx = useCategoriasOpcional();
+  const categorias = categoriasCtx?.categorias?.length
+    ? categoriasCtx.categorias
+    : CATEGORIAS_PREDETERMINADAS;
+
+  const almacenCtx = useAlmacenOpcional();
+  const insumosAlmacen = almacenCtx?.insumos?.length
+    ? almacenCtx.insumos
+    : INSUMOS_PREDETERMINADOS;
+
   if (!isOpen || !receta) return null;
+
+  const obtenerNombreCategoria = (catId?: string) => {
+    if (!catId) return undefined;
+    return categorias.find((c) => c.id === catId)?.nombre ?? catId;
+  };
 
   const ingredientesBebida = receta.ingredientes
     .map((ing, idx) => ({ ing, idx }))
     .filter(({ ing }) => ing.tipo === 'bebida');
 
-  // Evaluar en tiempo real si alguna botella seleccionada tiene stock insuficiente
+  const ingredientesAlmacen = receta.ingredientes
+    .map((ing, idx) => ({ ing, idx }))
+    .filter(({ ing }) => ing.tipo === 'guarnicion_insumo');
+
+  // Evaluar en tiempo real si alguna botella seleccionada o insumo de almacén falta
   let hayStockInsuficiente = false;
   let mensajeStockInsuficiente: string | null = null;
 
@@ -67,7 +93,10 @@ export const PrepararTragoModal: React.FC<PrepararTragoModalProps> = ({
     const cantidadRequerida = ing.cantidadMl ?? 0;
     const compatibles = bebidasEnDespensa.filter((b) => esBotellaCompatible(b, ing));
 
-    const tieneStock = botella ? botella.volumenRestanteMl >= cantidadRequerida : false;
+    const tieneStock = botella
+      ? botella.volumenRestanteMl >= cantidadRequerida
+      : Boolean(ing.opcional);
+
     if (!tieneStock) {
       hayStockInsuficiente = true;
       if (!mensajeStockInsuficiente) {
@@ -90,6 +119,24 @@ export const PrepararTragoModal: React.FC<PrepararTragoModalProps> = ({
     };
   });
 
+  const itemsAlmacenEvaluados = ingredientesAlmacen.map(({ ing, idx }) => {
+    const evalIng = evaluarIngrediente(ing, [], insumosAlmacen);
+    const cumple = evalIng.disponible || Boolean(ing.opcional);
+    if (!cumple) {
+      hayStockInsuficiente = true;
+      if (!mensajeStockInsuficiente) {
+        mensajeStockInsuficiente = `Falta "${evalIng.insumoSugerido?.nombre || ing.nombre}" en tu Almacén para preparar este cóctel.`;
+      }
+    }
+    return {
+      ing,
+      idx,
+      disponible: evalIng.disponible,
+      insumoSugerido: evalIng.insumoSugerido,
+      esOpcionalFaltante: !evalIng.disponible && Boolean(ing.opcional),
+    };
+  });
+
   const handleCambiarBotella = (ingIdx: number, nuevaBotellaId: string) => {
     setSeleccionBotellas((prev) => ({
       ...prev,
@@ -104,10 +151,12 @@ export const PrepararTragoModal: React.FC<PrepararTragoModalProps> = ({
       return;
     }
 
-    const descuentos = itemsDescuento.map((item) => ({
-      botellaId: item.botella!.id,
-      cantidadMl: item.cantidadRequerida,
-    }));
+    const descuentos = itemsDescuento
+      .filter((item) => Boolean(item.botella))
+      .map((item) => ({
+        botellaId: item.botella!.id,
+        cantidadMl: item.cantidadRequerida,
+      }));
 
     setProcesando(true);
     try {
@@ -175,13 +224,19 @@ export const PrepararTragoModal: React.FC<PrepararTragoModalProps> = ({
                 }`}
               >
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="text-xs font-semibold text-on-surface flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-on-surface flex flex-wrap items-center gap-1.5">
                     <span
                       className={`w-2 h-2 rounded-full ${
                         item.tieneStock ? 'bg-status-emerald' : 'bg-status-rose'
                       }`}
                     />
-                    {item.ing.nombre}
+                    <span>{item.ing.nombre}</span>
+                    {item.ing.categoriaId && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant">
+                        {obtenerNombreCategoria(item.ing.categoriaId)}
+                        {item.ing.subcategoria ? ` › ${item.ing.subcategoria}` : ''}
+                      </span>
+                    )}
                   </span>
                   <span className="text-xs font-bold text-primary">
                     -{item.cantidadRequerida} ml
@@ -200,6 +255,9 @@ export const PrepararTragoModal: React.FC<PrepararTragoModalProps> = ({
                       data-testid={`select-botella-${item.idx}`}
                       className="w-full px-3 py-1.5 rounded-xl bg-surface-container border border-outline text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
                     >
+                      {item.ing.opcional && (
+                        <option value="">(Opcional - No incluir)</option>
+                      )}
                       {item.compatibles.map((b) => (
                         <option key={b.id} value={b.id}>
                           {b.marca} - {b.nombre} (Stock: {b.volumenRestanteMl} ml)
@@ -216,6 +274,10 @@ export const PrepararTragoModal: React.FC<PrepararTragoModalProps> = ({
                       </div>
                     )}
                   </div>
+                ) : item.ing.opcional ? (
+                  <p className="text-xs text-on-surface-variant italic">
+                    Ingrediente opcional — No tenés botella compatible en tu despensa (no se descontará stock).
+                  </p>
                 ) : (
                   <p className="text-xs text-status-rose font-medium">
                     ⚠️ No se encontró ninguna botella compatible en tu despensa para este ingrediente.
@@ -224,6 +286,71 @@ export const PrepararTragoModal: React.FC<PrepararTragoModalProps> = ({
               </div>
             ))}
           </div>
+
+          {/* Insumos y Guarniciones del Almacén */}
+          {itemsAlmacenEvaluados.length > 0 && (
+            <div className="pt-2 border-t border-outline-variant space-y-2.5">
+              <h3 className="text-xs font-semibold text-on-surface flex items-center gap-1.5">
+                <span>🍋</span> Insumos y Guarniciones (Almacén)
+              </h3>
+              <div className="space-y-2">
+                {itemsAlmacenEvaluados.map((item) => (
+                  <div
+                    key={item.idx}
+                    data-testid={`almacen-prep-item-${item.idx}`}
+                    className={`p-3 rounded-2xl border flex items-center justify-between gap-2 text-xs ${
+                      item.disponible
+                        ? 'bg-status-emerald/5 border-status-emerald/30 text-on-surface'
+                        : item.esOpcionalFaltante
+                        ? 'bg-surface border-outline-variant text-on-surface'
+                        : 'bg-status-rose/10 border-status-rose/40 text-on-surface'
+                    }`}
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            item.disponible
+                              ? 'bg-status-emerald'
+                              : item.esOpcionalFaltante
+                              ? 'bg-outline'
+                              : 'bg-status-rose'
+                          }`}
+                        />
+                        <span className="font-semibold">{item.ing.nombre}</span>
+                        {item.insumoSugerido && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant">
+                            {obtenerIconoCategoriaInsumo(item.insumoSugerido.categoria)}{' '}
+                            {obtenerLabelCategoriaInsumo(item.insumoSugerido.categoria)} ›{' '}
+                            {item.insumoSugerido.nombre}
+                          </span>
+                        )}
+                      </div>
+                      <span
+                        className={`text-[11px] pl-3.5 ${
+                          item.disponible
+                            ? 'text-on-surface-variant'
+                            : item.esOpcionalFaltante
+                            ? 'text-on-surface-variant italic'
+                            : 'text-status-rose font-medium'
+                        }`}
+                      >
+                        {item.disponible
+                          ? 'En tu almacén: Disponible'
+                          : item.esOpcionalFaltante
+                          ? 'Opcional — No disponible en tu almacén'
+                          : 'No disponible en tu almacén'}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-on-surface-variant font-medium shrink-0">
+                      {item.ing.unidad || 'al gusto'}
+                      {item.ing.opcional ? ' (Opcional)' : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Alerta de Stock Insuficiente / Error */}
           {(hayStockInsuficiente || errorValidacion) && (

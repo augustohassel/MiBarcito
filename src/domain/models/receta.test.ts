@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   validarReceta,
   clonarRecetaParaAutor,
+  enriquecerRecetaPredeterminada,
   RECETAS_PREDETERMINADAS,
   Receta,
 } from './receta';
@@ -110,6 +111,38 @@ describe('Modelo de Dominio: Receta / RecetaTrago', () => {
       expect(nombres).toContain('Fernet con Cola');
       expect(nombres).toContain('Gin Tonic');
       expect(nombres).toContain('Old Fashioned');
+    });
+
+    it('todos los ingredientes de tipo bebida en las recetas predeterminadas tienen categoriaId y subcategoria asignados', () => {
+      for (const receta of RECETAS_PREDETERMINADAS) {
+        for (const ing of receta.ingredientes) {
+          if (ing.tipo === 'bebida') {
+            expect(ing.categoriaId, `${receta.nombre} - ${ing.nombre} sin categoriaId`).toBeDefined();
+            expect(ing.subcategoria, `${receta.nombre} - ${ing.nombre} sin subcategoria`).toBeDefined();
+          }
+        }
+      }
+    });
+
+    it('enriquecerRecetaPredeterminada actualiza recetas clásicas antiguas preservando esFavorito', () => {
+      const recetaAntigua: Receta = {
+        id: 'receta-negroni',
+        nombre: 'Negroni',
+        descripcion: 'Clásico',
+        cristaleria: 'Vaso',
+        metodoPreparacion: 'refrescado',
+        esFavorito: true,
+        esPropia: false,
+        ingredientes: [
+          { nombre: 'Gin', cantidadMl: 30, tipo: 'bebida' },
+        ],
+        pasos: ['Paso 1'],
+      };
+
+      const enriquecida = enriquecerRecetaPredeterminada(recetaAntigua);
+      expect(enriquecida.esFavorito).toBe(true);
+      expect(enriquecida.ingredientes[0].categoriaId).toBe('destilado');
+      expect(enriquecida.ingredientes[0].subcategoria).toBe('Gin');
     });
   });
 });

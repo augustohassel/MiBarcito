@@ -92,6 +92,28 @@ describe('Capa de Persistencia de Recetas e IndexedDB v3', () => {
       await repo.delete('receta-autor-idb');
       expect(await repo.getById('receta-autor-idb')).toBeUndefined();
     });
+
+    it('enriquece recetas predeterminadas antiguas en IndexedDB con categoriaId y subcategoria sin perder esFavorito', async () => {
+      const negroniLegacy: Receta = {
+        id: 'receta-negroni',
+        nombre: 'Negroni',
+        descripcion: 'Antiguo sin categoriaId',
+        cristaleria: 'Vaso',
+        metodoPreparacion: 'refrescado',
+        esFavorito: true,
+        esPropia: false,
+        ingredientes: [{ nombre: 'Gin', cantidadMl: 30, tipo: 'bebida' }],
+        pasos: ['Paso 1'],
+      };
+
+      await repo.save(negroniLegacy);
+      await repo.seedDefaults();
+
+      const actualizado = await repo.getById('receta-negroni');
+      expect(actualizado?.esFavorito).toBe(true);
+      expect(actualizado?.ingredientes[0].categoriaId).toBe('destilado');
+      expect(actualizado?.ingredientes[0].subcategoria).toBe('Gin');
+    });
   });
 });
 

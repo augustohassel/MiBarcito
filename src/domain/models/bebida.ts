@@ -24,6 +24,7 @@ export interface Bebida {
   nombre: string;
   marca: string;
   categoria: CategoriaBebida;
+  subcategoria?: string;
   volumenTotalMl: number;
   volumenRestanteMl: number;
   graduacionAlcoholica?: number;
@@ -103,6 +104,13 @@ export function validarBebida(
   if (datos.stockMinimoMl !== undefined && datos.stockMinimoMl !== null && !Number.isNaN(datos.stockMinimoMl)) {
     if (datos.stockMinimoMl < 0) {
       errores.stockMinimoMl = 'El stock mínimo no puede ser negativo';
+    }
+  }
+
+  // Subcategoría (opcional)
+  if (datos.subcategoria !== undefined && datos.subcategoria !== null) {
+    if (datos.subcategoria.trim().length > 50) {
+      errores.subcategoria = 'La subcategoría no puede superar los 50 caracteres';
     }
   }
 

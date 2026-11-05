@@ -174,6 +174,28 @@ describe('Dominio Bebida', () => {
       expect(errores.precioEstimado).toBe('El precio estimado no puede ser negativo');
       expect(errores.stockMinimoMl).toBe('El stock mínimo no puede ser negativo');
     });
+
+    it('acepta subcategoría opcional y bloquea si supera 50 caracteres', () => {
+      const erroresValido = validarBebida({
+        nombre: 'Tanqueray',
+        marca: 'Tanqueray',
+        categoria: 'destilado',
+        subcategoria: 'Gin',
+        volumenTotalMl: 750,
+        volumenRestanteMl: 750,
+      });
+      expect(erroresValido.subcategoria).toBeUndefined();
+
+      const erroresLargo = validarBebida({
+        nombre: 'Tanqueray',
+        marca: 'Tanqueray',
+        categoria: 'destilado',
+        subcategoria: 'A'.repeat(51),
+        volumenTotalMl: 750,
+        volumenRestanteMl: 750,
+      });
+      expect(erroresLargo.subcategoria).toBe('La subcategoría no puede superar los 50 caracteres');
+    });
   });
 
   describe('ajustarVolumenRapido', () => {
