@@ -3,10 +3,10 @@ import { IInventoryRepository } from '../domain/repositories/inventory-repositor
 import { createInventoryRepository } from '../infrastructure/storage/inventory-repository-factory';
 import { ICategoriaRepository } from '../domain/repositories/categoria-repository.interface';
 import { createCategoriaRepository } from '../infrastructure/storage/categoria-repository-factory';
-import { Categoria, puedeEliminarCategoria } from '../domain/models/categoria';
+import { Categoria, CATEGORIAS_PREDETERMINADAS, puedeEliminarCategoria } from '../domain/models/categoria';
 import { IRecetaRepository } from '../domain/repositories/receta-repository.interface';
 import { createRecetaRepository } from '../infrastructure/storage/receta-repository-factory';
-import { Receta } from '../domain/models/receta';
+import { Receta, RECETAS_PREDETERMINADAS } from '../domain/models/receta';
 import { IAlmacenRepository } from '../domain/repositories/almacen-repository.interface';
 import { createAlmacenRepository } from '../infrastructure/storage/almacen-repository-factory';
 import { InsumoAlmacen, INSUMOS_PREDETERMINADOS } from '../domain/models/insumo-almacen';
@@ -86,11 +86,11 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
   );
 
   // Estados de Categorías
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>(CATEGORIAS_PREDETERMINADAS);
   const [loadingCategorias, setLoadingCategorias] = useState(true);
 
   // Estados de Recetas
-  const [recetas, setRecetas] = useState<Receta[]>([]);
+  const [recetas, setRecetas] = useState<Receta[]>(RECETAS_PREDETERMINADAS);
   const [loadingRecetas, setLoadingRecetas] = useState(true);
 
   // Estados de Almacén
@@ -204,6 +204,15 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
 
   const guardarInsumo = useCallback(
     async (insumo: InsumoAlmacen) => {
+      setInsumos((prev) => {
+        const idx = prev.findIndex((i) => i.id === insumo.id);
+        if (idx >= 0) {
+          const copia = [...prev];
+          copia[idx] = insumo;
+          return copia;
+        }
+        return [...prev, insumo];
+      });
       await almacenRepoInstance.save(insumo);
       await recargarAlmacen();
     },
@@ -212,7 +221,8 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
 
   const eliminarInsumo = useCallback(
     async (id: string): Promise<{ ok: boolean; motivo?: string }> => {
-      const insumo = await almacenRepoInstance.getById(id);
+      const insumo =
+        (await almacenRepoInstance.getById(id)) ?? insumos.find((i) => i.id === id);
       if (!insumo) {
         return { ok: false, motivo: 'El insumo no existe en el almacén.' };
       }
@@ -222,15 +232,27 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
           motivo: 'Los insumos predeterminados del catálogo básico no pueden eliminarse (podés marcarlos como "No tengo").',
         };
       }
+      setInsumos((prev) => prev.filter((i) => i.id !== id));
       await almacenRepoInstance.delete(id);
       await recargarAlmacen();
       return { ok: true };
     },
-    [almacenRepoInstance, recargarAlmacen]
+    [almacenRepoInstance, insumos, recargarAlmacen]
   );
 
   const toggleDisponibleInsumo = useCallback(
     async (id: string) => {
+      setInsumos((prev) =>
+        prev.map((i) =>
+          i.id === id
+            ? {
+                ...i,
+                disponible: !i.disponible,
+                fechaActualizacion: new Date().toISOString(),
+              }
+            : i
+        )
+      );
       await almacenRepoInstance.toggleDisponible(id);
       await recargarAlmacen();
     },
