@@ -382,7 +382,12 @@ export function App() {
   }, [bebidas]);
 
   const bajoStockCount = alertasStock.length;
-  const favoritosCount = useMemo(() => bebidas.filter((b) => b.esFavorito).length, [bebidas]);
+  const totalBebidasActivas = useMemo(() => bebidas.filter((b) => !b.archivada).length, [bebidas]);
+  const botellasArchivadasCount = bebidas.length - totalBebidasActivas;
+  const favoritosCount = useMemo(
+    () => bebidas.filter((b) => !b.archivada && b.esFavorito).length,
+    [bebidas]
+  );
   const valorTotalEstimado = metricasValoracion.costoTotal;
 
   // Evaluación para modal de detalle
@@ -517,7 +522,7 @@ export function App() {
           >
             <span>🍾 Despensa & Stock</span>
             <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-surface-container-high border border-outline">
-              {bebidas.length}
+              {totalBebidasActivas}
             </span>
           </button>
 
@@ -572,7 +577,17 @@ export function App() {
                 <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
                   Total Bebidas
                 </span>
-                <p className="text-2xl font-bold text-primary mt-1">{bebidas.length}</p>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <p className="text-2xl font-bold text-primary">{totalBebidasActivas}</p>
+                  {botellasArchivadasCount > 0 && (
+                    <span
+                      className="text-[11px] text-on-surface-variant font-medium"
+                      title={`${botellasArchivadasCount} botella${botellasArchivadasCount > 1 ? 's' : ''} archivada${botellasArchivadasCount > 1 ? 's' : ''}`}
+                    >
+                      (+{botellasArchivadasCount} arch)
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="p-4 rounded-xl bg-surface-container border border-outline shadow-xs">
@@ -650,7 +665,13 @@ export function App() {
               filtros={filtros}
               onChange={setFiltros}
               totalResultados={bebidasFiltradas.length}
-              totalBebidas={bebidas.length}
+              totalBebidas={
+                filtros.estadoBotella === 'todas'
+                  ? bebidas.length
+                  : filtros.estadoBotella === 'archivadas'
+                    ? botellasArchivadasCount
+                    : totalBebidasActivas
+              }
             />
 
             {/* Acciones principales de inventario */}
