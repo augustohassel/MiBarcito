@@ -123,4 +123,26 @@ Este documento reúne la terminología, entidades de negocio y conceptos funcion
 - **Alcance / Propósito**: Garantizar que si un usuario ya cargó botellas, recetas propias, categorías o estados de almacén en un dispositivo (ej. celular en modo local) e inicia sesión —incluso después de haber estrenado su cuenta desde otro dispositivo vacío—, todas sus entidades locales se incorporen a la nube resolviendo colisiones por fecha de actualización más reciente (`fechaActualizacion`) o unión de subcategorías/favoritos. Complementariamente, ofrece exportación e importación manual de respaldo en archivo `.json`.
 - **Lo que NO es**: No es una sincronización destructiva donde una cuenta en la nube recién creada o vacía pisa o elimina las botellas previamente guardadas en `IndexedDB`.
 
+---
+
+### Botella Archivada
+- **Definición**: Botella de la despensa marcada con la bandera booleana `archivada: true` para representar ítems consumidos, botellas vacías conservadas como recuerdo o productos en desuso temporal.
+- **Alcance / Propósito**: Preservar el historial de notas de cata y metadatos del producto sin que su existencia interfiera en el stock activo de la despensa, en las sugerencias del motor de recetas ni en el cálculo del valor financiero activo del bar hogareño. Permite su visualización mediante un filtro dedicado (*"Archivadas"* o *"Todas"*) y ofrece la acción de restauración (*"Desarchivar"*).
+- **Lo que NO es**: No es una eliminación definitiva de la base de datos ni una botella activa con 0 ml.
+
+---
+
+### Valor Actual Prorrateado
+- **Definición**: Métrica financiera calculada a partir de la fracción de líquido efectivamente restante en cada botella activa con cotización (`(volumenRestanteMl / volumenTotalMl) * precioEstimado`), redondeada a dos decimales.
+- **Alcance / Propósito**: Reflejar el valor monetario real del bar hogareño en un instante dado, diferenciándolo de la inversión total a capacidad plena (cuánto saldría el bar si todas las botellas estuviesen al 100% llenas).
+- **Lo que NO es**: No considera botellas archivadas ni asume que una botella por la mitad mantenga el 100% de su valor comercial de adquisición.
+
+---
+
+### Costo de Reposición y Preferencia de Recompra
+- **Definición**: Presupuesto monetario estimado que suma el `precioEstimado` de aquellas botellas activas que se encuentran en o por debajo de su umbral de stock mínimo (`volumenRestanteMl <= stockMinimoMl`) y cuya preferencia de recompra ha sido confirmada explícitamente (`recomprar: true`).
+- **Alcance / Propósito**: Servir de guía presupuestaria en la gestión de compras del bar hogareño, permitiendo planificar el gasto necesario para reabastecer las bebidas esenciales y descartando aquellas que el usuario no desea volver a comprar tras consumirlas. Advierte además cuántas botellas en alerta carecen de precio asignado (`botellasReposicionSinPrecio`).
+- **Lo que NO es**: No genera órdenes de compra automáticas ni computa botellas cuya recompra no fue confirmada o fue rechazada (`recomprar: false` o `undefined`).
+
+
 

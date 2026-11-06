@@ -41,7 +41,15 @@ describe('AlertasStockModal', () => {
   });
 
   it('renderiza la lista de alertas con detalles de volumen y faltantes', () => {
-    render(<AlertasStockModal isOpen={true} onClose={vi.fn()} alertas={alertasMock} />);
+    const alertaConRecompra: BebidaAlertaStock = {
+      ...alertasMock[0],
+      bebida: {
+        ...bebidaMock,
+        recomprar: true,
+      },
+    };
+
+    render(<AlertasStockModal isOpen={true} onClose={vi.fn()} alertas={[alertaConRecompra]} />);
 
     expect(screen.getByText('Alertas de Stock Bajo')).toBeInTheDocument();
     expect(screen.getByText('Aperol Spritz Insumo')).toBeInTheDocument();
@@ -49,6 +57,29 @@ describe('AlertasStockModal', () => {
     expect(screen.getByText(/Umbral: 250 ml/i)).toBeInTheDocument();
     expect(screen.getByText(/Faltan/i)).toBeInTheDocument();
     expect(screen.getByText(/150 ml/i)).toBeInTheDocument();
+
+    // Presupuesto consolidado de reposición
+    expect(screen.getByTestId('resumen-presupuesto-reposicion')).toBeInTheDocument();
+    expect(screen.getByText(/Presupuesto Estimado de Reposición/i)).toBeInTheDocument();
+    expect(screen.getByText('Recomprar')).toBeInTheDocument();
+  });
+
+  it('muestra aviso cuando hay botellas por reponer sin precio', () => {
+    const alertaSinPrecio: BebidaAlertaStock = {
+      ...alertasMock[0],
+      bebida: {
+        ...bebidaMock,
+        id: 'b-sin-precio',
+        precioEstimado: undefined,
+        recomprar: true,
+      },
+    };
+
+    render(<AlertasStockModal isOpen={true} onClose={vi.fn()} alertas={[alertaSinPrecio]} />);
+
+    const aviso = screen.getByTestId('aviso-alerta-sin-precio');
+    expect(aviso).toBeInTheDocument();
+    expect(aviso).toHaveTextContent(/1 botella sin cotización/i);
   });
 
   it('ejecuta onAjustarVolumen al hacer click en acciones rápidas de reposición', () => {

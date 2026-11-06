@@ -95,6 +95,9 @@ describe('BebidaFormModal Component', () => {
         precioEstimado: undefined,
         stockMinimoMl: 150,
         esFavorito: true,
+        notas: undefined,
+        archivada: undefined,
+        recomprar: undefined,
       });
       expect(onClose).toHaveBeenCalled();
     });
@@ -302,6 +305,7 @@ describe('BebidaFormModal Component', () => {
           nombre: 'Tanqueray London Dry Gin',
           marca: 'Tanqueray',
           categoriaSugerida: 'Destilado',
+          subcategoriaSugerida: 'Gin',
           graduacionAlcoholica: 47.3,
           precioEstimado: 28000,
           volumenTotalMl: 750,
@@ -321,6 +325,7 @@ describe('BebidaFormModal Component', () => {
         expect(screen.getByDisplayValue('Tanqueray')).toBeInTheDocument();
         expect(screen.getByDisplayValue('47.3')).toBeInTheDocument();
         expect(screen.getByDisplayValue('28000')).toBeInTheDocument();
+        expect(screen.getByRole('combobox', { name: /Subcategoría/i })).toHaveValue('Gin');
         expect(screen.getByText(/¡Botella reconocida con éxito!/i)).toBeInTheDocument();
         expect(screen.getByText(/precio de mercado sugerido vía Google Search/i)).toBeInTheDocument();
       });
@@ -397,6 +402,70 @@ describe('BebidaFormModal Component', () => {
           })
         );
       });
+    });
+
+    it('permite cargar notas, estado de recompra y archivar botella (#53)', async () => {
+      const onSave = vi.fn();
+      render(<BebidaFormModal isOpen={true} onSave={onSave} onClose={vi.fn()} />);
+
+      fireEvent.change(screen.getByLabelText(/Nombre de la Bebida/i), {
+        target: { value: 'Vermut Di Torino' },
+      });
+      fireEvent.change(screen.getByLabelText(/Marca \/ Destilería/i), {
+        target: { value: 'Cocchi' },
+      });
+      fireEvent.change(screen.getByLabelText(/^Categoría/i), {
+        target: { value: 'aperitivo_bitter' },
+      });
+
+      // Notas
+      fireEvent.change(screen.getByLabelText(/Notas de cata/i), {
+        target: { value: 'Notas herbales complejas, ruibarbo y cacao.' },
+      });
+
+      // Recompra
+      fireEvent.change(screen.getByLabelText(/¿Volverías a comprar\?/i), {
+        target: { value: 'si' },
+      });
+
+      // Archivar
+      fireEvent.click(screen.getByLabelText(/Archivar botella/i));
+
+      fireEvent.click(screen.getByRole('button', { name: /Crear Bebida/i }));
+
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledWith(
+          expect.objectContaining({
+            nombre: 'Vermut Di Torino',
+            notas: 'Notas herbales complejas, ruibarbo y cacao.',
+            recomprar: true,
+            archivada: true,
+          })
+        );
+      });
+    });
+
+    it('exhibe notas, recompra y estado archivado en modo ficha técnica (#53)', () => {
+      const bebidaCompleta: Bebida = {
+        ...bebidaEjemplo,
+        notas: 'Excelente para Manhattan y Negroni.',
+        recomprar: true,
+        archivada: true,
+      };
+
+      render(
+        <BebidaFormModal
+          isOpen={true}
+          bebidaAEditar={bebidaCompleta}
+          modoInicialLectura={true}
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText(/Excelente para Manhattan y Negroni\./i)).toBeInTheDocument();
+      expect(screen.getByText(/Sí, volvería a comprar/i)).toBeInTheDocument();
+      expect(screen.getByText(/Archivada en historial/i)).toBeInTheDocument();
     });
   });
 });

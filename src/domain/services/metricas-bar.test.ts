@@ -19,10 +19,14 @@ describe('metricas-bar service', () => {
     nombre: parcial.nombre || 'Bebida Test',
     marca: parcial.marca || 'Marca Test',
     categoria: parcial.categoria || 'destilado',
+    subcategoria: parcial.subcategoria,
     volumenTotalMl: parcial.volumenTotalMl ?? 750,
     volumenRestanteMl: parcial.volumenRestanteMl ?? 750,
     precioEstimado: parcial.precioEstimado,
     stockMinimoMl: parcial.stockMinimoMl,
+    archivada: parcial.archivada,
+    recomprar: parcial.recomprar,
+    notas: parcial.notas,
     fechaCreacion: '2026-11-04T00:00:00.000Z',
     fechaActualizacion: '2026-11-04T00:00:00.000Z',
   });
@@ -173,6 +177,88 @@ describe('metricas-bar service', () => {
 
       const alertas = obtenerBebidasEnAlertaStock(bebidas);
       expect(alertas).toHaveLength(0);
+    });
+
+    it('caso borde: ignora botellas archivadas aunque tengan stock bajo o estén vacías', () => {
+      const bebidas: Bebida[] = [
+        crearBebidaMock({ id: '1', nombre: 'Gin Archivada', volumenTotalMl: 750, volumenRestanteMl: 0, stockMinimoMl: 200, archivada: true }),
+        crearBebidaMock({ id: '2', nombre: 'Whisky Activa', volumenTotalMl: 750, volumenRestanteMl: 100, stockMinimoMl: 200, archivada: false }),
+      ];
+
+      const alertas = obtenerBebidasEnAlertaStock(bebidas);
+      expect(alertas).toHaveLength(1);
+      expect(alertas[0].bebida.nombre).toBe('Whisky Activa');
+    });
+  });
+
+  describe('valoración prorrateada, capacidad plena y reposición (#53)', () => {
+    it('prorratea correctamente el valor actual según el volumen restante real', () => {
+      const bebidas: Bebida[] = [
+        // 750/750 ml => 100% de $10.000 = $10.000
+        crearBebidaMock({ id: '1', volumenTotalMl: 750, volumenRestanteMl: 750, precioEstimado: 10000 }),
+        // 375/750 ml => 50% de $20.000 = $10.000
+        crearBebidaMock({ id: '2', volumenTotalMl: 750, volumenRestanteMl: 375, precioEstimado: 20000 }),
+        // 0/1000 ml => 0% de $5.000 = $0
+        crearBebidaMock({ id: '3', volumenTotalMl: 1000, volumenRestanteMl: 0, precioEstimado: 5000 }),
+      ];
+
+      const metricas = calcularMetricasValoracion(bebidas, dummyCategorias);
+
+      expect(metricas.costoTotalLleno).toBe(35000); // 10k + 20k + 5k
+      expect(metricas.valorActualProrrateado).toBe(20000); // 10k + 10k + 0
+      expect(metricas.costoTotal).toBe(20000); // alias retrocompatible
+      expect(metricas.totalBotellas).toBe(3);
+    });
+
+    it('excluye botellas archivadas de la valoración activa, conteo y categorías', () => {
+      const bebidas: Bebida[] = [
+        crearBebidaMock({ id: '1', volumenTotalMl: 750, volumenRestanteMl: 750, precioEstimado: 10000, archivada: false }),
+        crearBebidaMock({ id: '2', volumenTotalMl: 750, volumenRestanteMl: 750, precioEstimado: 50000, archivada: true }),
+      ];
+
+      const metricas = calcularMetricasValoracion(bebidas, dummyCategorias);
+
+      expect(metricas.costoTotalLleno).toBe(10000);
+      expect(metricas.valorActualProrrateado).toBe(10000);
+      expect(metricas.totalBotellas).toBe(1);
+      expect(metricas.botellasArchivadas).toBe(1);
+    });
+
+    it('calcula costo de reposición solo para botellas activas con stock bajo y recomprar === true (Opción B)', () => {
+      const bebidas: Bebida[] = [
+        // En stock bajo con recomprar = true y precio => suma $15.000
+        crearBebidaMock({ id: '1', volumenTotalMl: 750, volumenRestanteMl: 100, stockMinimoMl: 200, precioEstimado: 15000, recomprar: true }),
+        // En stock bajo con recomprar = true SIN precio => cuenta en botellasReposicionSinPrecio
+        crearBebidaMock({ id: '2', volumenTotalMl: 750, volumenRestanteMl: 50, stockMinimoMl: 200, precioEstimado: undefined, recomprar: true }),
+        // En stock bajo con recomprar = false => NO se suma
+        crearBebidaMock({ id: '3', volumenTotalMl: 750, volumenRestanteMl: 50, stockMinimoMl: 200, precioEstimado: 30000, recomprar: false }),
+        // En stock bajo con recomprar = undefined => NO se suma (según decisión acordada Opción B)
+        crearBebidaMock({ id: '4', volumenTotalMl: 750, volumenRestanteMl: 50, stockMinimoMl: 200, precioEstimado: 25000, recomprar: undefined }),
+        // Stock óptimo con recomprar = true => NO se suma porque no está en alerta
+        crearBebidaMock({ id: '5', volumenTotalMl: 750, volumenRestanteMl: 600, stockMinimoMl: 200, precioEstimado: 18000, recomprar: true }),
+        // Archivada con stock bajo y recomprar = true => NO se suma porque está archivada
+        crearBebidaMock({ id: '6', volumenTotalMl: 750, volumenRestanteMl: 0, stockMinimoMl: 200, precioEstimado: 40000, recomprar: true, archivada: true }),
+      ];
+
+      const metricas = calcularMetricasValoracion(bebidas, dummyCategorias);
+
+      expect(metricas.costoReposicion).toBe(15000);
+      expect(metricas.botellasPorReponer).toBe(2); // b1 y b2
+      expect(metricas.botellasReposicionSinPrecio).toBe(1); // b2
+    });
+
+    it('caso borde: maneja volumenTotalMl <= 0 o NaN sin producir NaN ni división por cero', () => {
+      const bebidas: Bebida[] = [
+        crearBebidaMock({ id: '1', volumenTotalMl: 0, volumenRestanteMl: 0, precioEstimado: 10000 }),
+        crearBebidaMock({ id: '2', volumenTotalMl: -500, volumenRestanteMl: 100, precioEstimado: 10000 }),
+        crearBebidaMock({ id: '3', volumenTotalMl: Number.NaN, volumenRestanteMl: 100, precioEstimado: 10000 }),
+      ];
+
+      const metricas = calcularMetricasValoracion(bebidas, dummyCategorias);
+
+      expect(metricas.costoTotalLleno).toBe(30000);
+      expect(metricas.valorActualProrrateado).toBe(0);
+      expect(Number.isNaN(metricas.valorActualProrrateado)).toBe(false);
     });
   });
 });

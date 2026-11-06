@@ -31,6 +31,9 @@ export interface Bebida {
   precioEstimado?: number;
   stockMinimoMl?: number;
   esFavorito?: boolean;
+  notas?: string;
+  archivada?: boolean;
+  recomprar?: boolean;
   fechaCreacion: string;
   fechaActualizacion: string;
 }
@@ -114,6 +117,13 @@ export function validarBebida(
     }
   }
 
+  // Notas / descripción (opcional, máx. 500 caracteres)
+  if (datos.notas !== undefined && datos.notas !== null) {
+    if (datos.notas.trim().length > 500) {
+      errores.notas = 'Las notas no pueden superar los 500 caracteres';
+    }
+  }
+
   return errores;
 }
 
@@ -130,9 +140,13 @@ export function ajustarVolumenRapido(
 }
 
 /**
- * Función de utilidad de dominio para verificar si una bebida está en alerta de stock bajo
+ * Función de utilidad de dominio para verificar si una bebida está en alerta de stock bajo.
+ * Las botellas archivadas quedan expresamente excluidas de las alertas de stock.
  */
 export function estaEnAlertaStockBajo(bebida: Bebida): boolean {
+  if (bebida.archivada) {
+    return false;
+  }
   if (bebida.stockMinimoMl === undefined || bebida.stockMinimoMl <= 0) {
     return false;
   }
