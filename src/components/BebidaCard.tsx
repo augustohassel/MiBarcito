@@ -232,54 +232,50 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
       </div>
 
       {/* Acciones de Ficha, Archivado, Edición y Eliminación */}
-      <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-outline/70 flex-wrap">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {onVerFicha && (
-            <button
-              type="button"
-              onClick={() => onVerFicha(bebida)}
-              className="px-2.5 py-1 text-xs font-medium text-on-surface hover:text-primary bg-surface-container-high hover:bg-surface border border-outline rounded-xl transition-colors cursor-pointer flex items-center gap-1"
-              aria-label={`Ver ficha técnica de ${bebida.nombre}`}
-            >
-              <span>📋</span>
-              <span>Ficha</span>
-            </button>
-          )}
-          {onToggleArchivar && (
-            <button
-              type="button"
-              onClick={() => onToggleArchivar(bebida)}
-              className={`px-2.5 py-1 text-xs font-medium border rounded-xl transition-colors cursor-pointer flex items-center gap-1 ${
-                bebida.archivada
-                  ? 'text-primary bg-primary/10 hover:bg-primary/20 border-primary/30'
-                  : 'text-on-surface-variant hover:text-on-surface bg-surface-container-high hover:bg-surface border border-outline'
-              }`}
-              title={bebida.archivada ? 'Desarchivar botella' : 'Archivar botella'}
-            >
-              <span>{bebida.archivada ? '📤' : '📦'}</span>
-              <span>{bebida.archivada ? 'Desarchivar' : 'Archivar'}</span>
-            </button>
-          )}
-        </div>
+      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-outline/70">
+        {onVerFicha && (
+          <button
+            type="button"
+            onClick={() => onVerFicha(bebida)}
+            className="w-full px-2.5 py-1.5 text-xs font-medium text-on-surface hover:text-primary bg-surface-container-high hover:bg-surface border border-outline rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+            aria-label={`Ver ficha técnica de ${bebida.nombre}`}
+          >
+            <span>📋</span>
+            <span>Ficha</span>
+          </button>
+        )}
+        {onToggleArchivar && (
+          <button
+            type="button"
+            onClick={() => onToggleArchivar(bebida)}
+            className={`w-full px-2.5 py-1.5 text-xs font-medium border rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+              bebida.archivada
+                ? 'text-primary bg-primary/10 hover:bg-primary/20 border-primary/30'
+                : 'text-on-surface-variant hover:text-on-surface bg-surface-container-high hover:bg-surface border border-outline'
+            }`}
+            title={bebida.archivada ? 'Desarchivar botella' : 'Archivar botella'}
+          >
+            <span>{bebida.archivada ? '📤' : '📦'}</span>
+            <span>{bebida.archivada ? 'Desarchivar' : 'Archivar'}</span>
+          </button>
+        )}
 
-        <div className="flex items-center gap-1.5 flex-wrap ml-auto">
-          <button
-            type="button"
-            onClick={() => onEditar(bebida)}
-            className="px-2.5 py-1 text-xs font-medium text-on-surface hover:text-primary bg-surface-container-high hover:bg-surface border border-outline rounded-xl transition-colors cursor-pointer flex items-center gap-1"
-          >
-            <span>✏️</span>
-            <span>Editar</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onEliminar(bebida)}
-            className="px-2.5 py-1 text-xs font-medium text-status-rose hover:bg-status-rose/15 bg-status-rose/10 border border-status-rose/30 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
-          >
-            <span>🗑️</span>
-            <span>Eliminar</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => onEditar(bebida)}
+          className="w-full px-2.5 py-1.5 text-xs font-medium text-on-surface hover:text-primary bg-surface-container-high hover:bg-surface border border-outline rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+        >
+          <span>✏️</span>
+          <span>Editar</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onEliminar(bebida)}
+          className="w-full px-2.5 py-1.5 text-xs font-medium text-status-rose hover:bg-status-rose/15 bg-status-rose/10 border border-status-rose/30 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+        >
+          <span>🗑️</span>
+          <span>Eliminar</span>
+        </button>
       </div>
     </div>
   );
