@@ -1,5 +1,5 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import App from './App';
 import { InventoryProvider } from './context/InventoryContext';
 import { InMemoryInventoryRepository } from './infrastructure/storage/in-memory-inventory-repository';
@@ -338,6 +338,59 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
     await waitFor(() => {
       expect(screen.getAllByText('En tu almacén: Disponible').length).toBeGreaterThanOrEqual(1);
     });
+  });
+
+  it('preserva la estructura del listado de recetas y no desmonta el DOM al alternar favoritos (Issue #25)', async () => {
+    renderApp();
+    fireEvent.click(screen.getByTestId('tab-recetario'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Negroni')).toBeInTheDocument();
+    });
+
+    const btnFavNegroni = screen.getByTestId('favorito-receta-receta-negroni');
+    expect(btnFavNegroni).toBeInTheDocument();
+
+    // Alternar favorito
+    fireEvent.click(btnFavNegroni);
+
+    // No debe mostrar el spinner de carga destructivo
+    expect(screen.queryByText(/Cargando recetario y evaluando existencias/i)).toBeNull();
+
+    // La tarjeta de Negroni debe permanecer montada y cambiar su aria-label
+    await waitFor(() => {
+      expect(screen.getByTestId('receta-card-receta-negroni')).toBeInTheDocument();
+      expect(btnFavNegroni).toHaveAttribute('aria-label', 'Quitar de favoritos');
+    });
+  });
+
+  it('realiza rollback y emite toast de error si la persistencia de recetas en almacenamiento falla (Issue #25)', async () => {
+    renderApp();
+    fireEvent.click(screen.getByTestId('tab-recetario'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Negroni')).toBeInTheDocument();
+    });
+
+    // Simular error al persistir favorito en repositorio
+    const spyToggle = vi.spyOn(mockRecetaRepo, 'toggleFavorito').mockRejectedValueOnce(new Error('IndexedDB Quota Error'));
+
+    const btnFavNegroni = screen.getByTestId('favorito-receta-receta-negroni');
+    expect(btnFavNegroni).toHaveAttribute('aria-label', 'Marcar como favorito');
+
+    fireEvent.click(btnFavNegroni);
+
+    // Debe mostrar la notificación toast de error
+    await waitFor(() => {
+      expect(
+        screen.getByText(/No se pudo actualizar el favorito de la receta: error al guardar en el almacenamiento local/i)
+      ).toBeInTheDocument();
+    });
+
+    // Debe revertir al estado original (Marcar como favorito)
+    expect(btnFavNegroni).toHaveAttribute('aria-label', 'Marcar como favorito');
+
+    spyToggle.mockRestore();
   });
 });
 
