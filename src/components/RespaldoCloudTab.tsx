@@ -442,8 +442,8 @@ export const RespaldoCloudTab: React.FC<RespaldoCloudTabProps> = ({
       <ConfirmModal
         isOpen={isConfirmModalOpen}
         titulo="¿Vaciar despensa por completo?"
-        mensaje={`¿Estás seguro de que deseás vaciar tu despensa? Se eliminarán ${
-          totalBotellas === 1 ? '1 botella' : `${totalBotellas} botellas`
+        mensaje={`¿Estás seguro de que deseás vaciar tu despensa? ${
+          totalBotellas === 1 ? 'Se eliminará 1 botella' : `Se eliminarán ${totalBotellas} botellas`
         } de forma permanente e irreversible.`}
         textoConfirmar="Sí, vaciar despensa"
         textoCancelar="Cancelar"

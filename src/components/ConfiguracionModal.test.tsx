@@ -461,7 +461,7 @@ describe('ConfiguracionModal y CategoriasConfig', () => {
         expect(screen.getByRole('dialog', { name: /¿Vaciar despensa por completo\?/i })).toBeInTheDocument();
         expect(
           screen.getByText(
-            '¿Estás seguro de que deseás vaciar tu despensa? Se eliminarán 1 botella de forma permanente e irreversible.'
+            '¿Estás seguro de que deseás vaciar tu despensa? Se eliminará 1 botella de forma permanente e irreversible.'
           )
         ).toBeInTheDocument();
       });
