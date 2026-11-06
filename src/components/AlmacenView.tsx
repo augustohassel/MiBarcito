@@ -85,10 +85,14 @@ export const AlmacenView: React.FC<AlmacenViewProps> = ({
       fechaActualizacion: ahora,
     };
 
-    await onGuardarInsumo(nuevo);
-    setNuevoNombre('');
-    setNuevaCategoria('citricos_frutas');
-    setMostrarFormulario(false);
+    try {
+      await onGuardarInsumo(nuevo);
+      setNuevoNombre('');
+      setNuevaCategoria('citricos_frutas');
+      setMostrarFormulario(false);
+    } catch {
+      // Se mantiene el formulario abierto y los inputs intactos para permitir reintentar tras el fallo de persistencia.
+    }
   };
 
   return (
