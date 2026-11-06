@@ -1,18 +1,23 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useCloudSync } from '../context/InventoryContext';
+import { useCloudSync, useInventoryRepository } from '../context/InventoryContext';
+import { Bebida } from '../domain/models/bebida';
+import { ConfirmModal } from './ConfirmModal';
 import {
   LocalStorageSummary,
   MiBarcitoBackupPayload,
 } from '../infrastructure/storage/cloud-migration.service';
 
 export interface RespaldoCloudTabProps {
+  bebidas?: Bebida[];
   onInventarioActualizado?: () => Promise<void> | void;
 }
 
 export const RespaldoCloudTab: React.FC<RespaldoCloudTabProps> = ({
+  bebidas = [],
   onInventarioActualizado,
 }) => {
+  const repository = useInventoryRepository();
   const {
     user,
     loadingAuth,
@@ -38,7 +43,34 @@ export const RespaldoCloudTab: React.FC<RespaldoCloudTabProps> = ({
   const [localSummary, setLocalSummary] = useState<LocalStorageSummary | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [ejecutandoLimpieza, setEjecutandoLimpieza] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const totalBotellas = bebidas.length;
+
+  const handleSolicitarVaciar = () => {
+    if (totalBotellas === 0 || ejecutandoLimpieza) return;
+    setIsConfirmModalOpen(true);
+  };
+
+  const handleConfirmarVaciar = async () => {
+    setIsConfirmModalOpen(false);
+    setStatusMessage(null);
+    setLocalError(null);
+    try {
+      setEjecutandoLimpieza(true);
+      await repository.clear();
+      await cargarResumenLocal();
+      await onInventarioActualizado?.();
+      setStatusMessage('🗑️ Se vació la despensa correctamente. Todas las botellas han sido eliminadas.');
+    } catch (err: any) {
+      console.error('Error al vaciar la despensa:', err);
+      setLocalError(err?.message || 'No se pudo vaciar la despensa: ocurrió un error en el almacenamiento.');
+    } finally {
+      setEjecutandoLimpieza(false);
+    }
+  };
 
   const cargarResumenLocal = async () => {
     try {
@@ -361,6 +393,64 @@ export const RespaldoCloudTab: React.FC<RespaldoCloudTabProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Tarjeta 4: Zona de Peligro - Vaciar Despensa */}
+      <div
+        data-testid="zona-peligro-card"
+        className="p-4 rounded-xl bg-status-rose/5 border border-status-rose/30 flex flex-col gap-3"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h4 className="font-bold text-status-rose text-sm flex items-center gap-1.5">
+              <span>⚠️</span>
+              <span>Zona de Peligro</span>
+            </h4>
+            <p className="text-xs text-on-surface-variant mt-0.5">
+              Acciones destructivas e irreversibles sobre el inventario de botellas de tu despensa.
+            </p>
+          </div>
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap bg-status-rose/15 text-status-rose border border-status-rose/30">
+            Irreversible
+          </span>
+        </div>
+
+        <div className="p-3 rounded-xl bg-surface/70 border border-status-rose/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs font-semibold text-on-surface">
+              Vaciar Despensa ({totalBotellas} {totalBotellas === 1 ? 'botella' : 'botellas'})
+            </span>
+            <span className="text-[11px] text-on-surface-variant">
+              {totalBotellas === 0
+                ? 'Tu despensa ya se encuentra vacía. No hay botellas para eliminar.'
+                : 'Elimina de forma permanente todas las botellas del bar. Las recetas y categorías se conservarán.'}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSolicitarVaciar}
+            disabled={totalBotellas === 0 || ejecutandoLimpieza}
+            data-testid="btn-vaciar-despensa"
+            className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-status-rose hover:bg-status-rose/90 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap shadow-xs flex items-center justify-center gap-1.5 self-start sm:self-center"
+          >
+            <span>🗑️</span>
+            <span>{ejecutandoLimpieza ? 'Vaciando...' : 'Vaciar Despensa'}</span>
+          </button>
+        </div>
+      </div>
+
+      <ConfirmModal
+        isOpen={isConfirmModalOpen}
+        titulo="¿Vaciar despensa por completo?"
+        mensaje={`¿Estás seguro de que deseás vaciar tu despensa? Se eliminarán ${
+          totalBotellas === 1 ? '1 botella' : `${totalBotellas} botellas`
+        } de forma permanente e irreversible.`}
+        textoConfirmar="Sí, vaciar despensa"
+        textoCancelar="Cancelar"
+        variante="peligro"
+        onConfirm={handleConfirmarVaciar}
+        onCancel={() => setIsConfirmModalOpen(false)}
+      />
     </div>
   );
 };

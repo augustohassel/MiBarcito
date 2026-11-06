@@ -412,6 +412,181 @@ describe('ConfiguracionModal y CategoriasConfig', () => {
       expect(screen.getByTestId('btn-importar-json')).toBeInTheDocument();
       expect(screen.getByTestId('btn-migrar-datos-locales')).toBeDisabled();
     });
+
+    describe('Zona de Peligro - Vaciar Despensa (Issue #56)', () => {
+      it('renderiza la tarjeta de Zona de Peligro y botón Vaciar Despensa habilitado con conteo de botellas', async () => {
+        const invRepo = new InMemoryInventoryRepository(bebidasMock);
+        const catRepo = new InMemoryCategoriaRepository();
+
+        render(
+          <InventoryProvider repository={invRepo} categoriaRepository={catRepo}>
+            <ConfiguracionModal
+              isOpen={true}
+              onClose={() => {}}
+              bebidas={bebidasMock}
+              initialTab="respaldo"
+            />
+          </InventoryProvider>
+        );
+
+        expect(screen.getByTestId('zona-peligro-card')).toBeInTheDocument();
+        expect(screen.getByText('Zona de Peligro')).toBeInTheDocument();
+        expect(screen.getByText('Vaciar Despensa (2 botellas)')).toBeInTheDocument();
+
+        const btnVaciar = screen.getByTestId('btn-vaciar-despensa');
+        expect(btnVaciar).toBeInTheDocument();
+        expect(btnVaciar).not.toBeDisabled();
+      });
+
+      it('al presionar Vaciar Despensa abre ConfirmModal detallando la cantidad y singular/plural', async () => {
+        const unaBotella: Bebida[] = [bebidasMock[0]];
+        const invRepo = new InMemoryInventoryRepository(unaBotella);
+        const catRepo = new InMemoryCategoriaRepository();
+
+        render(
+          <InventoryProvider repository={invRepo} categoriaRepository={catRepo}>
+            <ConfiguracionModal
+              isOpen={true}
+              onClose={() => {}}
+              bebidas={unaBotella}
+              initialTab="respaldo"
+            />
+          </InventoryProvider>
+        );
+
+        expect(screen.getByText('Vaciar Despensa (1 botella)')).toBeInTheDocument();
+        const btnVaciar = screen.getByTestId('btn-vaciar-despensa');
+        fireEvent.click(btnVaciar);
+
+        expect(screen.getByRole('dialog', { name: /¿Vaciar despensa por completo\?/i })).toBeInTheDocument();
+        expect(
+          screen.getByText(
+            '¿Estás seguro de que deseás vaciar tu despensa? Se eliminarán 1 botella de forma permanente e irreversible.'
+          )
+        ).toBeInTheDocument();
+      });
+
+      it('al cancelar el ConfirmModal o presionar Escape, no se vacía el inventario', async () => {
+        const invRepo = new InMemoryInventoryRepository(bebidasMock);
+        const catRepo = new InMemoryCategoriaRepository();
+
+        render(
+          <InventoryProvider repository={invRepo} categoriaRepository={catRepo}>
+            <ConfiguracionModal
+              isOpen={true}
+              onClose={() => {}}
+              bebidas={bebidasMock}
+              initialTab="respaldo"
+            />
+          </InventoryProvider>
+        );
+
+        const btnVaciar = screen.getByTestId('btn-vaciar-despensa');
+        fireEvent.click(btnVaciar);
+
+        // Cancelar mediante el botón Cancelar
+        const btnCancelar = screen.getByRole('button', { name: /Cancelar/i });
+        fireEvent.click(btnCancelar);
+
+        await waitFor(() => {
+          expect(screen.queryByText(/¿Vaciar despensa por completo\?/i)).not.toBeInTheDocument();
+        });
+
+        // El repositorio mantiene todas las botellas
+        const botellas = await invRepo.getAll();
+        expect(botellas).toHaveLength(2);
+      });
+
+      it('al confirmar el vaciado, invoca repository.clear(), notifica actualización y muestra mensaje de éxito', async () => {
+        const invRepo = new InMemoryInventoryRepository(bebidasMock);
+        const catRepo = new InMemoryCategoriaRepository();
+        const onActualizadas = vi.fn();
+        const clearSpy = vi.spyOn(invRepo, 'clear');
+
+        render(
+          <InventoryProvider repository={invRepo} categoriaRepository={catRepo}>
+            <ConfiguracionModal
+              isOpen={true}
+              onClose={() => {}}
+              bebidas={bebidasMock}
+              initialTab="respaldo"
+              onBebidasActualizadas={onActualizadas}
+            />
+          </InventoryProvider>
+        );
+
+        fireEvent.click(screen.getByTestId('btn-vaciar-despensa'));
+
+        const btnConfirmar = screen.getByRole('button', { name: /Sí, vaciar despensa/i });
+        fireEvent.click(btnConfirmar);
+
+        await waitFor(() => {
+          expect(clearSpy).toHaveBeenCalledTimes(1);
+          expect(onActualizadas).toHaveBeenCalled();
+          expect(
+            screen.getByText(/Se vació la despensa correctamente\. Todas las botellas han sido eliminadas\./i)
+          ).toBeInTheDocument();
+        });
+
+        const botellas = await invRepo.getAll();
+        expect(botellas).toHaveLength(0);
+      });
+
+      it('caso borde: si la despensa tiene 0 botellas, el botón permanece deshabilitado con mensaje explicativo', async () => {
+        const invRepo = new InMemoryInventoryRepository([]);
+        const catRepo = new InMemoryCategoriaRepository();
+
+        render(
+          <InventoryProvider repository={invRepo} categoriaRepository={catRepo}>
+            <ConfiguracionModal
+              isOpen={true}
+              onClose={() => {}}
+              bebidas={[]}
+              initialTab="respaldo"
+            />
+          </InventoryProvider>
+        );
+
+        const btnVaciar = screen.getByTestId('btn-vaciar-despensa');
+        expect(btnVaciar).toBeDisabled();
+        expect(
+          screen.getByText('Tu despensa ya se encuentra vacía. No hay botellas para eliminar.')
+        ).toBeInTheDocument();
+
+        // Clic en botón deshabilitado no debe abrir modal
+        fireEvent.click(btnVaciar);
+        expect(screen.queryByRole('dialog', { name: /¿Vaciar despensa por completo\?/i })).not.toBeInTheDocument();
+      });
+
+      it('caso de falla: captura error si repository.clear() arroja excepción y alerta al usuario sin asumir éxito', async () => {
+        const invRepo = new InMemoryInventoryRepository(bebidasMock);
+        const catRepo = new InMemoryCategoriaRepository();
+        vi.spyOn(invRepo, 'clear').mockRejectedValueOnce(new Error('IndexedDB QuotaExceededError'));
+
+        render(
+          <InventoryProvider repository={invRepo} categoriaRepository={catRepo}>
+            <ConfiguracionModal
+              isOpen={true}
+              onClose={() => {}}
+              bebidas={bebidasMock}
+              initialTab="respaldo"
+            />
+          </InventoryProvider>
+        );
+
+        fireEvent.click(screen.getByTestId('btn-vaciar-despensa'));
+        fireEvent.click(screen.getByRole('button', { name: /Sí, vaciar despensa/i }));
+
+        await waitFor(() => {
+          expect(
+            screen.getByText(/⚠️ IndexedDB QuotaExceededError/i)
+          ).toBeInTheDocument();
+          expect(
+            screen.queryByText(/Se vació la despensa correctamente/i)
+          ).not.toBeInTheDocument();
+        });
+      });
+    });
   });
 });
 

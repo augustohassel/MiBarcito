@@ -124,7 +124,10 @@ export const ConfiguracionModal: React.FC<ConfiguracionModalProps> = ({
           )}
           {activeTab === 'ia' && <AiConfigTab />}
           {activeTab === 'respaldo' && (
-            <RespaldoCloudTab onInventarioActualizado={onBebidasActualizadas} />
+            <RespaldoCloudTab
+              bebidas={bebidas}
+              onInventarioActualizado={onBebidasActualizadas}
+            />
           )}
         </div>
       </div>

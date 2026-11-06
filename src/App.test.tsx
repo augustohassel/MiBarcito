@@ -75,6 +75,36 @@ describe('App Component - Gestión de Despensa e Inventario', () => {
       expect(screen.getByText('⚠️ Stock Bajo')).toBeInTheDocument();
       expect(screen.getByText('250 / 750 ml (33%)')).toBeInTheDocument();
     });
+
+    // El botón destructivo "Limpiar Despensa" ya no se expone en la cabecera (Issue #56)
+    expect(screen.queryByRole('button', { name: /Limpiar Despensa/i })).not.toBeInTheDocument();
+  });
+
+  it('el botón "Limpiar Despensa" ya no aparece en la cabecera de la solapa Despensa incluso con botellas existentes (Issue #56)', async () => {
+    const repoConBotellas = new InMemoryInventoryRepository([
+      {
+        id: 'b-existente',
+        nombre: 'Campari Milano',
+        marca: 'Gruppo Campari',
+        categoria: 'aperitivo_bitter',
+        volumenTotalMl: 750,
+        volumenRestanteMl: 750,
+        fechaCreacion: '2026-11-06T00:00:00Z',
+        fechaActualizacion: '2026-11-06T00:00:00Z',
+      },
+    ]);
+
+    render(
+      <InventoryProvider repository={repoConBotellas}>
+        <App />
+      </InventoryProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Campari Milano')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole('button', { name: /Limpiar Despensa/i })).not.toBeInTheDocument();
   });
 
   it('permite crear una nueva bebida mediante el formulario modal', async () => {
