@@ -364,11 +364,6 @@ export function App() {
     await loadBebidas();
   };
 
-  const handleLimpiar = async () => {
-    await repository.clear();
-    await loadBebidas();
-  };
-
   // Handlers de Recetas
   const handleAbrirCrearReceta = () => {
     setRecetaAEditar(null);
@@ -779,14 +774,6 @@ export function App() {
                 >
                   + Botella de Prueba
                 </button>
-                {bebidas.length > 0 && (
-                  <button
-                    onClick={handleLimpiar}
-                    className="px-3 py-2 text-xs font-medium bg-surface-container hover:bg-status-rose/10 text-on-surface-variant hover:text-status-rose rounded-xl transition-colors border border-outline cursor-pointer"
-                  >
-                    Limpiar Despensa
-                  </button>
-                )}
               </div>
             </div>
 
