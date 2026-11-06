@@ -529,7 +529,9 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
 
   const guardarInsumo = useCallback(
     async (insumo: InsumoAlmacen) => {
+      let insumoPrevio: InsumoAlmacen | undefined;
       setInsumos((prev) => {
+        insumoPrevio = prev.find((i) => i.id === insumo.id);
         const idx = prev.findIndex((i) => i.id === insumo.id);
         if (idx >= 0) {
           const copia = [...prev];
@@ -538,8 +540,20 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
         }
         return [...prev, insumo];
       });
-      await almacenRepoInstance.save(insumo);
-      await recargarAlmacen({ silent: true });
+
+      try {
+        await almacenRepoInstance.save(insumo);
+        await recargarAlmacen({ silent: true });
+      } catch (err) {
+        // Rollback
+        if (insumoPrevio) {
+          const snapshot = insumoPrevio;
+          setInsumos((prev) => prev.map((i) => (i.id === insumo.id ? snapshot : i)));
+        } else {
+          setInsumos((prev) => prev.filter((i) => i.id !== insumo.id));
+        }
+        throw err;
+      }
     },
     [almacenRepoInstance, recargarAlmacen]
   );
@@ -558,17 +572,28 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
         };
       }
       setInsumos((prev) => prev.filter((i) => i.id !== id));
-      await almacenRepoInstance.delete(id);
-      await recargarAlmacen({ silent: true });
-      return { ok: true };
+      try {
+        await almacenRepoInstance.delete(id);
+        await recargarAlmacen({ silent: true });
+        return { ok: true };
+      } catch (err) {
+        // Rollback
+        setInsumos((prev) => {
+          if (prev.some((i) => i.id === id)) return prev;
+          return [...prev, insumo];
+        });
+        throw err;
+      }
     },
     [almacenRepoInstance, insumos, recargarAlmacen]
   );
 
   const toggleDisponibleInsumo = useCallback(
     async (id: string) => {
-      setInsumos((prev) =>
-        prev.map((i) =>
+      let insumoPrevio: InsumoAlmacen | undefined;
+      setInsumos((prev) => {
+        insumoPrevio = prev.find((i) => i.id === id);
+        return prev.map((i) =>
           i.id === id
             ? {
                 ...i,
@@ -576,10 +601,20 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
                 fechaActualizacion: new Date().toISOString(),
               }
             : i
-        )
-      );
-      await almacenRepoInstance.toggleDisponible(id);
-      await recargarAlmacen({ silent: true });
+        );
+      });
+
+      try {
+        await almacenRepoInstance.toggleDisponible(id);
+        await recargarAlmacen({ silent: true });
+      } catch (err) {
+        // Rollback
+        if (insumoPrevio) {
+          const snapshot = insumoPrevio;
+          setInsumos((prev) => prev.map((i) => (i.id === id ? snapshot : i)));
+        }
+        throw err;
+      }
     },
     [almacenRepoInstance, recargarAlmacen]
   );

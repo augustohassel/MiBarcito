@@ -12,6 +12,7 @@ import {
   Bebida,
 } from './domain/models/bebida';
 import { Receta, clonarRecetaParaAutor } from './domain/models/receta';
+import { InsumoAlmacen } from './domain/models/insumo-almacen';
 import { clasificarRecetas, normalizarTexto } from './domain/services/recetario-motor';
 import {
   calcularMetricasValoracion,
@@ -436,6 +437,46 @@ export function App() {
     return res;
   };
 
+  const handleGuardarInsumo = async (insumo: InsumoAlmacen) => {
+    try {
+      await guardarInsumo(insumo);
+      setToastMensaje(`Insumo "${insumo.nombre}" guardado en el almacén.`);
+    } catch (err) {
+      console.error('Error al guardar insumo:', err);
+      setToastMensaje(
+        'No se pudo guardar el insumo: error al persistir en el almacenamiento local.'
+      );
+      throw err;
+    }
+  };
+
+  const handleToggleDisponibleInsumo = async (id: string) => {
+    try {
+      await toggleDisponibleInsumo(id);
+    } catch (err) {
+      console.error('Error al alternar disponibilidad de insumo:', err);
+      setToastMensaje(
+        'No se pudo actualizar la disponibilidad del insumo: error al guardar en el almacenamiento local.'
+      );
+    }
+  };
+
+  const handleEliminarInsumo = async (id: string): Promise<{ ok: boolean; motivo?: string }> => {
+    try {
+      const res = await eliminarInsumo(id);
+      if (res.ok) {
+        setToastMensaje('Insumo eliminado del almacén.');
+      }
+      return res;
+    } catch (err) {
+      console.error('Error al eliminar insumo:', err);
+      setToastMensaje(
+        'No se pudo eliminar el insumo: error al persistir en el almacenamiento local.'
+      );
+      return { ok: false, motivo: 'Error al persistir en el almacenamiento local.' };
+    }
+  };
+
   // Métricas y Alertas (Issue #7)
   const metricasValoracion = useMemo(() => {
     return calcularMetricasValoracion(bebidas, categoriasCtx?.categorias);
@@ -832,9 +873,9 @@ export function App() {
         {tabActiva === 'almacen' && (
           <AlmacenView
             insumos={insumos}
-            onToggleDisponible={toggleDisponibleInsumo}
-            onGuardarInsumo={guardarInsumo}
-            onEliminarInsumo={eliminarInsumo}
+            onToggleDisponible={handleToggleDisponibleInsumo}
+            onGuardarInsumo={handleGuardarInsumo}
+            onEliminarInsumo={handleEliminarInsumo}
           />
         )}
 
