@@ -115,15 +115,19 @@ export function App() {
     };
   }, []);
 
-  const loadBebidas = async () => {
+  const loadBebidas = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       const data = await repository.getAll();
       setBebidas(data);
     } catch (err) {
       console.error('Error al cargar inventario:', err);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
@@ -244,8 +248,26 @@ export function App() {
       fechaActualizacion: ahora,
     };
 
-    await repository.save(bebidaAGuardar);
-    await loadBebidas();
+    // Actualización optimista in-place
+    setBebidas((prev) =>
+      original ? prev.map((b) => (b.id === id ? bebidaAGuardar : b)) : [...prev, bebidaAGuardar]
+    );
+
+    try {
+      await repository.save(bebidaAGuardar);
+      await loadBebidas(true);
+    } catch (err) {
+      console.error('Error al guardar bebida:', err);
+      // Rollback al estado anterior
+      if (original) {
+        setBebidas((prev) => prev.map((b) => (b.id === id ? original : b)));
+      } else {
+        setBebidas((prev) => prev.filter((b) => b.id !== id));
+      }
+      setToastMensaje(
+        'No se pudo guardar la bebida: error al persistir en el almacenamiento local.'
+      );
+    }
   };
 
   const handleSolicitarEliminar = (bebida: Bebida) => {
@@ -257,40 +279,69 @@ export function App() {
     try {
       await repository.delete(bebidaAEliminar.id);
       setBebidaAEliminar(null);
-      await loadBebidas();
+      await loadBebidas(true);
     } catch (err) {
       console.error('Error al eliminar bebida:', err);
+      setToastMensaje('No se pudo eliminar la bebida: error en el almacenamiento local.');
     }
   };
 
-  const handleToggleFavorito = async (bebida: Bebida) => {
+  const persistirBebidaOptimista = async (
+    actualizada: Bebida,
+    previa: Bebida,
+    mensajeError: string
+  ) => {
+    // Actualización optimista in-place
+    setBebidas((prev) => prev.map((b) => (b.id === actualizada.id ? actualizada : b)));
+
+    try {
+      await repository.save(actualizada);
+      await loadBebidas(true);
+    } catch (err) {
+      console.error(mensajeError, err);
+      // Rollback al estado previo
+      setBebidas((prev) => prev.map((b) => (b.id === previa.id ? previa : b)));
+      setToastMensaje(mensajeError);
+    }
+  };
+
+  const handleToggleFavorito = (bebida: Bebida) => {
     const actualizada: Bebida = {
       ...bebida,
       esFavorito: !bebida.esFavorito,
       fechaActualizacion: new Date().toISOString(),
     };
-    await repository.save(actualizada);
-    await loadBebidas();
+    return persistirBebidaOptimista(
+      actualizada,
+      bebida,
+      'No se pudo actualizar el favorito: error al guardar en el almacenamiento local.'
+    );
   };
 
-  const handleAjustarVolumen = async (bebida: Bebida, nuevoVolumenMl: number) => {
+  const handleAjustarVolumen = (bebida: Bebida, nuevoVolumenMl: number) => {
     const actualizada: Bebida = {
       ...bebida,
       volumenRestanteMl: nuevoVolumenMl,
       fechaActualizacion: new Date().toISOString(),
     };
-    await repository.save(actualizada);
-    await loadBebidas();
+    return persistirBebidaOptimista(
+      actualizada,
+      bebida,
+      'No se pudo ajustar el volumen: error al guardar en el almacenamiento local.'
+    );
   };
 
-  const handleToggleArchivar = async (bebida: Bebida) => {
+  const handleToggleArchivar = (bebida: Bebida) => {
     const actualizada: Bebida = {
       ...bebida,
       archivada: !bebida.archivada,
       fechaActualizacion: new Date().toISOString(),
     };
-    await repository.save(actualizada);
-    await loadBebidas();
+    return persistirBebidaOptimista(
+      actualizada,
+      bebida,
+      'No se pudo modificar el estado de la botella: error al guardar en el almacenamiento local.'
+    );
   };
 
   const handleAgregarMuestra = async () => {
@@ -330,12 +381,30 @@ export function App() {
   };
 
   const handleGuardarReceta = async (recetaData: Receta) => {
-    await guardarReceta(recetaData);
-    setToastMensaje(
-      recetaAEditar
-        ? `Receta "${recetaData.nombre}" actualizada.`
-        : `¡Receta "${recetaData.nombre}" creada con éxito!`
-    );
+    try {
+      await guardarReceta(recetaData);
+      setToastMensaje(
+        recetaAEditar
+          ? `Receta "${recetaData.nombre}" actualizada.`
+          : `¡Receta "${recetaData.nombre}" creada con éxito!`
+      );
+    } catch (err) {
+      console.error('Error al guardar receta:', err);
+      setToastMensaje(
+        'No se pudo guardar la receta: error al persistir en el almacenamiento local.'
+      );
+    }
+  };
+
+  const handleToggleFavoritoReceta = async (id: string) => {
+    try {
+      await toggleFavoritoReceta(id);
+    } catch (err) {
+      console.error('Error al alternar favorito de receta:', err);
+      setToastMensaje(
+        'No se pudo actualizar el favorito de la receta: error al guardar en el almacenamiento local.'
+      );
+    }
   };
 
   const handleSolicitarEliminarReceta = (receta: Receta) => {
@@ -365,7 +434,7 @@ export function App() {
   ): Promise<{ ok: boolean; motivo?: string }> => {
     const res = await prepararTrago(receta, descuentos);
     if (res.ok) {
-      await loadBebidas();
+      await loadBebidas(true);
       setToastMensaje(`🍸 ¡${receta.nombre} preparado! Se descontó el volumen de tu despensa.`);
       setRecetaAPreparar(null);
     }
@@ -722,7 +791,7 @@ export function App() {
             </div>
 
             {/* Grid de Bebidas o Estados Vacíos */}
-            {loading ? (
+            {loading && bebidas.length === 0 ? (
               <div className="text-center py-16 text-on-surface-variant text-sm">
                 Cargando inventario local...
               </div>
@@ -859,7 +928,7 @@ export function App() {
             </div>
 
             {/* Listado de Recetas */}
-            {loadingRecetas ? (
+            {loadingRecetas && recetas.length === 0 ? (
               <div className="text-center py-16 text-on-surface-variant text-sm">
                 Cargando recetario y evaluando existencias del bar...
               </div>
@@ -893,7 +962,7 @@ export function App() {
                     evaluacion={evalItem}
                     onVerDetalle={(r) => setRecetaDetalle(r)}
                     onPreparar={(r) => setRecetaAPreparar(r)}
-                    onToggleFavorito={toggleFavoritoReceta}
+                    onToggleFavorito={handleToggleFavoritoReceta}
                     onEditar={handleAbrirEditarReceta}
                     onEliminar={handleSolicitarEliminarReceta}
                     onDuplicar={handleDuplicarReceta}
@@ -972,7 +1041,7 @@ export function App() {
           setRecetaDetalle(null);
           setRecetaAPreparar(r);
         }}
-        onToggleFavorito={toggleFavoritoReceta}
+        onToggleFavorito={handleToggleFavoritoReceta}
         onEditar={handleAbrirEditarReceta}
         onDuplicar={handleDuplicarReceta}
       />

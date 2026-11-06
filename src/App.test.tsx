@@ -1,5 +1,5 @@
 import { render, screen, waitFor, fireEvent, act, within } from '@testing-library/react';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import App from './App';
 import { InventoryProvider } from './context/InventoryContext';
 import { InMemoryInventoryRepository } from './infrastructure/storage/in-memory-inventory-repository';
@@ -409,5 +409,72 @@ describe('App Component - Gestión de Despensa e Inventario', () => {
     await waitFor(() => {
       expect(screen.getByText('1000 / 1000 ml (100%)')).toBeInTheDocument();
     });
+  });
+
+  it('preserva la estructura del DOM y no desmonta las tarjetas durante ajustes rápidos ni alternancia de favoritos (Issue #25)', async () => {
+    render(
+      <InventoryProvider repository={mockRepo}>
+        <App />
+      </InventoryProvider>
+    );
+
+    // Agregar botella de prueba
+    fireEvent.click(screen.getByRole('button', { name: /\+ Botella de Prueba/i }));
+    await waitFor(() => {
+      expect(screen.getByText('Gin London Dry')).toBeInTheDocument();
+      expect(screen.getByText('250 / 750 ml (33%)')).toBeInTheDocument();
+    });
+
+    // Ajustar volumen +50 ml
+    const btnMas50 = screen.getByRole('button', { name: /\+50 ml/i });
+    fireEvent.click(btnMas50);
+
+    // El mensaje de carga de lista no debe aparecer nunca
+    expect(screen.queryByText(/Cargando inventario local.../i)).toBeNull();
+    // La tarjeta permanece en el DOM actualizada
+    await waitFor(() => {
+      expect(screen.getByText('300 / 750 ml (40%)')).toBeInTheDocument();
+    });
+
+    // Alternar favoritos
+    const btnFav = screen.getByRole('button', { name: /Quitar de favoritos/i });
+    fireEvent.click(btnFav);
+
+    expect(screen.queryByText(/Cargando inventario local.../i)).toBeNull();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Agregar a favoritos/i })).toBeInTheDocument();
+    });
+  });
+
+  it('realiza rollback automático y muestra toast descriptivo ante error al guardar en el repositorio (Issue #25)', async () => {
+    render(
+      <InventoryProvider repository={mockRepo}>
+        <App />
+      </InventoryProvider>
+    );
+
+    // Agregar botella
+    fireEvent.click(screen.getByRole('button', { name: /\+ Botella de Prueba/i }));
+    await waitFor(() => {
+      expect(screen.getByText('250 / 750 ml (33%)')).toBeInTheDocument();
+    });
+
+    // Simular error de cuota / fallo en almacenamiento local
+    const spySave = vi.spyOn(mockRepo, 'save').mockRejectedValueOnce(new Error('QuotaExceededError'));
+
+    // Intentar ajustar volumen
+    const btnMas50 = screen.getByRole('button', { name: /\+50 ml/i });
+    fireEvent.click(btnMas50);
+
+    // Debe mostrar la notificación toast de error
+    await waitFor(() => {
+      expect(
+        screen.getByText(/No se pudo ajustar el volumen: error al guardar en el almacenamiento local/i)
+      ).toBeInTheDocument();
+    });
+
+    // Debe haber revertido (rollback) el volumen al valor previo
+    expect(screen.getByText('250 / 750 ml (33%)')).toBeInTheDocument();
+    spySave.mockRestore();
   });
 });

@@ -30,7 +30,7 @@ export interface CategoriaContextType {
   categoriaRepository: ICategoriaRepository;
   categorias: Categoria[];
   loadingCategorias: boolean;
-  recargarCategorias: () => Promise<void>;
+  recargarCategorias: (options?: { silent?: boolean }) => Promise<void>;
   guardarCategoria: (categoria: Categoria) => Promise<void>;
   eliminarCategoria: (id: string) => Promise<{ ok: boolean; motivo?: string }>;
 }
@@ -39,7 +39,7 @@ export interface RecetaContextType {
   recetaRepository: IRecetaRepository;
   recetas: Receta[];
   loadingRecetas: boolean;
-  recargarRecetas: () => Promise<void>;
+  recargarRecetas: (options?: { silent?: boolean }) => Promise<void>;
   guardarReceta: (receta: Receta) => Promise<void>;
   eliminarReceta: (id: string) => Promise<{ ok: boolean; motivo?: string }>;
   toggleFavoritoReceta: (id: string) => Promise<void>;
@@ -53,7 +53,7 @@ export interface AlmacenContextType {
   almacenRepository: IAlmacenRepository;
   insumos: InsumoAlmacen[];
   loadingAlmacen: boolean;
-  recargarAlmacen: () => Promise<void>;
+  recargarAlmacen: (options?: { silent?: boolean }) => Promise<void>;
   guardarInsumo: (insumo: InsumoAlmacen) => Promise<void>;
   eliminarInsumo: (id: string) => Promise<{ ok: boolean; motivo?: string }>;
   toggleDisponibleInsumo: (id: string) => Promise<void>;
@@ -269,44 +269,68 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
   const [insumos, setInsumos] = useState<InsumoAlmacen[]>(INSUMOS_PREDETERMINADOS);
   const [loadingAlmacen, setLoadingAlmacen] = useState(true);
 
-  const recargarCategorias = useCallback(async () => {
-    try {
-      setLoadingCategorias(true);
-      await catRepoInstance.seedDefaults();
-      const list = await catRepoInstance.getAll();
-      setCategorias(list);
-    } catch (err) {
-      console.error('Error al cargar categorías:', err);
-    } finally {
-      setLoadingCategorias(false);
-    }
-  }, [catRepoInstance]);
+  const recargarCategorias = useCallback(
+    async (options?: { silent?: boolean }) => {
+      const silent = options?.silent ?? false;
+      try {
+        if (!silent) {
+          setLoadingCategorias(true);
+        }
+        await catRepoInstance.seedDefaults();
+        const list = await catRepoInstance.getAll();
+        setCategorias(list);
+      } catch (err) {
+        console.error('Error al cargar categorías:', err);
+      } finally {
+        if (!silent) {
+          setLoadingCategorias(false);
+        }
+      }
+    },
+    [catRepoInstance]
+  );
 
-  const recargarRecetas = useCallback(async () => {
-    try {
-      setLoadingRecetas(true);
-      await recetaRepoInstance.seedDefaults();
-      const list = await recetaRepoInstance.getAll();
-      setRecetas(list);
-    } catch (err) {
-      console.error('Error al cargar recetas:', err);
-    } finally {
-      setLoadingRecetas(false);
-    }
-  }, [recetaRepoInstance]);
+  const recargarRecetas = useCallback(
+    async (options?: { silent?: boolean }) => {
+      const silent = options?.silent ?? false;
+      try {
+        if (!silent) {
+          setLoadingRecetas(true);
+        }
+        await recetaRepoInstance.seedDefaults();
+        const list = await recetaRepoInstance.getAll();
+        setRecetas(list);
+      } catch (err) {
+        console.error('Error al cargar recetas:', err);
+      } finally {
+        if (!silent) {
+          setLoadingRecetas(false);
+        }
+      }
+    },
+    [recetaRepoInstance]
+  );
 
-  const recargarAlmacen = useCallback(async () => {
-    try {
-      setLoadingAlmacen(true);
-      await almacenRepoInstance.seedDefaults();
-      const list = await almacenRepoInstance.getAll();
-      setInsumos(list);
-    } catch (err) {
-      console.error('Error al cargar almacén:', err);
-    } finally {
-      setLoadingAlmacen(false);
-    }
-  }, [almacenRepoInstance]);
+  const recargarAlmacen = useCallback(
+    async (options?: { silent?: boolean }) => {
+      const silent = options?.silent ?? false;
+      try {
+        if (!silent) {
+          setLoadingAlmacen(true);
+        }
+        await almacenRepoInstance.seedDefaults();
+        const list = await almacenRepoInstance.getAll();
+        setInsumos(list);
+      } catch (err) {
+        console.error('Error al cargar almacén:', err);
+      } finally {
+        if (!silent) {
+          setLoadingAlmacen(false);
+        }
+      }
+    },
+    [almacenRepoInstance]
+  );
 
   useEffect(() => {
     recargarCategorias();
@@ -424,8 +448,31 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
 
   const guardarReceta = useCallback(
     async (receta: Receta) => {
-      await recetaRepoInstance.save(receta);
-      await recargarRecetas();
+      let recetaPrevia: Receta | undefined;
+      setRecetas((prev) => {
+        recetaPrevia = prev.find((r) => r.id === receta.id);
+        const idx = prev.findIndex((r) => r.id === receta.id);
+        if (idx >= 0) {
+          const copia = [...prev];
+          copia[idx] = receta;
+          return copia;
+        }
+        return [...prev, receta];
+      });
+
+      try {
+        await recetaRepoInstance.save(receta);
+        await recargarRecetas({ silent: true });
+      } catch (err) {
+        // Rollback
+        if (recetaPrevia) {
+          const snapshot = recetaPrevia;
+          setRecetas((prev) => prev.map((r) => (r.id === receta.id ? snapshot : r)));
+        } else {
+          setRecetas((prev) => prev.filter((r) => r.id !== receta.id));
+        }
+        throw err;
+      }
     },
     [recetaRepoInstance, recargarRecetas]
   );
@@ -443,7 +490,7 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
         };
       }
       await recetaRepoInstance.delete(id);
-      await recargarRecetas();
+      await recargarRecetas({ silent: true });
       return { ok: true };
     },
     [recetaRepoInstance, recargarRecetas]
@@ -451,8 +498,31 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
 
   const toggleFavoritoReceta = useCallback(
     async (id: string) => {
-      await recetaRepoInstance.toggleFavorito(id);
-      await recargarRecetas();
+      let recetaPrevia: Receta | undefined;
+      setRecetas((prev) => {
+        recetaPrevia = prev.find((r) => r.id === id);
+        return prev.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                esFavorito: !r.esFavorito,
+                fechaActualizacion: new Date().toISOString(),
+              }
+            : r
+        );
+      });
+
+      try {
+        await recetaRepoInstance.toggleFavorito(id);
+        await recargarRecetas({ silent: true });
+      } catch (err) {
+        // Rollback
+        if (recetaPrevia) {
+          const snapshot = recetaPrevia;
+          setRecetas((prev) => prev.map((r) => (r.id === id ? snapshot : r)));
+        }
+        throw err;
+      }
     },
     [recetaRepoInstance, recargarRecetas]
   );
@@ -469,7 +539,7 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
         return [...prev, insumo];
       });
       await almacenRepoInstance.save(insumo);
-      await recargarAlmacen();
+      await recargarAlmacen({ silent: true });
     },
     [almacenRepoInstance, recargarAlmacen]
   );
@@ -489,7 +559,7 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
       }
       setInsumos((prev) => prev.filter((i) => i.id !== id));
       await almacenRepoInstance.delete(id);
-      await recargarAlmacen();
+      await recargarAlmacen({ silent: true });
       return { ok: true };
     },
     [almacenRepoInstance, insumos, recargarAlmacen]
@@ -509,7 +579,7 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
         )
       );
       await almacenRepoInstance.toggleDisponible(id);
-      await recargarAlmacen();
+      await recargarAlmacen({ silent: true });
     },
     [almacenRepoInstance, recargarAlmacen]
   );
