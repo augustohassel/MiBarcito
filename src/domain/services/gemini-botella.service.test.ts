@@ -49,12 +49,31 @@ describe('gemini-botella.service', () => {
         nombre: 'Aperol Spritz Aperitivo',
         marca: 'Aperol',
         categoriaSugerida: 'Aperitivo / Bitter',
+        subcategoriaSugerida: undefined,
         graduacionAlcoholica: 11.0,
         precioEstimado: 12500,
         volumenTotalMl: 750,
         notas: 'Licor de naranja y hierbas',
         confianza: 'alta',
       });
+    });
+
+    it('normaliza y empareja subcategoriaSugerida disponible', () => {
+      const raw = {
+        esLegible: true,
+        nombre: 'Tanqueray London Dry',
+        marca: 'Tanqueray',
+        categoriaSugerida: 'Destilado',
+        subcategoriaSugerida: 'london dry gin',
+      };
+
+      const normalizado = normalizarDatosInferidos(
+        raw,
+        ['Destilado'],
+        ['Gin', 'Vodka', 'London Dry Gin']
+      );
+
+      expect(normalizado?.subcategoriaSugerida).toBe('London Dry Gin');
     });
 
     it('devuelve null si esLegible es false o no hay nombre ni marca', () => {

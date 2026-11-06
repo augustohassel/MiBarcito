@@ -26,6 +26,9 @@ export interface BebidaFormValues {
   precioEstimado?: number;
   stockMinimoMl?: number;
   esFavorito: boolean;
+  notas?: string;
+  archivada?: boolean;
+  recomprar?: boolean;
 }
 
 export interface BebidaFormModalProps {
@@ -49,6 +52,9 @@ const VALORES_INICIALES: BebidaFormValues = {
   precioEstimado: undefined,
   stockMinimoMl: 150,
   esFavorito: false,
+  notas: '',
+  archivada: false,
+  recomprar: undefined,
 };
 
 export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
@@ -116,12 +122,19 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
       setIsAnalyzingPhoto(true);
 
       const nombresCategorias = opcionesCategorias.map((c) => c.label);
+      const todasSubcategorias = (categoriasCtx?.categorias ?? CATEGORIAS_PREDETERMINADAS).flatMap(
+        (c) => c.subcategorias ?? []
+      );
+
       const resultado = await analizarFotoBotella(
         {
           base64Data: processed.base64Data,
           mimeType: processed.mimeType,
         },
-        { categoriasDisponibles: nombresCategorias }
+        {
+          categoriasDisponibles: nombresCategorias,
+          subcategoriasDisponibles: todasSubcategorias,
+        }
       );
 
       if (!resultado.exito || !resultado.datos) {
@@ -150,11 +163,47 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
         }
       }
 
+      // Obtener subcategorías válidas para la categoría inferida
+      const catEncontradaObj = (categoriasCtx?.categorias ?? CATEGORIAS_PREDETERMINADAS).find(
+        (c) => c.id === categoriaMapeada
+      );
+      const subcategoriasDeCategoria = catEncontradaObj?.subcategorias ?? [];
+
+      let subcategoriaMapeada = '';
+      if (datos.subcategoriaSugerida) {
+        const sugLower = datos.subcategoriaSugerida.toLowerCase();
+        const exactMatch = subcategoriasDeCategoria.find((s) => s.toLowerCase() === sugLower);
+        if (exactMatch) {
+          subcategoriaMapeada = exactMatch;
+        } else {
+          const matches = subcategoriasDeCategoria.filter(
+            (s) => sugLower.includes(s.toLowerCase()) || s.toLowerCase().includes(sugLower)
+          );
+          if (matches.length > 0) {
+            matches.sort((a, b) => b.length - a.length);
+            subcategoriaMapeada = matches[0];
+          }
+        }
+      }
+
+      // Fallback por texto si no vino subcategoriaSugerida o no hizo match
+      if (!subcategoriaMapeada && subcategoriasDeCategoria.length > 0) {
+        const textoCompleto = `${datos.nombre || ''} ${datos.marca || ''} ${datos.notas || ''}`.toLowerCase();
+        const matches = subcategoriasDeCategoria.filter((s) =>
+          textoCompleto.includes(s.toLowerCase())
+        );
+        if (matches.length > 0) {
+          matches.sort((a, b) => b.length - a.length);
+          subcategoriaMapeada = matches[0];
+        }
+      }
+
       setFormData((prev) => ({
         ...prev,
         nombre: datos.nombre || prev.nombre,
         marca: datos.marca || prev.marca,
         categoria: categoriaMapeada,
+        subcategoria: subcategoriaMapeada || prev.subcategoria,
         graduacionAlcoholica:
           datos.graduacionAlcoholica !== undefined
             ? datos.graduacionAlcoholica
@@ -163,6 +212,7 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
           datos.precioEstimado !== undefined ? datos.precioEstimado : prev.precioEstimado,
         volumenTotalMl: datos.volumenTotalMl || prev.volumenTotalMl || 750,
         volumenRestanteMl: datos.volumenTotalMl || prev.volumenRestanteMl || 750,
+        notas: datos.notas || prev.notas,
       }));
 
       const notaGrounding = resultado.fuentePrecios
@@ -205,6 +255,9 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
         precioEstimado: bebidaAEditar.precioEstimado,
         stockMinimoMl: bebidaAEditar.stockMinimoMl,
         esFavorito: bebidaAEditar.esFavorito ?? false,
+        notas: bebidaAEditar.notas ?? '',
+        archivada: bebidaAEditar.archivada ?? false,
+        recomprar: bebidaAEditar.recomprar,
       });
       setFotoPreview(null);
       setAiError(null);
@@ -298,6 +351,9 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
     const datosParaGuardar: BebidaFormValues = {
       ...formData,
       subcategoria: formData.subcategoria?.trim() ? formData.subcategoria.trim() : undefined,
+      notas: formData.notas?.trim() ? formData.notas.trim() : undefined,
+      archivada: formData.archivada ? true : undefined,
+      recomprar: formData.recomprar,
     };
     const resultadoErrores = validarBebida(
       datosParaGuardar,
@@ -485,7 +541,41 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
                   {subcategoriaFichaValida || 'Sin subcategoría'}
                 </span>
               </div>
+
+              <div className="p-3 rounded-xl bg-surface border border-outline">
+                <span className="text-[11px] text-on-surface-variant block uppercase font-medium tracking-wider">
+                  ¿Volverías a comprar?
+                </span>
+                <span className="text-sm font-semibold text-on-surface mt-1 block truncate">
+                  {bebidaAEditar.recomprar === true
+                    ? '✅ Sí, volvería a comprar'
+                    : bebidaAEditar.recomprar === false
+                    ? '❌ No volver a comprar'
+                    : 'Sin definir'}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-surface border border-outline">
+                <span className="text-[11px] text-on-surface-variant block uppercase font-medium tracking-wider">
+                  Estado
+                </span>
+                <span className="text-sm font-semibold text-on-surface mt-1 block truncate">
+                  {bebidaAEditar.archivada ? '📦 Archivada en historial' : '🟢 Activa en despensa'}
+                </span>
+              </div>
             </div>
+
+            {/* Notas de cata en Ficha Técnica */}
+            {bebidaAEditar.notas && (
+              <div className="p-3.5 rounded-xl bg-surface border border-outline">
+                <span className="text-[11px] text-on-surface-variant block uppercase font-medium tracking-wider mb-1">
+                  Notas de Cata / Descripción
+                </span>
+                <p className="text-xs text-on-surface italic leading-relaxed whitespace-pre-wrap">
+                  "{bebidaAEditar.notas}"
+                </p>
+              </div>
+            )}
 
             {/* Fechas de Auditoría */}
             {(bebidaAEditar.fechaCreacion || bebidaAEditar.fechaActualizacion) && (
@@ -913,6 +1003,88 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
               {errores.stockMinimoMl && (
                 <p className="text-status-rose text-xs mt-1">{errores.stockMinimoMl}</p>
               )}
+            </div>
+          </div>
+
+          {/* Notas de cata / Descripción (máx. 500 caracteres) */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="notas" className="block text-xs font-medium text-on-surface-variant">
+                Notas de cata / Descripción (opcional)
+              </label>
+              <span className="text-[10px] text-on-surface-variant">
+                {(formData.notas || '').length} / 500
+              </span>
+            </div>
+            <textarea
+              id="notas"
+              name="notas"
+              rows={2}
+              maxLength={500}
+              placeholder="Ej. Notas cítricas y enebro marcado. Ideal para Gin Tonic con piel de pomelo."
+              value={formData.notas ?? ''}
+              onChange={(e) => handleChange('notas', e.target.value)}
+              className={`w-full px-3 py-2 bg-surface border rounded-xl text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary transition-colors resize-none ${
+                errores.notas ? 'border-status-rose ring-1 ring-status-rose' : 'border-outline'
+              }`}
+            />
+            {errores.notas && (
+              <p className="text-status-rose text-xs mt-1">{errores.notas}</p>
+            )}
+          </div>
+
+          {/* Decisión de Recompra y Archivado */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            {/* Selector de Recompra */}
+            <div>
+              <label htmlFor="recomprar" className="block text-xs font-medium text-on-surface-variant mb-1">
+                ¿Volverías a comprar?
+              </label>
+              <select
+                id="recomprar"
+                name="recomprar"
+                value={
+                  formData.recomprar === true
+                    ? 'si'
+                    : formData.recomprar === false
+                    ? 'no'
+                    : 'sin_definir'
+                }
+                onChange={(e) => {
+                  const val = e.target.value;
+                  handleChange(
+                    'recomprar',
+                    val === 'si' ? true : val === 'no' ? false : undefined
+                  );
+                }}
+                className="w-full px-3 py-2 bg-surface border border-outline rounded-xl text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-colors cursor-pointer"
+              >
+                <option value="sin_definir">Sin definir (No suma a reposición)</option>
+                <option value="si">✅ Sí, volvería a comprar (Incluir en reposición)</option>
+                <option value="no">❌ No volver a comprar</option>
+              </select>
+            </div>
+
+            {/* Checkbox de Archivado */}
+            <div className="flex items-center">
+              <label className="flex items-center gap-2.5 p-2 rounded-xl bg-surface border border-outline cursor-pointer w-full hover:bg-surface-container-high transition-colors">
+                <input
+                  type="checkbox"
+                  id="archivada"
+                  name="archivada"
+                  checked={formData.archivada ?? false}
+                  onChange={(e) => handleChange('archivada', e.target.checked)}
+                  className="w-4 h-4 rounded text-primary focus:ring-primary border-outline cursor-pointer"
+                />
+                <div>
+                  <span className="text-xs font-semibold text-on-surface block">
+                    Archivar botella 📦
+                  </span>
+                  <span className="text-[10px] text-on-surface-variant block">
+                    Excluir de despensa activa, recetario y valor total
+                  </span>
+                </div>
+              </label>
             </div>
           </div>
 

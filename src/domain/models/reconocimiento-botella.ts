@@ -6,6 +6,7 @@ export interface DatosBotellaInferidos {
   nombre: string;
   marca: string;
   categoriaSugerida?: string;
+  subcategoriaSugerida?: string;
   graduacionAlcoholica?: number; // 0 - 100
   precioEstimado?: number;       // precio de mercado sugerido
   volumenTotalMl?: number;      // ej: 750, 700, 1000

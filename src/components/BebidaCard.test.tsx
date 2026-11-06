@@ -181,5 +181,48 @@ describe('BebidaCard Component', () => {
 
     expect(screen.queryByText('SubcatInexistente')).not.toBeInTheDocument();
   });
+
+  it('soporta notas, badge de recompra y botón de archivar/desarchivar (#53)', () => {
+    const onToggleArchivar = vi.fn();
+    const bebidaAvanzada: Bebida = {
+      ...bebidaMock,
+      notas: 'Notas florales con final ahumado persistente.',
+      recomprar: true,
+      archivada: false,
+    };
+
+    const { rerender } = render(
+      <BebidaCard
+        bebida={bebidaAvanzada}
+        onEditar={vi.fn()}
+        onEliminar={vi.fn()}
+        onToggleFavorito={vi.fn()}
+        onAjustarVolumen={vi.fn()}
+        onToggleArchivar={onToggleArchivar}
+      />
+    );
+
+    expect(screen.getByText(/"Notas florales con final ahumado persistente\."/i)).toBeInTheDocument();
+    expect(screen.getByText('Recomprar')).toBeInTheDocument();
+
+    const btnArchivar = screen.getByRole('button', { name: /Archivar/i });
+    fireEvent.click(btnArchivar);
+    expect(onToggleArchivar).toHaveBeenCalledWith(bebidaAvanzada);
+
+    // Rerender como archivada
+    rerender(
+      <BebidaCard
+        bebida={{ ...bebidaAvanzada, archivada: true }}
+        onEditar={vi.fn()}
+        onEliminar={vi.fn()}
+        onToggleFavorito={vi.fn()}
+        onAjustarVolumen={vi.fn()}
+        onToggleArchivar={onToggleArchivar}
+      />
+    );
+
+    expect(screen.getByText(/Archivada/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Desarchivar/i })).toBeInTheDocument();
+  });
 });
 

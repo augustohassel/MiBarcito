@@ -46,6 +46,10 @@ describe('Dominio Bebida', () => {
     // Sin stock mínimo configurado => no alerta
     const sinStockMinimo = { ...bebidaBase, stockMinimoMl: undefined, volumenRestanteMl: 50 };
     expect(estaEnAlertaStockBajo(sinStockMinimo)).toBe(false);
+
+    // Botella archivada con stock bajo => NO alerta (caso borde)
+    const archivadaEnStockBajo = { ...bebidaBase, volumenRestanteMl: 50, archivada: true };
+    expect(estaEnAlertaStockBajo(archivadaEnStockBajo)).toBe(false);
   });
 
   describe('validarBebida', () => {
@@ -195,6 +199,28 @@ describe('Dominio Bebida', () => {
         volumenRestanteMl: 750,
       });
       expect(erroresLargo.subcategoria).toBe('La subcategoría no puede superar los 50 caracteres');
+    });
+
+    it('acepta notas opcionales y bloquea si supera 500 caracteres', () => {
+      const erroresValido = validarBebida({
+        nombre: 'Negroni premix',
+        marca: 'Propia',
+        categoria: 'otro',
+        volumenTotalMl: 500,
+        volumenRestanteMl: 500,
+        notas: 'Excelente balance con vermut rosso y un toque extra de bitter.',
+      });
+      expect(erroresValido.notas).toBeUndefined();
+
+      const erroresLargo = validarBebida({
+        nombre: 'Negroni premix',
+        marca: 'Propia',
+        categoria: 'otro',
+        volumenTotalMl: 500,
+        volumenRestanteMl: 500,
+        notas: 'X'.repeat(501),
+      });
+      expect(erroresLargo.notas).toBe('Las notas no pueden superar los 500 caracteres');
     });
   });
 

@@ -16,6 +16,7 @@ export interface BebidaCardProps {
   onToggleFavorito: (bebida: Bebida) => void;
   onAjustarVolumen: (bebida: Bebida, nuevoVolumenMl: number) => void;
   onVerFicha?: (bebida: Bebida) => void;
+  onToggleArchivar?: (bebida: Bebida) => void;
 }
 
 export const BebidaCard: React.FC<BebidaCardProps> = ({
@@ -25,6 +26,7 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
   onToggleFavorito,
   onAjustarVolumen,
   onVerFicha,
+  onToggleArchivar,
 }) => {
   const porcentaje = calcularPorcentajeRestante(bebida);
   const bajoStock = estaEnAlertaStockBajo(bebida);
@@ -64,8 +66,10 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
   return (
     <div
       data-testid={`bebida-card-${bebida.id}`}
-      className={`p-5 rounded-2xl bg-surface-container border transition-all duration-200 flex flex-col justify-between gap-4 shadow-xs hover:border-primary/40 ${
-        bajoStock
+      className={`p-5 rounded-2xl bg-surface-container border transition-all duration-200 flex flex-col justify-between gap-4 shadow-xs hover:border-primary/40 overflow-hidden ${
+        bebida.archivada
+          ? 'opacity-75 border-outline/50 bg-surface-container-low'
+          : bajoStock
           ? 'border-status-amber/50 bg-gradient-to-b from-status-amber/10 to-surface-container'
           : 'border-outline'
       }`}
@@ -95,23 +99,47 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
                   {bebida.subcategoria}
                 </span>
               )}
-              {bajoStock && (
+              {bebida.archivada && (
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-surface text-on-surface-variant border border-outline flex items-center gap-1">
+                  📦 Archivada
+                </span>
+              )}
+              {bajoStock && !bebida.archivada && (
                 <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-status-amber/20 text-status-amber border border-status-amber/30 flex items-center gap-1">
                   ⚠️ Stock Bajo
                 </span>
               )}
+              {bebida.recomprar === true && (
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-status-amber/15 text-status-amber border border-status-amber/30">
+                  Recomprar
+                </span>
+              )}
+              {bebida.recomprar === false && (
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-surface text-on-surface-variant border border-outline">
+                  No recomprar
+                </span>
+              )}
             </div>
             <h3
-              className={`text-base font-bold text-on-surface mt-1.5 truncate ${
+              className={`text-base font-bold text-on-surface mt-1.5 leading-snug line-clamp-2 break-words ${
                 onVerFicha ? 'group-hover/title:text-primary transition-colors' : ''
               }`}
               title={bebida.nombre}
             >
               {bebida.nombre}
             </h3>
-            <p className="text-xs text-on-surface-variant truncate" title={bebida.marca}>
+            <p className="text-xs text-on-surface-variant line-clamp-1 break-words mt-0.5" title={bebida.marca}>
               {bebida.marca}
             </p>
+            {bebida.notas && (
+              <p
+                data-testid="bebida-card-notas"
+                className="text-[11px] text-on-surface-variant italic mt-1.5 p-1.5 rounded-lg bg-surface/60 border border-outline/40 line-clamp-2"
+                title={bebida.notas}
+              >
+                "{bebida.notas}"
+              </p>
+            )}
           </div>
 
           {/* Botón Favorito */}
@@ -203,35 +231,55 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
         </div>
       </div>
 
-      {/* Acciones de Ficha, Edición y Eliminación */}
-      <div className="flex items-center justify-end gap-2 pt-2 border-t border-outline/70">
-        {onVerFicha && (
+      {/* Acciones de Ficha, Archivado, Edición y Eliminación */}
+      <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-outline/70 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {onVerFicha && (
+            <button
+              type="button"
+              onClick={() => onVerFicha(bebida)}
+              className="px-2.5 py-1 text-xs font-medium text-on-surface hover:text-primary bg-surface-container-high hover:bg-surface border border-outline rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+              aria-label={`Ver ficha técnica de ${bebida.nombre}`}
+            >
+              <span>📋</span>
+              <span>Ficha</span>
+            </button>
+          )}
+          {onToggleArchivar && (
+            <button
+              type="button"
+              onClick={() => onToggleArchivar(bebida)}
+              className={`px-2.5 py-1 text-xs font-medium border rounded-xl transition-colors cursor-pointer flex items-center gap-1 ${
+                bebida.archivada
+                  ? 'text-primary bg-primary/10 hover:bg-primary/20 border-primary/30'
+                  : 'text-on-surface-variant hover:text-on-surface bg-surface-container-high hover:bg-surface border border-outline'
+              }`}
+              title={bebida.archivada ? 'Desarchivar botella' : 'Archivar botella'}
+            >
+              <span>{bebida.archivada ? '📤' : '📦'}</span>
+              <span>{bebida.archivada ? 'Desarchivar' : 'Archivar'}</span>
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 flex-wrap ml-auto">
           <button
             type="button"
-            onClick={() => onVerFicha(bebida)}
-            className="px-3 py-1 text-xs font-medium text-on-surface hover:text-primary bg-surface-container-high hover:bg-surface border border-outline rounded-xl transition-colors cursor-pointer flex items-center gap-1"
-            aria-label={`Ver ficha técnica de ${bebida.nombre}`}
+            onClick={() => onEditar(bebida)}
+            className="px-2.5 py-1 text-xs font-medium text-on-surface hover:text-primary bg-surface-container-high hover:bg-surface border border-outline rounded-xl transition-colors cursor-pointer flex items-center gap-1"
           >
-            <span>📋</span>
-            <span>Ficha</span>
+            <span>✏️</span>
+            <span>Editar</span>
           </button>
-        )}
-        <button
-          type="button"
-          onClick={() => onEditar(bebida)}
-          className="px-3 py-1 text-xs font-medium text-on-surface hover:text-primary bg-surface-container-high hover:bg-surface border border-outline rounded-xl transition-colors cursor-pointer flex items-center gap-1"
-        >
-          <span>✏️</span>
-          <span>Editar</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => onEliminar(bebida)}
-          className="px-3 py-1 text-xs font-medium text-status-rose hover:bg-status-rose/15 bg-status-rose/10 border border-status-rose/30 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
-        >
-          <span>🗑️</span>
-          <span>Eliminar</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => onEliminar(bebida)}
+            className="px-2.5 py-1 text-xs font-medium text-status-rose hover:bg-status-rose/15 bg-status-rose/10 border border-status-rose/30 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+          >
+            <span>🗑️</span>
+            <span>Eliminar</span>
+          </button>
+        </div>
       </div>
     </div>
   );

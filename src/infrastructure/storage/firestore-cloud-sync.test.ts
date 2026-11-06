@@ -365,6 +365,63 @@ describe('Firebase Config, Firestore Repositories y Fusión Aditiva Local -> Clo
       expect(negroniEnNube?.esFavorito).toBe(true);
     });
 
+    it('la nube es fuente de verdad: descarta botellas locales de prueba y no las sube si la cuenta ya tiene botellas en Firestore', async () => {
+      // 1. En la nube el usuario ya tiene su bar con botellas genuinas
+      const cloudInvRepo = new FirestoreInventoryRepository(fakeDb, uid);
+      await cloudInvRepo.save({
+        id: 'cloud-botella-real',
+        nombre: 'Catena Zapata Bonarda',
+        marca: 'Catena Zapata',
+        categoria: 'vino',
+        volumenTotalMl: 750,
+        volumenRestanteMl: 750,
+        precioEstimado: 70000,
+        esFavorito: true,
+        fechaCreacion: '2026-11-01T12:00:00.000Z',
+        fechaActualizacion: '2026-11-01T12:00:00.000Z',
+      });
+
+      // 2. En el dispositivo local hay una botella de prueba generada anónimamente antes de loguearse
+      const localInventoryRepo = new InMemoryInventoryRepository();
+      const localCatRepo = new InMemoryCategoriaRepository();
+      const localRecetaRepo = new InMemoryRecetaRepository();
+      const localAlmacenRepo = new InMemoryAlmacenRepository();
+
+      await localInventoryRepo.save({
+        id: 'botella-prueba-local',
+        nombre: 'Gin London Dry',
+        marca: 'Bombay Sapphire',
+        categoria: 'destilado',
+        volumenTotalMl: 750,
+        volumenRestanteMl: 250,
+        precioEstimado: 25000,
+        esFavorito: true,
+        fechaCreacion: '2026-11-05T12:00:00.000Z',
+        fechaActualizacion: '2026-11-05T12:00:00.000Z',
+      });
+
+      // 3. Al iniciar sesión con Google, mergeLocalInventoryToFirestore debe respetar la nube
+      const resultado = await mergeLocalInventoryToFirestore(fakeDb, uid, {
+        inventoryRepo: localInventoryRepo,
+        categoriaRepo: localCatRepo,
+        recetaRepo: localRecetaRepo,
+        almacenRepo: localAlmacenRepo,
+      });
+
+      // NO se subió la botella de prueba a Firestore
+      expect(resultado.bebidasSubidas).toBe(0);
+
+      // En la nube solo permanece la botella real
+      const enNube = await cloudInvRepo.getAll();
+      expect(enNube).toHaveLength(1);
+      expect(enNube[0].id).toBe('cloud-botella-real');
+
+      // En el almacenamiento local se limpió la prueba y se sincronizó la botella real de la nube
+      const enLocal = await localInventoryRepo.getAll();
+      expect(enLocal).toHaveLength(1);
+      expect(enLocal[0].id).toBe('cloud-botella-real');
+    });
+
     it('exporta e importa un archivo JSON de respaldo completo sin perder datos', async () => {
       const invRepo = new InMemoryInventoryRepository();
       const catRepo = new InMemoryCategoriaRepository();

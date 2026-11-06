@@ -67,34 +67,72 @@ export const MetricasValoracionModal: React.FC<MetricasValoracionModalProps> = (
           </button>
         </div>
 
-        {/* Tarjeta de Resumen Principal */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Tarjetas de Resumen Principal */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Valor Actual en Líquido (Prorrateado) */}
           <div className="p-4 rounded-xl bg-surface-container-high border border-outline flex flex-col justify-between">
-            <span className="text-xs text-on-surface-variant font-medium">Inversión Estimada Total</span>
+            <span className="text-xs text-on-surface-variant font-medium">Valor Actual en Líquido</span>
             <span className="text-2xl font-black text-primary mt-1">
-              {formatearDinero(metricas.costoTotal)}
+              {formatearDinero(metricas.valorActualProrrateado ?? metricas.costoTotal)}
             </span>
             <span className="text-[11px] text-on-surface-variant mt-1">
-              {metricas.botellasCotizadas} de {metricas.totalBotellas} botella(s) cotizadas
+              Prorrateado por líquido restante
             </span>
           </div>
 
+          {/* Inversión a Capacidad Plena */}
           <div className="p-4 rounded-xl bg-surface-container-high border border-outline flex flex-col justify-between">
-            <span className="text-xs text-on-surface-variant font-medium">Cobertura de Precios</span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-bold text-on-surface">
-                {metricas.totalBotellas > 0
-                  ? Math.round((metricas.botellasCotizadas / metricas.totalBotellas) * 100)
-                  : 0}
-                %
-              </span>
-              <span className="text-xs text-on-surface-variant">con precio registrado</span>
-            </div>
+            <span className="text-xs text-on-surface-variant font-medium">Capacidad Plena (100%)</span>
+            <span className="text-2xl font-bold text-on-surface mt-1">
+              {formatearDinero(metricas.costoTotalLleno ?? metricas.costoTotal)}
+            </span>
             <span className="text-[11px] text-on-surface-variant mt-1">
-              {metricas.botellasSinPrecio} sin cotización
+              Inversión total si estuviesen llenas
+            </span>
+          </div>
+
+          {/* Costo Estimado de Reposición */}
+          <div className="p-4 rounded-xl bg-surface-container-high border border-outline flex flex-col justify-between">
+            <span className="text-xs text-on-surface-variant font-medium">Costo de Reposición</span>
+            <span className="text-2xl font-bold text-status-amber mt-1">
+              {formatearDinero(metricas.costoReposicion ?? 0)}
+            </span>
+            <span className="text-[11px] text-on-surface-variant mt-1">
+              {metricas.botellasPorReponer ?? 0} {metricas.botellasPorReponer === 1 ? 'botella por reponer' : 'botellas por reponer'}
             </span>
           </div>
         </div>
+
+        {/* Cobertura de Precios e Historial */}
+        <div className="p-3 rounded-xl bg-surface-container-high/60 border border-outline/70 flex items-center justify-between flex-wrap gap-2 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-on-surface">Cobertura de precios:</span>
+            <span className="text-on-surface-variant">
+              {metricas.botellasCotizadas} de {metricas.totalBotellas} botella(s) cotizadas ({metricas.totalBotellas > 0 ? Math.round((metricas.botellasCotizadas / metricas.totalBotellas) * 100) : 0}%)
+            </span>
+          </div>
+          {metricas.botellasArchivadas !== undefined && metricas.botellasArchivadas > 0 && (
+            <span className="text-[11px] text-on-surface-variant bg-surface px-2 py-0.5 rounded-md border border-outline">
+              📦 {metricas.botellasArchivadas} archivada(s)
+            </span>
+          )}
+        </div>
+
+        {/* Advertencia informativa de botellas en reposición sin precio */}
+        {(metricas.botellasReposicionSinPrecio ?? 0) > 0 && (
+          <div
+            data-testid="aviso-reposicion-sin-precio"
+            className="p-3 rounded-xl bg-status-amber/10 border border-status-amber/30 text-on-surface text-xs flex items-start gap-2.5"
+          >
+            <span className="text-status-amber text-base leading-none">⚠️</span>
+            <div className="flex-1 leading-relaxed">
+              <span className="font-semibold text-status-amber">
+                {metricas.botellasReposicionSinPrecio} {metricas.botellasReposicionSinPrecio === 1 ? 'botella por reponer' : 'botellas por reponer'} sin cotización
+              </span>
+              : El costo de reposición sólo suma las botellas que tienen precio estimado registrado.
+            </div>
+          </div>
+        )}
 
         {/* Advertencia informativa de botellas sin precio (Criterio de Aceptación / Caso de falla) */}
         {metricas.botellasSinPrecio > 0 && (

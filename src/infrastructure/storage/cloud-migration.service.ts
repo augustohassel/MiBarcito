@@ -147,116 +147,158 @@ export async function mergeLocalInventoryToFirestore(
   );
   batchWritesCount++;
 
-  // 1. Fusión de Bebidas (Botellas del bar)
-  for (const localBebida of localData.bebidas) {
-    const remota = cloudBebidas.get(localBebida.id);
-    if (!remota || esMasReciente(localBebida.fechaActualizacion, remota.fechaActualizacion)) {
-      const ref = doc(db, 'users', uid, 'bebidas', localBebida.id);
-      batch.set(ref, sanitizeForFirestore(localBebida));
-      cloudBebidas.set(localBebida.id, localBebida);
-      batchWritesCount++;
-      bebidasSubidas++;
+  // REGLA CLAVE DE SINCRONIZACIÓN Y FUENTE DE VERDAD:
+  // - Si la cuenta en la nube YA TIENE botellas registradas (cloudBebidas.size > 0):
+  //   La nube es la fuente de verdad ("Source of Truth").
+  //   Las botellas locales previas al login (ej. pruebas en sesión anónima) se descartan y se limpian
+  //   de IndexedDB, evitando que contaminen la cuenta de Google.
+  //   Luego se sincronizan localmente los datos de la nube para mantener réplica offline.
+  // - Si la cuenta en la nube está VACÍA de botellas (cloudBebidas.size === 0):
+  //   Se trata de un usuario nuevo que inicia sesión para respaldar sus botellas locales iniciales.
+  const tieneBebidasEnNube = cloudBebidas.size > 0;
+
+  if (tieneBebidasEnNube) {
+    // 1. La nube manda: descartamos las botellas locales pre-login y poblamos con la nube
+    await localRepos.inventoryRepo.clear();
+    for (const b of cloudBebidas.values()) {
+      await localRepos.inventoryRepo.save(b);
     }
-  }
 
-  // 2. Fusión de Categorías (personalizadas y subcategorías agregadas)
-  for (const localCat of localData.categorias) {
-    const remota = cloudCategorias.get(localCat.id);
-    if (!remota) {
-      const ref = doc(db, 'users', uid, 'categorias', localCat.id);
-      batch.set(ref, sanitizeForFirestore(localCat));
-      batchWritesCount++;
-      categoriasSubidas++;
-    } else {
-      const subLocales = localCat.subcategorias ?? [];
-      const subRemotas = remota.subcategorias ?? [];
-      const unionSub = Array.from(new Set([...subRemotas, ...subLocales]));
-      const hayNuevasSub = unionSub.length > subRemotas.length;
-      const localMasReciente = esMasReciente(
-        localCat.fechaActualizacion,
-        remota.fechaActualizacion
-      );
+    // 2. Reemplazar categorías locales si la nube ya tiene registradas
+    if (cloudCategorias.size > 0) {
+      await localRepos.categoriaRepo.clear();
+      for (const cat of cloudCategorias.values()) {
+        await localRepos.categoriaRepo.save(cat);
+      }
+    }
 
-      if (hayNuevasSub || localMasReciente) {
-        const fusionada: Categoria = {
-          ...(localMasReciente ? localCat : remota),
-          subcategorias: unionSub,
-        };
+    // 3. Reemplazar recetas locales si la nube ya tiene registradas
+    if (cloudRecetas.size > 0) {
+      await localRepos.recetaRepo.clear();
+      for (const rec of cloudRecetas.values()) {
+        await localRepos.recetaRepo.save(rec);
+      }
+    }
+
+    // 4. Reemplazar insumos locales si la nube ya tiene registrados
+    if (cloudInsumos.size > 0) {
+      await localRepos.almacenRepo.clear();
+      for (const ins of cloudInsumos.values()) {
+        await localRepos.almacenRepo.save(ins);
+      }
+    }
+  } else {
+    // 1. Fusión de Bebidas (Botellas del bar iniciales a la nube)
+    for (const localBebida of localData.bebidas) {
+      const remota = cloudBebidas.get(localBebida.id);
+      if (!remota || esMasReciente(localBebida.fechaActualizacion, remota.fechaActualizacion)) {
+        const ref = doc(db, 'users', uid, 'bebidas', localBebida.id);
+        batch.set(ref, sanitizeForFirestore(localBebida));
+        cloudBebidas.set(localBebida.id, localBebida);
+        batchWritesCount++;
+        bebidasSubidas++;
+      }
+    }
+
+    // 2. Fusión de Categorías (personalizadas y subcategorías agregadas)
+    for (const localCat of localData.categorias) {
+      const remota = cloudCategorias.get(localCat.id);
+      if (!remota) {
         const ref = doc(db, 'users', uid, 'categorias', localCat.id);
-        batch.set(ref, sanitizeForFirestore(fusionada));
+        batch.set(ref, sanitizeForFirestore(localCat));
         batchWritesCount++;
         categoriasSubidas++;
+      } else {
+        const subLocales = localCat.subcategorias ?? [];
+        const subRemotas = remota.subcategorias ?? [];
+        const unionSub = Array.from(new Set([...subRemotas, ...subLocales]));
+        const hayNuevasSub = unionSub.length > subRemotas.length;
+        const localMasReciente = esMasReciente(
+          localCat.fechaActualizacion,
+          remota.fechaActualizacion
+        );
+
+        if (hayNuevasSub || localMasReciente) {
+          const fusionada: Categoria = {
+            ...(localMasReciente ? localCat : remota),
+            subcategorias: unionSub,
+          };
+          const ref = doc(db, 'users', uid, 'categorias', localCat.id);
+          batch.set(ref, sanitizeForFirestore(fusionada));
+          batchWritesCount++;
+          categoriasSubidas++;
+        }
       }
     }
-  }
 
-  // Si la nube aún no tenía categorías predeterminadas y local tampoco tenía alguna, asegurarlas
-  if (cloudCategorias.size === 0 && localData.categorias.length === 0) {
-    for (const cat of CATEGORIAS_PREDETERMINADAS) {
-      const ref = doc(db, 'users', uid, 'categorias', cat.id);
-      batch.set(ref, sanitizeForFirestore(cat));
-      batchWritesCount++;
-    }
-  }
-
-  // 3. Fusión de Recetas (Recetas de autor y favoritos marcados)
-  for (const localRec of localData.recetas) {
-    const remota = cloudRecetas.get(localRec.id);
-    if (!remota) {
-      const ref = doc(db, 'users', uid, 'recetas', localRec.id);
-      batch.set(ref, sanitizeForFirestore(localRec));
-      batchWritesCount++;
-      if (localRec.esPropia || localRec.esFavorito) {
-        recetasSubidas++;
+    // Si la nube aún no tenía categorías predeterminadas y local tampoco tenía alguna, asegurarlas
+    if (cloudCategorias.size === 0 && localData.categorias.length === 0) {
+      for (const cat of CATEGORIAS_PREDETERMINADAS) {
+        const ref = doc(db, 'users', uid, 'categorias', cat.id);
+        batch.set(ref, sanitizeForFirestore(cat));
+        batchWritesCount++;
       }
-    } else if (localRec.esPropia) {
-      if (esMasReciente(localRec.fechaActualizacion, remota.fechaActualizacion)) {
+    }
+
+    // 3. Fusión de Recetas (Recetas de autor y favoritos marcados)
+    for (const localRec of localData.recetas) {
+      const remota = cloudRecetas.get(localRec.id);
+      if (!remota) {
+        const ref = doc(db, 'users', uid, 'recetas', localRec.id);
+        batch.set(ref, sanitizeForFirestore(localRec));
+        batchWritesCount++;
+        if (localRec.esPropia || localRec.esFavorito) {
+          recetasSubidas++;
+        }
+      } else if (localRec.esPropia) {
+        if (esMasReciente(localRec.fechaActualizacion, remota.fechaActualizacion)) {
+          const ref = doc(db, 'users', uid, 'recetas', localRec.id);
+          batch.set(
+            ref,
+            sanitizeForFirestore({
+              ...localRec,
+              esFavorito: Boolean(localRec.esFavorito || remota.esFavorito),
+            })
+          );
+          batchWritesCount++;
+          recetasSubidas++;
+        }
+      } else if (localRec.esFavorito && !remota.esFavorito) {
         const ref = doc(db, 'users', uid, 'recetas', localRec.id);
         batch.set(
           ref,
           sanitizeForFirestore({
-            ...localRec,
-            esFavorito: Boolean(localRec.esFavorito || remota.esFavorito),
+            ...remota,
+            esFavorito: true,
+            fechaActualizacion: localRec.fechaActualizacion || new Date().toISOString(),
           })
         );
         batchWritesCount++;
         recetasSubidas++;
       }
-    } else if (localRec.esFavorito && !remota.esFavorito) {
-      const ref = doc(db, 'users', uid, 'recetas', localRec.id);
-      batch.set(
-        ref,
-        sanitizeForFirestore({
-          ...remota,
-          esFavorito: true,
-          fechaActualizacion: localRec.fechaActualizacion || new Date().toISOString(),
-        })
-      );
-      batchWritesCount++;
-      recetasSubidas++;
     }
-  }
 
-  // 4. Fusión de Insumos de Almacén
-  for (const localIns of localData.insumos) {
-    const remoto = cloudInsumos.get(localIns.id);
-    if (!remoto) {
-      const ref = doc(db, 'users', uid, 'insumos', localIns.id);
-      batch.set(ref, sanitizeForFirestore(localIns));
-      batchWritesCount++;
-      if (!localIns.esPredeterminado) {
-        insumosSubidos++;
-      }
-    } else if (esMasReciente(localIns.fechaActualizacion, remoto.fechaActualizacion)) {
-      if (
-        localIns.disponible !== remoto.disponible ||
-        localIns.nombre !== remoto.nombre ||
-        !localIns.esPredeterminado
-      ) {
+    // 4. Fusión de Insumos de Almacén
+    for (const localIns of localData.insumos) {
+      const remoto = cloudInsumos.get(localIns.id);
+      if (!remoto) {
         const ref = doc(db, 'users', uid, 'insumos', localIns.id);
         batch.set(ref, sanitizeForFirestore(localIns));
         batchWritesCount++;
-        insumosSubidos++;
+        if (!localIns.esPredeterminado) {
+          insumosSubidos++;
+        }
+      } else if (esMasReciente(localIns.fechaActualizacion, remoto.fechaActualizacion)) {
+        if (
+          localIns.disponible !== remoto.disponible ||
+          localIns.nombre !== remoto.nombre ||
+          !localIns.esPredeterminado
+        ) {
+          const ref = doc(db, 'users', uid, 'insumos', localIns.id);
+          batch.set(ref, sanitizeForFirestore(localIns));
+          batchWritesCount++;
+          insumosSubidos++;
+        }
       }
     }
   }

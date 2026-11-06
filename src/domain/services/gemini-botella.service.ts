@@ -15,6 +15,7 @@ export interface AnalizarBotellaOptions {
   apiKey?: string;
   modelo?: string;
   categoriasDisponibles?: string[];
+  subcategoriasDisponibles?: string[];
   fetchFn?: typeof fetch;
 }
 
@@ -41,7 +42,8 @@ export function parsearRespuestaGemini(rawText: string): Record<string, unknown>
  */
 export function normalizarDatosInferidos(
   raw: Record<string, unknown>,
-  categoriasDisponibles?: string[]
+  categoriasDisponibles?: string[],
+  subcategoriasDisponibles?: string[]
 ): DatosBotellaInferidos | null {
   const esLegible = raw.esLegible !== false;
   const nombre = typeof raw.nombre === 'string' ? raw.nombre.trim() : '';
@@ -75,12 +77,38 @@ export function normalizarDatosInferidos(
   if (typeof raw.categoriaSugerida === 'string' && raw.categoriaSugerida.trim()) {
     const rawCat = raw.categoriaSugerida.trim().toLowerCase();
     if (categoriasDisponibles && categoriasDisponibles.length > 0) {
-      const match = categoriasDisponibles.find(
-        (c) => c.toLowerCase() === rawCat || rawCat.includes(c.toLowerCase()) || c.toLowerCase().includes(rawCat)
-      );
-      categoriaSugerida = match || raw.categoriaSugerida.trim();
+      const exactMatch = categoriasDisponibles.find((c) => c.toLowerCase() === rawCat);
+      if (exactMatch) {
+        categoriaSugerida = exactMatch;
+      } else {
+        const matches = categoriasDisponibles.filter(
+          (c) => rawCat.includes(c.toLowerCase()) || c.toLowerCase().includes(rawCat)
+        );
+        matches.sort((a, b) => b.length - a.length);
+        categoriaSugerida = matches[0] || raw.categoriaSugerida.trim();
+      }
     } else {
       categoriaSugerida = raw.categoriaSugerida.trim();
+    }
+  }
+
+  // Subcategoría sugerida (emparejar con las subcategorías disponibles si se suministraron)
+  let subcategoriaSugerida: string | undefined = undefined;
+  if (typeof raw.subcategoriaSugerida === 'string' && raw.subcategoriaSugerida.trim()) {
+    const rawSubcat = raw.subcategoriaSugerida.trim().toLowerCase();
+    if (subcategoriasDisponibles && subcategoriasDisponibles.length > 0) {
+      const exactMatch = subcategoriasDisponibles.find((s) => s.toLowerCase() === rawSubcat);
+      if (exactMatch) {
+        subcategoriaSugerida = exactMatch;
+      } else {
+        const matches = subcategoriasDisponibles.filter(
+          (s) => rawSubcat.includes(s.toLowerCase()) || s.toLowerCase().includes(rawSubcat)
+        );
+        matches.sort((a, b) => b.length - a.length);
+        subcategoriaSugerida = matches[0] || raw.subcategoriaSugerida.trim();
+      }
+    } else {
+      subcategoriaSugerida = raw.subcategoriaSugerida.trim();
     }
   }
 
@@ -95,6 +123,7 @@ export function normalizarDatosInferidos(
     nombre: nombre || marca,
     marca: marca || nombre,
     categoriaSugerida,
+    subcategoriaSugerida,
     graduacionAlcoholica,
     precioEstimado,
     volumenTotalMl: volumenTotalMl || 750,
@@ -160,8 +189,11 @@ Eres un sommelier experto y asistente de bar. Analiza la imagen adjunta correspo
 Tu objetivo es identificar con precisión los atributos de la bebida y buscar o estimar su precio minorista de mercado de referencia.
 
 Categorías registradas en este bar: ${
-    options.categoriasDisponibles?.join(', ') || 'Destilado, Aperitivo / Bitter, Vino / Espumante, Cerveza, Licor, Mixer / Sin Alcohol, Otro'
-  }.
+  options.categoriasDisponibles?.join(', ') || 'Destilado, Aperitivo / Bitter, Vino / Espumante, Cerveza, Licor, Mixer / Sin Alcohol, Otro'
+}.
+Subcategorías registradas: ${
+  options.subcategoriasDisponibles?.join(', ') || 'Gin, Vodka, Ron, Whisky, Tequila, Vermut, Aperitivo, etc.'
+}.
 
 Responde ESTRICTAMENTE un único objeto JSON válido con las siguientes claves:
 {
@@ -169,6 +201,7 @@ Responde ESTRICTAMENTE un único objeto JSON válido con las siguientes claves:
   "nombre": "Nombre comercial completo de la botella (ej: Bombay Sapphire London Dry Gin)",
   "marca": "Marca fabricante (ej: Bombay Sapphire)",
   "categoriaSugerida": "Una de las categorías del bar o el tipo de bebida más afín",
+  "subcategoriaSugerida": "Subcategoría o variedad específica de la bebida (ej: Gin, Bourbon, Vermut Rojo, etc.)",
   "graduacionAlcoholica": 47.0 (número con el porcentaje de volumen alcohólico ABV, o null si no se visualiza ni infiere),
   "volumenTotalMl": 750 (capacidad en mililitros de la botella estándar, ej. 750, 700 o 1000),
   "precioEstimado": número con el precio minorista estimado de mercado de referencia en moneda local si se conoce, o null,
@@ -296,7 +329,11 @@ Responde ESTRICTAMENTE un único objeto JSON válido con las siguientes claves:
         };
       }
 
-      const datosInferidos = normalizarDatosInferidos(parsedJson, options.categoriasDisponibles);
+      const datosInferidos = normalizarDatosInferidos(
+        parsedJson,
+        options.categoriasDisponibles,
+        options.subcategoriasDisponibles
+      );
 
       if (!datosInferidos) {
         return {
@@ -329,7 +366,11 @@ Responde ESTRICTAMENTE un único objeto JSON válido con las siguientes claves:
             const textDesc = candDesc?.content?.parts?.find((p: { text?: string }) => typeof p.text === 'string');
             if (textDesc?.text) {
               const parsed = parsearRespuestaGemini(textDesc.text);
-              const inferidos = normalizarDatosInferidos(parsed, options.categoriasDisponibles);
+              const inferidos = normalizarDatosInferidos(
+                parsed,
+                options.categoriasDisponibles,
+                options.subcategoriasDisponibles
+              );
               if (inferidos) {
                 setGeminiModel(modeloDescubierto);
                 return {

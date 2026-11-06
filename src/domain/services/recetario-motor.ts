@@ -68,6 +68,11 @@ export function esBotellaCompatible(
   botella: Bebida,
   ingrediente: IngredienteReceta
 ): boolean {
+  // Las botellas archivadas quedan expresamente excluidas del recetario dinámico
+  if (botella.archivada) {
+    return false;
+  }
+
   if (ingrediente.tipo !== 'bebida') {
     return false;
   }
