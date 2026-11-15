@@ -329,8 +329,16 @@ describe('Firebase Config, Firestore Repositories y Fusión Aditiva Local -> Clo
         await celularInventoryRepo.save(b);
       }
 
-      // Además el usuario había marcado Negroni como favorito en su celular
+      // Además el usuario había marcado Negroni como favorito en su celular y calificado Gin Tonic con 5 estrellas
       await celularRecetaRepo.toggleFavorito('receta-negroni');
+      const ginTonicLocal = await celularRecetaRepo.getById('receta-gin-tonic');
+      if (ginTonicLocal) {
+        await celularRecetaRepo.save({
+          ...ginTonicLocal,
+          rating: 5,
+          fechaActualizacion: '2026-11-05T10:00:00.000Z',
+        });
+      }
 
       // 3. Se ejecuta la fusión aditiva al iniciar sesión en el celular
       const resultado = await mergeLocalInventoryToFirestore(fakeDb, uid, {
@@ -360,9 +368,11 @@ describe('Firebase Config, Firestore Repositories y Fusión Aditiva Local -> Clo
       });
       expect(resumenLocal.bebidasCount).toBe(3);
 
-      // 6. Y que el favorito del Negroni también se preservó en la nube
+      // 6. Y que el favorito del Negroni y el rating del Gin Tonic clásico también se preservaron en la nube
       const negroniEnNube = await pcRecRepo.getById('receta-negroni');
       expect(negroniEnNube?.esFavorito).toBe(true);
+      const ginTonicEnNube = await pcRecRepo.getById('receta-gin-tonic');
+      expect(ginTonicEnNube?.rating).toBe(5);
     });
 
     it('la nube es fuente de verdad: descarta botellas locales de prueba y no las sube si la cuenta ya tiene botellas en Firestore', async () => {
@@ -422,7 +432,7 @@ describe('Firebase Config, Firestore Repositories y Fusión Aditiva Local -> Clo
       expect(enLocal[0].id).toBe('cloud-botella-real');
     });
 
-    it('exporta e importa un archivo JSON de respaldo completo sin perder datos', async () => {
+    it('exporta e importa un archivo JSON de respaldo completo sin perder datos ni calificaciones', async () => {
       const invRepo = new InMemoryInventoryRepository();
       const catRepo = new InMemoryCategoriaRepository();
       const recRepo = new InMemoryRecetaRepository();
@@ -435,9 +445,15 @@ describe('Firebase Config, Firestore Repositories y Fusión Aditiva Local -> Clo
         categoria: 'destilado',
         volumenTotalMl: 750,
         volumenRestanteMl: 750,
+        rating: 4,
         fechaCreacion: '2026-11-05T00:00:00.000Z',
         fechaActualizacion: '2026-11-05T00:00:00.000Z',
       });
+
+      const negroni = await recRepo.getById('receta-negroni');
+      if (negroni) {
+        await recRepo.save({ ...negroni, rating: 5 });
+      }
 
       const payload = await exportBackupPayload({
         inventoryRepo: invRepo,
@@ -451,17 +467,20 @@ describe('Firebase Config, Firestore Repositories y Fusión Aditiva Local -> Clo
 
       // Importamos en un repositorio limpio
       const destinoInvRepo = new InMemoryInventoryRepository();
+      const destinoRecRepo = new InMemoryRecetaRepository();
       const res = await importBackupPayload(payload, {
         inventoryRepo: destinoInvRepo,
         categoriaRepo: catRepo,
-        recetaRepo: recRepo,
+        recetaRepo: destinoRecRepo,
         almacenRepo: almRepo,
       });
 
       expect(res.bebidasImportadas).toBe(1);
-      expect((await destinoInvRepo.getById('backup-botella-1'))?.nombre).toBe(
-        'Tequila José Cuervo'
-      );
+      expect(res.recetasImportadas).toBe(1);
+      const botellaImportada = await destinoInvRepo.getById('backup-botella-1');
+      expect(botellaImportada?.nombre).toBe('Tequila José Cuervo');
+      expect(botellaImportada?.rating).toBe(4);
+      expect((await destinoRecRepo.getById('receta-negroni'))?.rating).toBe(5);
     });
   });
 });

@@ -144,6 +144,26 @@ describe('InventarioFiltros Component y Lógica', () => {
       expect(descFecha.map((b) => b.id)).toEqual(['3', '2', '1']);
     });
 
+    it('ordena por calificación (rating_desc y rating_asc) dejando sin calificar al final', () => {
+      const listaConRating: Bebida[] = [
+        { ...listaBebidas[0], id: 'sin-rating', nombre: 'Aguardiente', rating: undefined },
+        { ...listaBebidas[1], id: 'bajo', nombre: 'Fernet Branca', rating: 2 },
+        { ...listaBebidas[2], id: 'alto', nombre: 'Campari', rating: 5 },
+      ];
+
+      const desc = filtrarYOrdenarBebidas(listaConRating, {
+        ...filtrosBase,
+        orden: 'rating_desc',
+      });
+      expect(desc.map((b) => b.id)).toEqual(['alto', 'bajo', 'sin-rating']);
+
+      const asc = filtrarYOrdenarBebidas(listaConRating, {
+        ...filtrosBase,
+        orden: 'rating_asc',
+      });
+      expect(asc.map((b) => b.id)).toEqual(['bajo', 'alto', 'sin-rating']);
+    });
+
     it('filtra por estadoBotella: solo activas por defecto, solo archivadas y todas (#53)', () => {
       // Activas por defecto (excluye id: '4' que está archivada)
       const resActivas = filtrarYOrdenarBebidas(listaBebidas, filtrosBase);

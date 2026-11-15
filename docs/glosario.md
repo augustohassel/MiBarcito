@@ -18,7 +18,7 @@ Este documento reúne la terminología, entidades de negocio y conceptos funcion
 ---
 
 ### Trago / Cóctel (Receta / RecetaTrago)
-- **Definición**: Fórmula de preparación compuesta por una lista de ingredientes (bebidas y medidas requeridas en ml), cristalería recomendada, método de preparación (directo, batido, refrescado, etc.), paso a paso y metadatos de autoría (`esPropia`) y favoritismo (`esFavorito`).
+- **Definición**: Fórmula de preparación compuesta por una lista de ingredientes (bebidas y medidas requeridas en ml), cristalería recomendada, método de preparación (directo, batido, refrescado, etc.), paso a paso y metadatos de autoría (`esPropia`), favoritismo (`esFavorito`) y calificación personal (`rating`).
 - **Alcance / Propósito**: Servir de guía culinaria, permitir la creación de recetas propias y sugerir opciones de elaboración según las existencias actuales de la despensa.
 
 ---
@@ -143,6 +143,21 @@ Este documento reúne la terminología, entidades de negocio y conceptos funcion
 - **Definición**: Presupuesto monetario estimado que suma el `precioEstimado` de aquellas botellas activas que se encuentran en o por debajo de su umbral de stock mínimo (`volumenRestanteMl <= stockMinimoMl`) y cuya preferencia de recompra ha sido confirmada explícitamente (`recomprar: true`).
 - **Alcance / Propósito**: Servir de guía presupuestaria en la gestión de compras del bar hogareño, permitiendo planificar el gasto necesario para reabastecer las bebidas esenciales y descartando aquellas que el usuario no desea volver a comprar tras consumirlas. Advierte además cuántas botellas en alerta carecen de precio asignado (`botellasReposicionSinPrecio`).
 - **Lo que NO es**: No genera órdenes de compra automáticas ni computa botellas cuya recompra no fue confirmada o fue rechazada (`recomprar: false` o `undefined`).
+
+---
+
+### Calificación (Rating)
+- **Definición**: Puntaje de calidad expresado en una escala entera de `1` a `5` estrellas (`rating?: number`, donde `undefined` representa un ítem aún no calificado), aplicable tanto a las bebidas de la **Despensa** como a los cócteles del **Recetario** (de autor y del catálogo clásico). Se distingue visual y funcionalmente del marcador booleano `esFavorito`, el cual se representa mediante un corazón (`♥` / `♡`).
+- **Alcance / Propósito**: Permitir al usuario registrar su valoración subjetiva de cada producto o trago, limpiar la calificación al volver a pulsar el puntaje actual y ordenar tanto la Despensa como el Recetario por `Mejor calificadas` o `Menor calificadas` (ubicando los ítems sin calificar al final).
+- **Lo que NO es**: No es una calificación pública ni comunitaria compartida entre distintos usuarios, ni reemplaza al filtro rápido de favoritos (`♥`).
+
+---
+
+### Identidad de Producto en Despensa
+- **Definición**: Clave lógica normalizada compuesta por la combinación de `marca` y `nombre` de una bebida (`obtenerClaveProductoBebida`), insensible a mayúsculas, acentos y espacios repetidos.
+- **Alcance / Propósito**: Vincular conceptualmente múltiples envases físicos del mismo producto comercial dentro de la Despensa (activos o archivados) para que compartan y sincronicen automáticamente su `rating`, y para que toda nueva botella registrada herede el puntaje ya asignado a sus botellas hermanas sin perder el control individual de mililitros (`volumenRestanteMl`) por envase.
+- **Lo que NO es**: No unifica ni colapsa las tarjetas físicas en la grilla de Despensa ni fusiona los volúmenes restantes de botellas distintas.
+
 
 
 

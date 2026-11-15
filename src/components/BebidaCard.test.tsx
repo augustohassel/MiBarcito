@@ -57,7 +57,7 @@ describe('BebidaCard Component', () => {
     expect(screen.getByText(/Stock Bajo/i)).toBeInTheDocument();
   });
 
-  it('dispara onToggleFavorito al hacer click en la estrella', () => {
+  it('dispara onToggleFavorito al hacer click en el corazón de favorito', () => {
     const onToggle = vi.fn();
     render(
       <BebidaCard
@@ -70,6 +70,7 @@ describe('BebidaCard Component', () => {
     );
 
     const btnFav = screen.getByRole('button', { name: /Agregar a favoritos/i });
+    expect(btnFav).toHaveTextContent('♡');
     fireEvent.click(btnFav);
     expect(onToggle).toHaveBeenCalledWith(bebidaMock);
   });
@@ -223,6 +224,50 @@ describe('BebidaCard Component', () => {
 
     expect(screen.getByText(/Archivada/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Desarchivar/i })).toBeInTheDocument();
+  });
+
+  it('permite calificar y limpiar la calificación desde las estrellas sin afectar favorito ni abrir ficha técnica por clic o teclado', () => {
+    const onCambiarRating = vi.fn();
+    const onVerFicha = vi.fn();
+
+    const { rerender } = render(
+      <BebidaCard
+        bebida={bebidaMock}
+        onEditar={vi.fn()}
+        onEliminar={vi.fn()}
+        onToggleFavorito={vi.fn()}
+        onAjustarVolumen={vi.fn()}
+        onVerFicha={onVerFicha}
+        onCambiarRating={onCambiarRating}
+      />
+    );
+
+    const star4 = screen.getByTestId('rating-bebida-test-card-1-star-4');
+    // Verifica que no haya botones anidados dentro de role="button" de la cabecera
+    expect(star4.closest('[role="button"]')).toBeNull();
+
+    fireEvent.keyDown(star4, { key: 'Enter', code: 'Enter' });
+    fireEvent.keyDown(star4, { key: ' ', code: 'Space' });
+    fireEvent.click(star4);
+    expect(onCambiarRating).toHaveBeenCalledWith(bebidaMock, 4);
+    expect(onVerFicha).not.toHaveBeenCalled();
+
+    const bebidaCalificada = { ...bebidaMock, rating: 4 };
+    rerender(
+      <BebidaCard
+        bebida={bebidaCalificada}
+        onEditar={vi.fn()}
+        onEliminar={vi.fn()}
+        onToggleFavorito={vi.fn()}
+        onAjustarVolumen={vi.fn()}
+        onVerFicha={onVerFicha}
+        onCambiarRating={onCambiarRating}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('rating-bebida-test-card-1-star-4'));
+    expect(onCambiarRating).toHaveBeenLastCalledWith(bebidaCalificada, undefined);
+    expect(onVerFicha).not.toHaveBeenCalled();
   });
 });
 

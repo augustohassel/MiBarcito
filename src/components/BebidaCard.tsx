@@ -8,6 +8,7 @@ import {
   estaEnAlertaStockBajo,
 } from '../domain/models/bebida';
 import { CATEGORIAS_PREDETERMINADAS } from '../domain/models/categoria';
+import { StarRating } from './StarRating';
 
 export interface BebidaCardProps {
   bebida: Bebida;
@@ -17,6 +18,7 @@ export interface BebidaCardProps {
   onAjustarVolumen: (bebida: Bebida, nuevoVolumenMl: number) => void;
   onVerFicha?: (bebida: Bebida) => void;
   onToggleArchivar?: (bebida: Bebida) => void;
+  onCambiarRating?: (bebida: Bebida, nuevoRating?: number) => void;
 }
 
 export const BebidaCard: React.FC<BebidaCardProps> = ({
@@ -27,6 +29,7 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
   onAjustarVolumen,
   onVerFicha,
   onToggleArchivar,
+  onCambiarRating,
 }) => {
   const porcentaje = calcularPorcentajeRestante(bebida);
   const bajoStock = estaEnAlertaStockBajo(bebida);
@@ -77,60 +80,72 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
       {/* Encabezado: Nombre, Marca, Favorito y Badges */}
       <div>
         <div className="flex items-start justify-between gap-2">
-          <div
-            className={`flex-1 min-w-0 ${onVerFicha ? 'cursor-pointer group/title' : ''}`}
-            onClick={() => onVerFicha?.(bebida)}
-            role={onVerFicha ? 'button' : undefined}
-            tabIndex={onVerFicha ? 0 : undefined}
-            onKeyDown={(e) => {
-              if (onVerFicha && (e.key === 'Enter' || e.key === ' ')) {
-                e.preventDefault();
-                onVerFicha(bebida);
-              }
-            }}
-            aria-label={onVerFicha ? `Abrir ficha técnica de ${bebida.nombre}` : undefined}
-          >
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-surface-container-high text-primary border border-outline">
-                {categoriaLabel}
-              </span>
-              {esSubcategoriaValida && (
-                <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-surface-container-high text-secondary border border-outline">
-                  {bebida.subcategoria}
-                </span>
-              )}
-              {bebida.archivada && (
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-surface text-on-surface-variant border border-outline flex items-center gap-1">
-                  📦 Archivada
-                </span>
-              )}
-              {bajoStock && !bebida.archivada && (
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-status-amber/20 text-status-amber border border-status-amber/30 flex items-center gap-1">
-                  ⚠️ Stock Bajo
-                </span>
-              )}
-              {bebida.recomprar === true && (
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-status-amber/15 text-status-amber border border-status-amber/30">
-                  Recomprar
-                </span>
-              )}
-              {bebida.recomprar === false && (
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-surface text-on-surface-variant border border-outline">
-                  No recomprar
-                </span>
-              )}
-            </div>
-            <h3
-              className={`text-base font-bold text-on-surface mt-1.5 leading-snug line-clamp-2 break-words ${
-                onVerFicha ? 'group-hover/title:text-primary transition-colors' : ''
-              }`}
-              title={bebida.nombre}
+          <div className="flex-1 min-w-0">
+            <div
+              className={onVerFicha ? 'cursor-pointer group/title' : ''}
+              onClick={() => onVerFicha?.(bebida)}
+              role={onVerFicha ? 'button' : undefined}
+              tabIndex={onVerFicha ? 0 : undefined}
+              onKeyDown={(e) => {
+                if (onVerFicha && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  onVerFicha(bebida);
+                }
+              }}
+              aria-label={onVerFicha ? `Abrir ficha técnica de ${bebida.nombre}` : undefined}
             >
-              {bebida.nombre}
-            </h3>
-            <p className="text-xs text-on-surface-variant line-clamp-1 break-words mt-0.5" title={bebida.marca}>
-              {bebida.marca}
-            </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-surface-container-high text-primary border border-outline">
+                  {categoriaLabel}
+                </span>
+                {esSubcategoriaValida && (
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-surface-container-high text-secondary border border-outline">
+                    {bebida.subcategoria}
+                  </span>
+                )}
+                {bebida.archivada && (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-surface text-on-surface-variant border border-outline flex items-center gap-1">
+                    📦 Archivada
+                  </span>
+                )}
+                {bajoStock && !bebida.archivada && (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-status-amber/20 text-status-amber border border-status-amber/30 flex items-center gap-1">
+                    ⚠️ Stock Bajo
+                  </span>
+                )}
+                {bebida.recomprar === true && (
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-status-amber/15 text-status-amber border border-status-amber/30">
+                    Recomprar
+                  </span>
+                )}
+                {bebida.recomprar === false && (
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-surface text-on-surface-variant border border-outline">
+                    No recomprar
+                  </span>
+                )}
+              </div>
+              <h3
+                className={`text-base font-bold text-on-surface mt-1.5 leading-snug line-clamp-2 break-words ${
+                  onVerFicha ? 'group-hover/title:text-primary transition-colors' : ''
+                }`}
+                title={bebida.nombre}
+              >
+                {bebida.nombre}
+              </h3>
+              <p className="text-xs text-on-surface-variant line-clamp-1 break-words mt-0.5" title={bebida.marca}>
+                {bebida.marca}
+              </p>
+            </div>
+            <div className="mt-1.5">
+              <StarRating
+                rating={bebida.rating}
+                onChange={onCambiarRating ? (r) => onCambiarRating(bebida, r) : undefined}
+                readOnly={!onCambiarRating}
+                size="sm"
+                label={`Calificación de ${bebida.nombre}`}
+                testIdPrefix={`rating-bebida-${bebida.id}`}
+              />
+            </div>
             {bebida.notas && (
               <p
                 data-testid="bebida-card-notas"
@@ -148,13 +163,13 @@ export const BebidaCard: React.FC<BebidaCardProps> = ({
             onClick={() => onToggleFavorito(bebida)}
             className={`p-1.5 rounded-xl transition-colors cursor-pointer text-base ${
               bebida.esFavorito
-                ? 'text-status-amber hover:text-status-amber/80 bg-status-amber/15 border border-status-amber/30'
+                ? 'text-status-rose hover:text-status-rose/80 bg-status-rose/15 border border-status-rose/30'
                 : 'text-on-surface-variant hover:text-on-surface bg-surface border border-outline'
             }`}
             aria-label={bebida.esFavorito ? 'Quitar de favoritos' : 'Agregar a favoritos'}
             title={bebida.esFavorito ? 'Quitar de favoritos' : 'Agregar a favoritos'}
           >
-            {bebida.esFavorito ? '★' : '☆'}
+            {bebida.esFavorito ? '♥' : '♡'}
           </button>
         </div>
 

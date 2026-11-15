@@ -93,7 +93,7 @@ export async function inspectLocalInventory(repos: {
  * 2. Toda botella local que no esté en Firestore se sube íntegra. Si el mismo ID existe en ambos lados,
  *    prevalece la que tenga `fechaActualizacion` más reciente.
  * 3. Categorías: sube categorías personalizadas y une las `subcategorias` de las predeterminadas sin duplicados.
- * 4. Recetas: sube todas las recetas propias (`esPropia: true`) y preserva `esFavorito: true` si estaba marcado en local o en nube.
+ * 4. Recetas: sube todas las recetas propias (`esPropia: true`) y preserva `esFavorito` y `rating` de recetas propias y clásicas.
  * 5. Insumos: sube insumos personalizados y actualiza disponibilidad si el registro local es más reciente.
  */
 export async function mergeLocalInventoryToFirestore(
@@ -240,14 +240,14 @@ export async function mergeLocalInventoryToFirestore(
       }
     }
 
-    // 3. Fusión de Recetas (Recetas de autor y favoritos marcados)
+    // 3. Fusión de Recetas (Recetas de autor, favoritos y calificaciones)
     for (const localRec of localData.recetas) {
       const remota = cloudRecetas.get(localRec.id);
       if (!remota) {
         const ref = doc(db, 'users', uid, 'recetas', localRec.id);
         batch.set(ref, sanitizeForFirestore(localRec));
         batchWritesCount++;
-        if (localRec.esPropia || localRec.esFavorito) {
+        if (localRec.esPropia || localRec.esFavorito || localRec.rating !== undefined) {
           recetasSubidas++;
         }
       } else if (localRec.esPropia) {
@@ -258,23 +258,37 @@ export async function mergeLocalInventoryToFirestore(
             sanitizeForFirestore({
               ...localRec,
               esFavorito: Boolean(localRec.esFavorito || remota.esFavorito),
+              rating: localRec.rating !== undefined ? localRec.rating : remota.rating,
             })
           );
           batchWritesCount++;
           recetasSubidas++;
         }
-      } else if (localRec.esFavorito && !remota.esFavorito) {
-        const ref = doc(db, 'users', uid, 'recetas', localRec.id);
-        batch.set(
-          ref,
-          sanitizeForFirestore({
-            ...remota,
-            esFavorito: true,
-            fechaActualizacion: localRec.fechaActualizacion || new Date().toISOString(),
-          })
-        );
-        batchWritesCount++;
-        recetasSubidas++;
+      } else {
+        const nuevoFavorito = Boolean(localRec.esFavorito || remota.esFavorito);
+        const nuevoRating = esMasReciente(
+          localRec.fechaActualizacion,
+          remota.fechaActualizacion
+        )
+          ? (localRec.rating ?? remota.rating)
+          : (remota.rating ?? localRec.rating);
+        if (
+          nuevoFavorito !== Boolean(remota.esFavorito) ||
+          nuevoRating !== remota.rating
+        ) {
+          const ref = doc(db, 'users', uid, 'recetas', localRec.id);
+          batch.set(
+            ref,
+            sanitizeForFirestore({
+              ...remota,
+              esFavorito: nuevoFavorito,
+              rating: nuevoRating,
+              fechaActualizacion: localRec.fechaActualizacion || new Date().toISOString(),
+            })
+          );
+          batchWritesCount++;
+          recetasSubidas++;
+        }
       }
     }
 
@@ -388,7 +402,7 @@ export async function importBackupPayload(
     for (const rec of payload.recetas) {
       if (rec && typeof rec.id === 'string' && typeof rec.nombre === 'string') {
         await activeRepos.recetaRepo.save(rec);
-        if (rec.esPropia || rec.esFavorito) {
+        if (rec.esPropia || rec.esFavorito || rec.rating !== undefined) {
           recetasImportadas++;
         }
       }

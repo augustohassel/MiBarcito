@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  useActualizarRatingBebida,
   useAlmacen,
   useCategoriasOpcional,
   useCloudSync,
@@ -10,6 +11,7 @@ import { useAuth } from './context/AuthContext';
 import { useTheme } from './hooks/useTheme';
 import {
   Bebida,
+  obtenerClaveProductoBebida,
 } from './domain/models/bebida';
 import { Receta, clonarRecetaParaAutor } from './domain/models/receta';
 import { InsumoAlmacen } from './domain/models/insumo-almacen';
@@ -31,7 +33,12 @@ import {
   InventarioFiltros,
 } from './components/InventarioFiltros';
 import { RecetaCard } from './components/RecetaCard';
-import { RecetarioFiltros, FiltroSeccionRecetario } from './components/RecetarioFiltros';
+import {
+  CriterioOrdenRecetario,
+  FiltroSeccionRecetario,
+  RecetarioFiltros,
+  ordenarRecetasEvaluadas,
+} from './components/RecetarioFiltros';
 import { RecetaFormModal } from './components/RecetaFormModal';
 import { RecetaDetalleModal } from './components/RecetaDetalleModal';
 import { PrepararTragoModal } from './components/PrepararTragoModal';
@@ -54,8 +61,10 @@ export function App() {
     guardarReceta,
     eliminarReceta,
     toggleFavoritoReceta,
+    actualizarRatingReceta,
     prepararTrago,
   } = useRecetas();
+  const actualizarRatingBebida = useActualizarRatingBebida();
 
   const {
     insumos,
@@ -80,6 +89,7 @@ export function App() {
   // Filtros de Recetario
   const [busquedaReceta, setBusquedaReceta] = useState('');
   const [filtroSeccionReceta, setFiltroSeccionReceta] = useState<FiltroSeccionRecetario>('todas');
+  const [ordenReceta, setOrdenReceta] = useState<CriterioOrdenRecetario>('relevancia');
 
   // Estados de Modales de Despensa
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -155,9 +165,9 @@ export function App() {
     return clasificarRecetas(recetas, bebidas, insumos);
   }, [recetas, bebidas, insumos]);
 
-  // Filtrado de recetas en Recetario
+  // Filtrado y ordenamiento de recetas en Recetario
   const recetasFiltradasEvaluadas = useMemo(() => {
-    return clasificacionRecetas.todas.filter((item) => {
+    const filtradas = clasificacionRecetas.todas.filter((item) => {
       // Filtro por búsqueda de texto (nombre de receta o nombre de ingredientes)
       if (busquedaReceta.trim().length > 0) {
         const busqNorm = normalizarTexto(busquedaReceta);
@@ -186,7 +196,8 @@ export function App() {
 
       return true;
     });
-  }, [clasificacionRecetas, busquedaReceta, filtroSeccionReceta]);
+    return ordenarRecetasEvaluadas(filtradas, ordenReceta);
+  }, [clasificacionRecetas, busquedaReceta, filtroSeccionReceta, ordenReceta]);
 
   // Handlers de CRUD de Bebidas
   const handleAbrirConfiguracion = (tab: TabConfig = 'categorias') => {
@@ -249,22 +260,68 @@ export function App() {
       fechaActualizacion: ahora,
     };
 
-    // Actualización optimista in-place
-    setBebidas((prev) =>
-      original ? prev.map((b) => (b.id === id ? bebidaAGuardar : b)) : [...prev, bebidaAGuardar]
+    const clave = obtenerClaveProductoBebida(bebidaAGuardar);
+    const hermanasPares = clave
+      ? bebidas
+          .filter(
+            (b) =>
+              b.id !== id &&
+              obtenerClaveProductoBebida(b) === clave &&
+              b.rating !== bebidaAGuardar.rating
+          )
+          .map((previa) => ({
+            previa,
+            actualizada: {
+              ...previa,
+              rating: bebidaAGuardar.rating,
+              fechaActualizacion: ahora,
+            },
+          }))
+      : [];
+    const mapaActualizadas = new Map(
+      hermanasPares.map(({ actualizada }) => [actualizada.id, actualizada])
     );
+    const mapaSnapshots = new Map(hermanasPares.map(({ previa }) => [previa.id, previa]));
+    if (original) {
+      mapaSnapshots.set(id, original);
+    }
 
+    // Actualización optimista in-place (incluye sincronización entre botellas hermanas)
+    setBebidas((prev) => {
+      const base = prev.map((b) => mapaActualizadas.get(b.id) ?? b);
+      return original
+        ? base.map((b) => (b.id === id ? bebidaAGuardar : b))
+        : [...base, bebidaAGuardar];
+    });
+
+    const guardadasHermanas: Bebida[] = [];
+    let principalGuardada = false;
     try {
       await repository.save(bebidaAGuardar);
+      principalGuardada = true;
+      for (const { previa, actualizada } of hermanasPares) {
+        await repository.save(actualizada);
+        guardadasHermanas.push(previa);
+      }
       await loadBebidas(true);
     } catch (err) {
       console.error('Error al guardar bebida:', err);
-      // Rollback al estado anterior
-      if (original) {
-        setBebidas((prev) => prev.map((b) => (b.id === id ? original : b)));
-      } else {
-        setBebidas((prev) => prev.filter((b) => b.id !== id));
+      for (const previaHermana of guardadasHermanas) {
+        await repository.save(previaHermana).catch(() => {});
       }
+      if (principalGuardada) {
+        if (original) {
+          await repository.save(original).catch(() => {});
+        } else {
+          await repository.delete(id).catch(() => {});
+        }
+      }
+      // Rollback optimista por ID sobre las botellas afectadas
+      setBebidas((prev) =>
+        prev
+          .filter((b) => original || b.id !== id)
+          .map((b) => mapaSnapshots.get(b.id) ?? b)
+      );
       setToastMensaje(
         'No se pudo guardar la bebida: error al persistir en el almacenamiento local.'
       );
@@ -345,6 +402,34 @@ export function App() {
     );
   };
 
+  const handleCambiarRatingBebida = async (bebida: Bebida, nuevoRating?: number) => {
+    const clave = obtenerClaveProductoBebida(bebida);
+    const ahora = new Date().toISOString();
+    const snapshotsPorId = new Map<string, Bebida>();
+    const actualizadasPorId = new Map<string, Bebida>();
+
+    for (const b of bebidas) {
+      const coincide = clave ? obtenerClaveProductoBebida(b) === clave : b.id === bebida.id;
+      if (coincide) {
+        snapshotsPorId.set(b.id, b);
+        actualizadasPorId.set(b.id, { ...b, rating: nuevoRating, fechaActualizacion: ahora });
+      }
+    }
+
+    setBebidas((prev) => prev.map((b) => actualizadasPorId.get(b.id) ?? b));
+
+    try {
+      await actualizarRatingBebida(bebida.id, nuevoRating);
+      await loadBebidas(true);
+    } catch (err) {
+      console.error('Error al actualizar calificación de bebida:', err);
+      setBebidas((prev) => prev.map((b) => snapshotsPorId.get(b.id) ?? b));
+      setToastMensaje(
+        'No se pudo actualizar la calificación de la bebida: error al guardar en el almacenamiento local.'
+      );
+    }
+  };
+
   const handleAgregarMuestra = async () => {
     const nuevaBebida: Bebida = {
       id: crypto.randomUUID(),
@@ -399,6 +484,17 @@ export function App() {
       console.error('Error al alternar favorito de receta:', err);
       setToastMensaje(
         'No se pudo actualizar el favorito de la receta: error al guardar en el almacenamiento local.'
+      );
+    }
+  };
+
+  const handleCambiarRatingReceta = async (id: string, nuevoRating?: number) => {
+    try {
+      await actualizarRatingReceta(id, nuevoRating);
+    } catch (err) {
+      console.error('Error al actualizar calificación de receta:', err);
+      setToastMensaje(
+        'No se pudo actualizar la calificación de la receta: error al guardar en el almacenamiento local.'
       );
     }
   };
@@ -495,11 +591,16 @@ export function App() {
   );
   const valorTotalEstimado = metricasValoracion.costoTotal;
 
-  // Evaluación para modal de detalle
-  const evaluacionRecetaDetalle = useMemo(() => {
+  // Evaluación para modal de detalle (manteniendo sincronizado con cambios optimistas en recetas)
+  const recetaDetalleActual = useMemo(() => {
     if (!recetaDetalle) return null;
-    return clasificacionRecetas.todas.find((e) => e.receta.id === recetaDetalle.id) || null;
-  }, [recetaDetalle, clasificacionRecetas]);
+    return recetas.find((r) => r.id === recetaDetalle.id) || recetaDetalle;
+  }, [recetaDetalle, recetas]);
+
+  const evaluacionRecetaDetalle = useMemo(() => {
+    if (!recetaDetalleActual) return null;
+    return clasificacionRecetas.todas.find((e) => e.receta.id === recetaDetalleActual.id) || null;
+  }, [recetaDetalleActual, clasificacionRecetas]);
 
   return (
     <div className="min-h-screen bg-surface text-on-surface flex flex-col font-sans transition-colors duration-200">
@@ -862,6 +963,7 @@ export function App() {
                     onToggleFavorito={handleToggleFavorito}
                     onAjustarVolumen={handleAjustarVolumen}
                     onToggleArchivar={handleToggleArchivar}
+                    onCambiarRating={handleCambiarRatingBebida}
                   />
                 ))}
               </div>
@@ -925,6 +1027,8 @@ export function App() {
               onBusquedaChange={setBusquedaReceta}
               filtroActivo={filtroSeccionReceta}
               onFiltroChange={setFiltroSeccionReceta}
+              orden={ordenReceta}
+              onOrdenChange={setOrdenReceta}
               conteoArmables={clasificacionRecetas.armarHoy.length}
               conteoCasiListos={clasificacionRecetas.casiListos.length}
               conteoTotal={recetas.length}
@@ -938,7 +1042,7 @@ export function App() {
                   : filtroSeccionReceta === 'casi_listos'
                   ? '⏳ Casi listos (Faltan 1 o 2 insumos)'
                   : filtroSeccionReceta === 'favoritas'
-                  ? '⭐ Recetas Favoritas'
+                  ? '♥ Recetas Favoritas'
                   : filtroSeccionReceta === 'propias'
                   ? '✨ Mis Recetas de Autor'
                   : 'Catálogo de Cócteles'} ({recetasFiltradasEvaluadas.length})
@@ -991,6 +1095,7 @@ export function App() {
                     onVerDetalle={(r) => setRecetaDetalle(r)}
                     onPreparar={(r) => setRecetaAPreparar(r)}
                     onToggleFavorito={handleToggleFavoritoReceta}
+                    onCambiarRating={handleCambiarRatingReceta}
                     onEditar={handleAbrirEditarReceta}
                     onEliminar={handleSolicitarEliminarReceta}
                     onDuplicar={handleDuplicarReceta}
@@ -1006,6 +1111,7 @@ export function App() {
       <BebidaFormModal
         isOpen={isFormOpen}
         bebidaAEditar={bebidaAEditar}
+        bebidasExistentes={bebidas}
         modoInicialLectura={modoLecturaModal}
         fotoInicial={fotoPendienteParaModal}
         onSave={handleGuardarBebida}
@@ -1061,8 +1167,8 @@ export function App() {
       />
 
       <RecetaDetalleModal
-        isOpen={Boolean(recetaDetalle)}
-        receta={recetaDetalle}
+        isOpen={Boolean(recetaDetalleActual)}
+        receta={recetaDetalleActual}
         evaluacion={evaluacionRecetaDetalle}
         onClose={() => setRecetaDetalle(null)}
         onPreparar={(r) => {
@@ -1070,6 +1176,7 @@ export function App() {
           setRecetaAPreparar(r);
         }}
         onToggleFavorito={handleToggleFavoritoReceta}
+        onCambiarRating={handleCambiarRatingReceta}
         onEditar={handleAbrirEditarReceta}
         onDuplicar={handleDuplicarReceta}
       />
