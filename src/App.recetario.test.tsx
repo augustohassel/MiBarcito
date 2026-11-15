@@ -392,5 +392,106 @@ describe('App Component - Integración del Recetario Dinámico (Issue #5)', () =
 
     spyToggle.mockRestore();
   });
+
+  it('permite calificar recetas clásicas y de autor desde tarjeta, detalle y formulario, ordenar por rating y hacer rollback ante error (Issue #64)', async () => {
+    renderApp();
+    fireEvent.click(screen.getByTestId('tab-recetario'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Negroni')).toBeInTheDocument();
+    });
+
+    // 1. Calificar receta clásica desde RecetaCard con 5 estrellas
+    fireEvent.click(screen.getByTestId('rating-receta-receta-negroni-star-5'));
+    await waitFor(async () => {
+      const negroniRepo = await mockRecetaRepo.getById('receta-negroni');
+      expect(negroniRepo?.rating).toBe(5);
+    });
+
+    // 2. Abrir RecetaDetalleModal: refleja 5 estrellas y permite cambiar a 4 y limpiar
+    fireEvent.click(screen.getByTestId('detalle-receta-receta-negroni'));
+    await waitFor(() => {
+      expect(screen.getByTestId('detalle-rating-receta-receta-negroni-star-5')).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+    });
+    fireEvent.click(screen.getByTestId('detalle-rating-receta-receta-negroni-star-4'));
+    await waitFor(async () => {
+      const negroniRepo = await mockRecetaRepo.getById('receta-negroni');
+      expect(negroniRepo?.rating).toBe(4);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }));
+
+    // Calificar Gin Tonic con 2 estrellas para verificar ordenamiento
+    fireEvent.click(screen.getByTestId('rating-receta-receta-gin-tonic-star-2'));
+    await waitFor(async () => {
+      const gtRepo = await mockRecetaRepo.getById('receta-gin-tonic');
+      expect(gtRepo?.rating).toBe(2);
+    });
+
+    // 3. Crear una receta de autor calificada con 5 estrellas desde RecetaFormModal
+    fireEvent.click(screen.getByTestId('btn-nueva-receta'));
+    fireEvent.change(screen.getByTestId('input-receta-nombre'), {
+      target: { value: 'Cóctel Estrella' },
+    });
+    fireEvent.change(screen.getByTestId('select-ingrediente-categoria-0'), {
+      target: { value: 'destilado' },
+    });
+    fireEvent.change(screen.getByTestId('select-ingrediente-subcategoria-0'), {
+      target: { value: 'Gin' },
+    });
+    fireEvent.change(screen.getByTestId('input-ingrediente-ml-0'), {
+      target: { value: '60' },
+    });
+    fireEvent.change(screen.getByTestId('input-paso-0'), {
+      target: { value: 'Servir con hielo' },
+    });
+    fireEvent.click(screen.getByTestId('form-rating-receta-star-5'));
+    fireEvent.click(screen.getByTestId('btn-guardar-receta'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Cóctel Estrella')).toBeInTheDocument();
+    });
+
+    // 4. Ordenar por calificación descendente (5 -> 4 -> 2 -> sin calificar) y ascendente (2 -> 4 -> 5 -> sin calificar)
+    const selectOrden = screen.getByTestId('select-orden-recetario');
+    fireEvent.change(selectOrden, { target: { value: 'rating_desc' } });
+
+    await waitFor(() => {
+      const titulos = screen
+        .getAllByTestId(/^receta-card-/)
+        .map((card) => card.querySelector('h3')?.textContent);
+      expect(titulos.slice(0, 3)).toEqual(['Cóctel Estrella', 'Negroni', 'Gin Tonic']);
+    });
+
+    fireEvent.change(selectOrden, { target: { value: 'rating_asc' } });
+    await waitFor(() => {
+      const titulos = screen
+        .getAllByTestId(/^receta-card-/)
+        .map((card) => card.querySelector('h3')?.textContent);
+      expect(titulos.slice(0, 3)).toEqual(['Gin Tonic', 'Negroni', 'Cóctel Estrella']);
+    });
+
+    // 5. Rollback + toast si falla el guardado del rating de receta
+    const spySaveReceta = vi
+      .spyOn(mockRecetaRepo, 'save')
+      .mockRejectedValueOnce(new Error('Storage failure'));
+    fireEvent.click(screen.getByTestId('rating-receta-receta-negroni-star-1'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          /No se pudo actualizar la calificación de la receta: error al guardar en el almacenamiento local/i
+        )
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('rating-receta-receta-negroni-star-4')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    spySaveReceta.mockRestore();
+  });
 });
 

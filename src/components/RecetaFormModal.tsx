@@ -15,6 +15,7 @@ import {
   CategoriaInsumo,
 } from '../domain/models/insumo-almacen';
 import { useCategoriasOpcional, useAlmacenOpcional } from '../context/InventoryContext';
+import { StarRating } from './StarRating';
 
 export interface RecetaFormModalProps {
   isOpen: boolean;
@@ -158,6 +159,7 @@ export const RecetaFormModal: React.FC<RecetaFormModalProps> = ({
   const [metodo, setMetodo] = useState<MetodoPreparacion>('directo');
   const [ingredientes, setIngredientes] = useState<IngredienteReceta[]>([INGREDIENTE_INICIAL]);
   const [pasos, setPasos] = useState<string[]>(['']);
+  const [rating, setRating] = useState<number | undefined>(undefined);
   const [errores, setErrores] = useState<ErroresValidacionReceta>({});
 
   useEffect(() => {
@@ -174,6 +176,7 @@ export const RecetaFormModal: React.FC<RecetaFormModalProps> = ({
           : [crearIngredienteInicial()]
       );
       setPasos(recetaAEditar.pasos.length > 0 ? [...recetaAEditar.pasos] : ['']);
+      setRating(recetaAEditar.rating);
     } else {
       setNombre('');
       setDescripcion('');
@@ -181,6 +184,7 @@ export const RecetaFormModal: React.FC<RecetaFormModalProps> = ({
       setMetodo('directo');
       setIngredientes([crearIngredienteInicial()]);
       setPasos(['']);
+      setRating(undefined);
     }
     setErrores({});
   }, [recetaAEditar, isOpen, categoriasDisponibles, insumosDisponibles]);
@@ -355,6 +359,7 @@ export const RecetaFormModal: React.FC<RecetaFormModalProps> = ({
       pasos: pasos.map((p) => p.trim()).filter((p) => p.length > 0),
       esFavorito: recetaAEditar ? recetaAEditar.esFavorito : false,
       esPropia: true,
+      rating,
       fechaCreacion: recetaAEditar?.fechaCreacion || timestamp,
       fechaActualizacion: timestamp,
     };
@@ -469,6 +474,26 @@ export const RecetaFormModal: React.FC<RecetaFormModalProps> = ({
                 className="w-full px-3.5 py-2 rounded-xl bg-surface border border-outline text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
+          </div>
+
+          {/* Calificación */}
+          <div className="flex flex-col gap-1">
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-surface border border-outline-variant">
+              <span className="text-xs font-medium text-on-surface-variant">
+                Calificación personal (opcional):
+              </span>
+              <StarRating
+                rating={rating}
+                onChange={setRating}
+                size="md"
+                showValue
+                label="Calificación de la receta"
+                testIdPrefix="form-rating-receta"
+              />
+            </div>
+            {errores.rating && (
+              <p className="text-status-rose text-xs">{errores.rating}</p>
+            )}
           </div>
 
           {/* Sección de Ingredientes Dinámicos */}

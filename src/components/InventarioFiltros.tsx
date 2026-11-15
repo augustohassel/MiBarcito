@@ -13,6 +13,8 @@ export type CriterioOrden =
   | 'volumen_desc'
   | 'precio_asc'
   | 'precio_desc'
+  | 'rating_desc'
+  | 'rating_asc'
   | 'fecha_desc'
   | 'fecha_asc';
 
@@ -88,6 +90,17 @@ export function filtrarYOrdenarBebidas(
         return (a.precioEstimado ?? 0) - (b.precioEstimado ?? 0);
       case 'precio_desc':
         return (b.precioEstimado ?? 0) - (a.precioEstimado ?? 0);
+      case 'rating_desc':
+      case 'rating_asc': {
+        const rA = a.rating;
+        const rB = b.rating;
+        if (rA !== rB) {
+          if (rA === undefined) return 1;
+          if (rB === undefined) return -1;
+          return filtros.orden === 'rating_desc' ? rB - rA : rA - rB;
+        }
+        return a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' });
+      }
       case 'fecha_desc':
         return new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime();
       case 'fecha_asc':
@@ -178,11 +191,11 @@ export const InventarioFiltros: React.FC<InventarioFiltrosProps> = ({
             onClick={handleToggleFavoritos}
             className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border ${
               filtros.soloFavoritos
-                ? 'bg-status-amber/20 text-status-amber border-status-amber/40 shadow-xs'
+                ? 'bg-status-rose/15 text-status-rose border-status-rose/40 shadow-xs'
                 : 'bg-surface text-on-surface-variant border-outline hover:text-on-surface'
             }`}
           >
-            <span>{filtros.soloFavoritos ? '⭐' : '☆'}</span>
+            <span>{filtros.soloFavoritos ? '♥' : '♡'}</span>
             <span>Solo Favoritos</span>
           </button>
 
@@ -240,6 +253,8 @@ export const InventarioFiltros: React.FC<InventarioFiltrosProps> = ({
               <option value="volumen_asc">Volumen restante (Menor)</option>
               <option value="precio_desc">Precio (Mayor)</option>
               <option value="precio_asc">Precio (Menor)</option>
+              <option value="rating_desc">Calificación (Mejor calificadas)</option>
+              <option value="rating_asc">Calificación (Menor calificadas)</option>
               <option value="fecha_desc">Fecha de alta (Más reciente)</option>
               <option value="fecha_asc">Fecha de alta (Más antiguo)</option>
             </select>

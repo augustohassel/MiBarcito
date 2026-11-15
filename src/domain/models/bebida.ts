@@ -31,6 +31,7 @@ export interface Bebida {
   precioEstimado?: number;
   stockMinimoMl?: number;
   esFavorito?: boolean;
+  rating?: number;
   notas?: string;
   archivada?: boolean;
   recomprar?: boolean;
@@ -124,6 +125,13 @@ export function validarBebida(
     }
   }
 
+  // Calificación por estrellas (opcional, entero entre 1 y 5)
+  if (datos.rating !== undefined && datos.rating !== null) {
+    if (!Number.isInteger(datos.rating) || datos.rating < 1 || datos.rating > 5) {
+      errores.rating = 'La calificación debe ser un número entero entre 1 y 5 estrellas';
+    }
+  }
+
   return errores;
 }
 
@@ -160,5 +168,31 @@ export function calcularPorcentajeRestante(bebida: Bebida): number {
   if (bebida.volumenTotalMl <= 0) return 0;
   const porcentaje = (bebida.volumenRestanteMl / bebida.volumenTotalMl) * 100;
   return Math.min(100, Math.max(0, Math.round(porcentaje)));
+}
+
+/**
+ * Normaliza un texto para comparación de identidad comercial (minúsculas, sin diacríticos, espacios simples).
+ */
+export function normalizarClaveProducto(texto?: string): string {
+  if (!texto) return '';
+  return texto
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+/**
+ * Calcula una clave única normalizada de producto comercial a partir de marca y nombre
+ * para sincronizar y heredar calificaciones entre botellas equivalentes de la despensa.
+ */
+export function obtenerClaveProductoBebida(
+  bebida: Pick<Bebida, 'marca' | 'nombre'>
+): string {
+  const marcaNorm = normalizarClaveProducto(bebida.marca);
+  const nombreNorm = normalizarClaveProducto(bebida.nombre);
+  if (!marcaNorm || !nombreNorm) return '';
+  return `${marcaNorm}::${nombreNorm}`;
 }
 

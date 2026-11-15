@@ -4,6 +4,7 @@ import App from './App';
 import { InventoryProvider } from './context/InventoryContext';
 import { InMemoryInventoryRepository } from './infrastructure/storage/in-memory-inventory-repository';
 import { InMemoryCategoriaRepository } from './infrastructure/storage/in-memory-categoria-repository';
+import { Bebida } from './domain/models/bebida';
 
 describe('App Component - Gestión de Despensa e Inventario', () => {
   let mockRepo: InMemoryInventoryRepository;
@@ -505,6 +506,213 @@ describe('App Component - Gestión de Despensa e Inventario', () => {
 
     // Debe haber revertido (rollback) el volumen al valor previo
     expect(screen.getByText('250 / 750 ml (33%)')).toBeInTheDocument();
+    spySave.mockRestore();
+  });
+
+  it('sincroniza la calificación entre botellas hermanas (activas y archivadas) y hereda en nuevas altas (Issue #64)', async () => {
+    const ahora = '2026-11-10T00:00:00.000Z';
+    const activa1: Bebida = {
+      id: 'b-act-1',
+      nombre: 'Aperitivo Bitter',
+      marca: 'Campari',
+      categoria: 'aperitivo_bitter',
+      volumenTotalMl: 750,
+      volumenRestanteMl: 500,
+      esFavorito: false,
+      fechaCreacion: ahora,
+      fechaActualizacion: ahora,
+    };
+    const archivada2: Bebida = {
+      id: 'b-arch-2',
+      nombre: ' aperitivo   bitter ',
+      marca: 'CAMPARI',
+      categoria: 'aperitivo_bitter',
+      volumenTotalMl: 750,
+      volumenRestanteMl: 0,
+      esFavorito: false,
+      archivada: true,
+      fechaCreacion: ahora,
+      fechaActualizacion: ahora,
+    };
+    const distinta: Bebida = {
+      id: 'b-otra',
+      nombre: 'Branca',
+      marca: 'Fernet Branca',
+      categoria: 'aperitivo_bitter',
+      volumenTotalMl: 750,
+      volumenRestanteMl: 700,
+      esFavorito: false,
+      fechaCreacion: ahora,
+      fechaActualizacion: ahora,
+    };
+
+    await mockRepo.save(activa1);
+    await mockRepo.save(archivada2);
+    await mockRepo.save(distinta);
+
+    render(
+      <InventoryProvider repository={mockRepo} categoriaRepository={mockCatRepo}>
+        <App />
+      </InventoryProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Aperitivo Bitter')).toBeInTheDocument();
+    });
+
+    // Calificar con 4 estrellas desde BebidaCard de la activa
+    fireEvent.click(screen.getByTestId('rating-bebida-b-act-1-star-4'));
+
+    await waitFor(async () => {
+      const b1 = await mockRepo.getById('b-act-1');
+      const b2 = await mockRepo.getById('b-arch-2');
+      const b3 = await mockRepo.getById('b-otra');
+      expect(b1?.rating).toBe(4);
+      expect(b2?.rating).toBe(4);
+      expect(b3?.rating).toBeUndefined();
+    });
+
+    // Ver también "Todas" en UI para verificar que la archivada refleja las 4 estrellas
+    fireEvent.click(screen.getByRole('button', { name: 'Todas las botellas' }));
+    await waitFor(() => {
+      expect(screen.getByTestId('rating-bebida-b-arch-2-star-4')).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+    });
+
+    // Crear una tercera botella igual: debe heredar 4 estrellas automáticamente en el modal
+    fireEvent.click(screen.getByRole('button', { name: /Nueva Bebida/i }));
+    fireEvent.change(screen.getByLabelText(/Nombre de la Bebida/i), {
+      target: { value: 'Aperitivo Bitter' },
+    });
+    fireEvent.change(screen.getByLabelText(/Marca \/ Destilería/i), {
+      target: { value: 'Campari' },
+    });
+    expect(screen.getByTestId('form-rating-bebida-star-4')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+
+    // Cambiar manualmente a 5 estrellas al crear debe propagar 5 estrellas a las hermanas
+    fireEvent.click(screen.getByTestId('form-rating-bebida-star-5'));
+    fireEvent.click(screen.getByRole('button', { name: /Crear Bebida/i }));
+
+    await waitFor(async () => {
+      const todas = await mockRepo.getAll();
+      const campari = todas.filter((b) => b.marca.toLowerCase() === 'campari');
+      expect(campari).toHaveLength(3);
+      expect(campari.every((b) => b.rating === 5)).toBe(true);
+    });
+
+    // Crear una cuarta botella igual y limpiar el rating heredado propaga undefined a todas las hermanas
+    fireEvent.click(screen.getByRole('button', { name: /Nueva Bebida/i }));
+    fireEvent.change(screen.getByLabelText(/Nombre de la Bebida/i), {
+      target: { value: 'Aperitivo Bitter' },
+    });
+    fireEvent.change(screen.getByLabelText(/Marca \/ Destilería/i), {
+      target: { value: 'Campari' },
+    });
+    expect(screen.getByTestId('form-rating-bebida-star-5')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    fireEvent.click(screen.getByTestId('form-rating-bebida-star-5'));
+    fireEvent.click(screen.getByRole('button', { name: /Crear Bebida/i }));
+
+    await waitFor(async () => {
+      const todas = await mockRepo.getAll();
+      const campari = todas.filter((b) => b.marca.toLowerCase() === 'campari');
+      expect(campari).toHaveLength(4);
+      expect(campari.every((b) => b.rating === undefined)).toBe(true);
+    });
+  });
+
+  it('hace rollback atómico de todas las botellas hermanas si falla el guardado en la segunda botella (Issue #64 - Caso de falla 1)', async () => {
+    const ahora = '2026-11-10T00:00:00.000Z';
+    await mockRepo.save({
+      id: 'hermana-1',
+      nombre: 'Gin London Dry',
+      marca: 'Beefeater',
+      categoria: 'destilado',
+      volumenTotalMl: 750,
+      volumenRestanteMl: 600,
+      esFavorito: false,
+      rating: 3,
+      fechaCreacion: ahora,
+      fechaActualizacion: ahora,
+    });
+    await mockRepo.save({
+      id: 'hermana-2',
+      nombre: 'Gin London Dry',
+      marca: 'Beefeater',
+      categoria: 'destilado',
+      volumenTotalMl: 750,
+      volumenRestanteMl: 0,
+      esFavorito: false,
+      archivada: true,
+      rating: 3,
+      fechaCreacion: ahora,
+      fechaActualizacion: ahora,
+    });
+
+    render(
+      <InventoryProvider repository={mockRepo} categoriaRepository={mockCatRepo}>
+        <App />
+      </InventoryProvider>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Todas las botellas' }));
+    await waitFor(() => {
+      expect(screen.getByTestId('rating-bebida-hermana-1-star-3')).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+      expect(screen.getByTestId('rating-bebida-hermana-2-star-3')).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+    });
+
+    const originalSave = mockRepo.save.bind(mockRepo);
+    let llamadas = 0;
+    const spySave = vi.spyOn(mockRepo, 'save').mockImplementation(async (bebida) => {
+      llamadas += 1;
+      if (llamadas === 2) {
+        throw new Error('Fallo de red o almacenamiento al actualizar segunda botella');
+      }
+      return originalSave(bebida);
+    });
+
+    fireEvent.click(screen.getByTestId('rating-bebida-hermana-1-star-5'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          /No se pudo actualizar la calificación de la bebida: error al guardar en el almacenamiento local/i
+        )
+      ).toBeInTheDocument();
+    });
+
+    // Tanto en UI como en el repositorio ambas botellas conservan el rating original (3)
+    expect(screen.getByTestId('rating-bebida-hermana-1-star-3')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    expect(screen.getByTestId('rating-bebida-hermana-1-star-5')).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    );
+    expect(screen.getByTestId('rating-bebida-hermana-2-star-3')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+
+    const b1Repo = await mockRepo.getById('hermana-1');
+    const b2Repo = await mockRepo.getById('hermana-2');
+    expect(b1Repo?.rating).toBe(3);
+    expect(b2Repo?.rating).toBe(3);
+
     spySave.mockRestore();
   });
 });

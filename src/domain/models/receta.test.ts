@@ -75,6 +75,18 @@ describe('Modelo de Dominio: Receta / RecetaTrago', () => {
       expect(validarReceta({ ...recetaValida, pasos: [] }).pasos).toBeDefined();
       expect(validarReceta({ ...recetaValida, pasos: ['Paso 1', '   '] }).pasos).toBeDefined();
     });
+
+    it('acepta rating entero entre 1 y 5 o undefined, y rechaza valores inválidos', () => {
+      for (const puntaje of [undefined, 1, 3, 5]) {
+        expect(validarReceta({ ...recetaValida, rating: puntaje }).rating).toBeUndefined();
+      }
+
+      for (const invalido of [0, 6, -3, 2.5, Number.NaN]) {
+        expect(validarReceta({ ...recetaValida, rating: invalido }).rating).toBe(
+          'La calificación debe ser un número entero entre 1 y 5 estrellas'
+        );
+      }
+    });
   });
 
   describe('clonarRecetaParaAutor', () => {
@@ -124,7 +136,7 @@ describe('Modelo de Dominio: Receta / RecetaTrago', () => {
       }
     });
 
-    it('enriquecerRecetaPredeterminada actualiza recetas clásicas antiguas preservando esFavorito', () => {
+    it('enriquecerRecetaPredeterminada actualiza recetas clásicas antiguas preservando esFavorito y rating', () => {
       const recetaAntigua: Receta = {
         id: 'receta-negroni',
         nombre: 'Negroni',
@@ -132,6 +144,7 @@ describe('Modelo de Dominio: Receta / RecetaTrago', () => {
         cristaleria: 'Vaso',
         metodoPreparacion: 'refrescado',
         esFavorito: true,
+        rating: 5,
         esPropia: false,
         ingredientes: [
           { nombre: 'Gin', cantidadMl: 30, tipo: 'bebida' },
@@ -141,6 +154,7 @@ describe('Modelo de Dominio: Receta / RecetaTrago', () => {
 
       const enriquecida = enriquecerRecetaPredeterminada(recetaAntigua);
       expect(enriquecida.esFavorito).toBe(true);
+      expect(enriquecida.rating).toBe(5);
       expect(enriquecida.ingredientes[0].categoriaId).toBe('destilado');
       expect(enriquecida.ingredientes[0].subcategoria).toBe('Gin');
     });
