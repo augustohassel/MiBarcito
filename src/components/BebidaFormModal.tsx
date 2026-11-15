@@ -8,11 +8,13 @@ import {
   validarBebida,
   calcularPorcentajeRestante,
   estaEnAlertaStockBajo,
+  obtenerClaveProductoBebida,
 } from '../domain/models/bebida';
 import { CATEGORIAS_PREDETERMINADAS } from '../domain/models/categoria';
 import { compressAndResizeImage } from '../utils/image-processor';
 import { analizarFotoBotella } from '../domain/services/gemini-botella.service';
 import { hasGeminiApiKey } from '../infrastructure/ai/ai-config';
+import { StarRating } from './StarRating';
 
 export interface BebidaFormValues {
   id?: string;
@@ -26,6 +28,7 @@ export interface BebidaFormValues {
   precioEstimado?: number;
   stockMinimoMl?: number;
   esFavorito: boolean;
+  rating?: number;
   notas?: string;
   archivada?: boolean;
   recomprar?: boolean;
@@ -34,6 +37,7 @@ export interface BebidaFormValues {
 export interface BebidaFormModalProps {
   isOpen: boolean;
   bebidaAEditar?: Bebida | null;
+  bebidasExistentes?: Bebida[];
   modoInicialLectura?: boolean;
   onSave: (datos: BebidaFormValues) => Promise<void> | void;
   onClose: () => void;
@@ -52,6 +56,7 @@ const VALORES_INICIALES: BebidaFormValues = {
   precioEstimado: undefined,
   stockMinimoMl: 150,
   esFavorito: false,
+  rating: undefined,
   notas: '',
   archivada: false,
   recomprar: undefined,
@@ -60,6 +65,7 @@ const VALORES_INICIALES: BebidaFormValues = {
 export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
   isOpen,
   bebidaAEditar,
+  bebidasExistentes,
   modoInicialLectura = false,
   onSave,
   onClose,
@@ -76,9 +82,20 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
   const [formData, setFormData] = useState<BebidaFormValues>(VALORES_INICIALES);
   const [errores, setErrores] = useState<ErroresValidacionBebida>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const ratingTocadoManualmenteRef = useRef(false);
   const [isModoLectura, setIsModoLectura] = useState(() =>
     Boolean(modoInicialLectura && bebidaAEditar)
   );
+
+  const obtenerRatingHeredado = (marca: string, nombre: string): number | undefined => {
+    if (!bebidasExistentes || bebidasExistentes.length === 0) return undefined;
+    const clave = obtenerClaveProductoBebida({ marca, nombre });
+    if (!clave) return undefined;
+    const hermana = bebidasExistentes.find(
+      (b) => obtenerClaveProductoBebida(b) === clave && b.rating !== undefined
+    );
+    return hermana?.rating;
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -198,22 +215,31 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
         }
       }
 
-      setFormData((prev) => ({
-        ...prev,
-        nombre: datos.nombre || prev.nombre,
-        marca: datos.marca || prev.marca,
-        categoria: categoriaMapeada,
-        subcategoria: subcategoriaMapeada || prev.subcategoria,
-        graduacionAlcoholica:
-          datos.graduacionAlcoholica !== undefined
-            ? datos.graduacionAlcoholica
-            : prev.graduacionAlcoholica,
-        precioEstimado:
-          datos.precioEstimado !== undefined ? datos.precioEstimado : prev.precioEstimado,
-        volumenTotalMl: datos.volumenTotalMl || prev.volumenTotalMl || 750,
-        volumenRestanteMl: datos.volumenTotalMl || prev.volumenRestanteMl || 750,
-        notas: datos.notas || prev.notas,
-      }));
+      setFormData((prev) => {
+        const nombreResuelto = datos.nombre || prev.nombre;
+        const marcaResuelta = datos.marca || prev.marca;
+        const ratingHeredado =
+          !bebidaAEditar && !ratingTocadoManualmenteRef.current
+            ? obtenerRatingHeredado(marcaResuelta, nombreResuelto)
+            : undefined;
+        return {
+          ...prev,
+          nombre: nombreResuelto,
+          marca: marcaResuelta,
+          categoria: categoriaMapeada,
+          subcategoria: subcategoriaMapeada || prev.subcategoria,
+          graduacionAlcoholica:
+            datos.graduacionAlcoholica !== undefined
+              ? datos.graduacionAlcoholica
+              : prev.graduacionAlcoholica,
+          precioEstimado:
+            datos.precioEstimado !== undefined ? datos.precioEstimado : prev.precioEstimado,
+          volumenTotalMl: datos.volumenTotalMl || prev.volumenTotalMl || 750,
+          volumenRestanteMl: datos.volumenTotalMl || prev.volumenRestanteMl || 750,
+          rating: ratingHeredado !== undefined ? ratingHeredado : prev.rating,
+          notas: datos.notas || prev.notas,
+        };
+      });
 
       const notaGrounding = resultado.fuentePrecios
         ? ` (precio de mercado sugerido vía ${resultado.fuentePrecios})`
@@ -255,10 +281,12 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
         precioEstimado: bebidaAEditar.precioEstimado,
         stockMinimoMl: bebidaAEditar.stockMinimoMl,
         esFavorito: bebidaAEditar.esFavorito ?? false,
+        rating: bebidaAEditar.rating,
         notas: bebidaAEditar.notas ?? '',
         archivada: bebidaAEditar.archivada ?? false,
         recomprar: bebidaAEditar.recomprar,
       });
+      ratingTocadoManualmenteRef.current = false;
       setFotoPreview(null);
       setAiError(null);
       setAiSuccessMessage(null);
@@ -267,7 +295,9 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
         ...VALORES_INICIALES,
         categoria: opcionesCategorias[0]?.value || 'destilado',
         subcategoria: '',
+        rating: undefined,
       });
+      ratingTocadoManualmenteRef.current = false;
       setFotoPreview(null);
       setAiError(null);
       setAiSuccessMessage(null);
@@ -296,6 +326,13 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
     valor: string | number | boolean | undefined
   ) => {
     const updated: BebidaFormValues = { ...formData, [campo]: valor };
+    if (
+      !bebidaAEditar &&
+      !ratingTocadoManualmenteRef.current &&
+      (campo === 'nombre' || campo === 'marca')
+    ) {
+      updated.rating = obtenerRatingHeredado(updated.marca, updated.nombre);
+    }
     setFormData(updated);
 
     // Limpiar error del campo modificado si ya no aplica
@@ -463,13 +500,22 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
                 <p className="text-sm text-on-surface-variant truncate" title={bebidaAEditar.marca}>
                   {bebidaAEditar.marca}
                 </p>
+                <div className="mt-2">
+                  <StarRating
+                    rating={bebidaAEditar.rating}
+                    readOnly
+                    size="sm"
+                    showValue
+                    testIdPrefix="ficha-rating"
+                  />
+                </div>
               </div>
               {bebidaAEditar.esFavorito && (
                 <span
-                  className="text-xs font-semibold px-2.5 py-1 rounded-xl bg-status-amber/15 text-status-amber border border-status-amber/30 flex items-center gap-1 shrink-0"
+                  className="text-xs font-semibold px-2.5 py-1 rounded-xl bg-status-rose/15 text-status-rose border border-status-rose/30 flex items-center gap-1 shrink-0"
                   title="Bebida favorita"
                 >
-                  ★ Favorito
+                  ♥ Favorito
                 </span>
               )}
             </div>
@@ -855,8 +901,8 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
             </div>
           </div>
 
-          {/* Favorito */}
-          <div className="flex items-center gap-2">
+          {/* Favorito y Calificación */}
+          <div className="flex flex-wrap items-center justify-between gap-4 p-3 rounded-xl bg-surface border border-outline">
             <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -864,9 +910,27 @@ export const BebidaFormModal: React.FC<BebidaFormModalProps> = ({
                 onChange={(e) => handleChange('esFavorito', e.target.checked)}
                 className="w-4 h-4 rounded text-primary bg-surface border-outline focus:ring-primary"
               />
-              <span>⭐ Marcar como Favorito</span>
+              <span>♥ Marcar como Favorito</span>
             </label>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-on-surface-variant">Calificación:</span>
+              <StarRating
+                rating={formData.rating}
+                onChange={(nuevoRating) => {
+                  ratingTocadoManualmenteRef.current = true;
+                  handleChange('rating', nuevoRating);
+                }}
+                size="md"
+                showValue
+                label="Calificación de la bebida"
+                testIdPrefix="form-rating-bebida"
+              />
+            </div>
           </div>
+          {errores.rating && (
+            <p className="text-status-rose text-xs -mt-2">{errores.rating}</p>
+          )}
 
           {/* Volúmenes */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 rounded-xl bg-surface border border-outline">

@@ -7,6 +7,7 @@ import {
   obtenerLabelCategoriaInsumo,
 } from '../domain/models/insumo-almacen';
 import { useCategoriasOpcional } from '../context/InventoryContext';
+import { StarRating } from './StarRating';
 
 export interface RecetaDetalleModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ export interface RecetaDetalleModalProps {
   onClose: () => void;
   onPreparar: (receta: Receta) => void;
   onToggleFavorito: (id: string) => void;
+  onCambiarRating?: (id: string, nuevoRating?: number) => void;
   onEditar?: (receta: Receta) => void;
   onDuplicar?: (receta: Receta) => void;
 }
@@ -26,6 +28,7 @@ export const RecetaDetalleModal: React.FC<RecetaDetalleModalProps> = ({
   onClose,
   onPreparar,
   onToggleFavorito,
+  onCambiarRating,
   onEditar,
   onDuplicar,
 }) => {
@@ -67,6 +70,17 @@ export const RecetaDetalleModal: React.FC<RecetaDetalleModalProps> = ({
               )}
             </div>
             <p className="text-xs text-on-surface-variant">{receta.descripcion}</p>
+            <div className="mt-2">
+              <StarRating
+                rating={receta.rating}
+                onChange={onCambiarRating ? (r) => onCambiarRating(receta.id, r) : undefined}
+                readOnly={!onCambiarRating}
+                size="sm"
+                showValue
+                label={`Calificación de ${receta.nombre}`}
+                testIdPrefix={`detalle-rating-receta-${receta.id}`}
+              />
+            </div>
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
@@ -74,21 +88,13 @@ export const RecetaDetalleModal: React.FC<RecetaDetalleModalProps> = ({
               type="button"
               onClick={() => onToggleFavorito(receta.id)}
               aria-label={receta.esFavorito ? 'Quitar de favoritos' : 'Marcar como favorito'}
-              className="p-1.5 rounded-full text-on-surface-variant hover:text-status-amber hover:bg-surface-container-high transition-colors"
+              className={`p-1.5 rounded-full transition-colors text-lg leading-none cursor-pointer ${
+                receta.esFavorito
+                  ? 'text-status-rose hover:bg-status-rose/10'
+                  : 'text-on-surface-variant hover:text-status-rose hover:bg-surface-container-high'
+              }`}
             >
-              <svg
-                className={`w-5 h-5 ${
-                  receta.esFavorito ? 'fill-status-amber text-status-amber' : 'fill-none stroke-current'
-                }`}
-                viewBox="0 0 24 24"
-                strokeWidth="2"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
-                />
-              </svg>
+              {receta.esFavorito ? '♥' : '♡'}
             </button>
             <button
               type="button"

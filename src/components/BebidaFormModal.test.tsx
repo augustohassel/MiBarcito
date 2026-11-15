@@ -95,6 +95,7 @@ describe('BebidaFormModal Component', () => {
         precioEstimado: undefined,
         stockMinimoMl: 150,
         esFavorito: true,
+        rating: undefined,
         notas: undefined,
         archivada: undefined,
         recomprar: undefined,
@@ -208,7 +209,7 @@ describe('BebidaFormModal Component', () => {
       expect(screen.getByText(/400 \/ 750 ml \(53%\)/i)).toBeInTheDocument();
       expect(screen.getByText('11% ABV')).toBeInTheDocument();
       expect(screen.getByText('$12.000')).toBeInTheDocument();
-      expect(screen.getByText('★ Favorito')).toBeInTheDocument();
+      expect(screen.getByText('♥ Favorito')).toBeInTheDocument();
 
       // No debe haber botones de guardar ni inputs de formulario activos
       expect(screen.queryByRole('button', { name: /Guardar Cambios/i })).not.toBeInTheDocument();
@@ -466,6 +467,230 @@ describe('BebidaFormModal Component', () => {
       expect(screen.getByText(/Excelente para Manhattan y Negroni\./i)).toBeInTheDocument();
       expect(screen.getByText(/Sí, volvería a comprar/i)).toBeInTheDocument();
       expect(screen.getByText(/Archivada en historial/i)).toBeInTheDocument();
+    });
+
+    it('muestra la calificación en solo lectura dentro de la ficha técnica', () => {
+      const bebidaCalificada: Bebida = {
+        ...bebidaEjemplo,
+        rating: 4,
+      };
+
+      render(
+        <BebidaFormModal
+          isOpen={true}
+          bebidaAEditar={bebidaCalificada}
+          modoInicialLectura={true}
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+
+      expect(screen.getByTestId('ficha-rating-readonly')).toHaveTextContent('★★★★☆');
+    });
+  });
+
+  describe('Calificación por Estrellas e Herencia entre Botellas Hermanas', () => {
+    it('permite seleccionar y limpiar calificación manualmente al crear o editar', async () => {
+      const onSave = vi.fn();
+      const { rerender } = render(
+        <BebidaFormModal isOpen={true} onSave={onSave} onClose={vi.fn()} />
+      );
+
+      fireEvent.change(screen.getByLabelText(/Nombre de la Bebida/i), {
+        target: { value: 'Dry Gin' },
+      });
+      fireEvent.change(screen.getByLabelText(/Marca \/ Destilería/i), {
+        target: { value: 'Beefeater' },
+      });
+      fireEvent.click(screen.getByTestId('form-rating-bebida-star-4'));
+      fireEvent.click(screen.getByRole('button', { name: /Crear Bebida/i }));
+
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ rating: 4 }));
+      });
+
+      onSave.mockClear();
+      rerender(
+        <BebidaFormModal
+          isOpen={true}
+          bebidaAEditar={{ ...bebidaEjemplo, rating: 4 }}
+          onSave={onSave}
+          onClose={vi.fn()}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('form-rating-bebida-star-4'));
+      fireEvent.click(screen.getByRole('button', { name: /Guardar Cambios/i }));
+
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ rating: undefined }));
+      });
+    });
+
+    it('hereda automáticamente el rating de una botella existente con la misma marca y nombre y respeta anulación manual', async () => {
+      const onSave = vi.fn();
+      const existentes: Bebida[] = [
+        {
+          ...bebidaEjemplo,
+          id: 'hermana-archivada',
+          nombre: 'Aperitivo Bitter',
+          marca: 'Campari',
+          archivada: true,
+          rating: 4,
+        },
+      ];
+
+      render(
+        <BebidaFormModal
+          isOpen={true}
+          bebidasExistentes={existentes}
+          onSave={onSave}
+          onClose={vi.fn()}
+        />
+      );
+
+      fireEvent.change(screen.getByLabelText(/Nombre de la Bebida/i), {
+        target: { value: '  aperitivo   bitter ' },
+      });
+      fireEvent.change(screen.getByLabelText(/Marca \/ Destilería/i), {
+        target: { value: ' CAMPARI ' },
+      });
+
+      expect(screen.getByTestId('form-rating-bebida-star-4')).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+      expect(screen.getByTestId('form-rating-bebida-star-5')).toHaveAttribute(
+        'aria-pressed',
+        'false'
+      );
+
+      // Si el usuario selecciona otra calificación manualmente, prevalece frente a cambios posteriores
+      fireEvent.click(screen.getByTestId('form-rating-bebida-star-5'));
+      fireEvent.change(screen.getByLabelText(/Nombre de la Bebida/i), {
+        target: { value: 'Aperitivo Bitter' },
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /Crear Bebida/i }));
+
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ rating: 5 }));
+      });
+    });
+
+    it('hereda rating al autocompletar mediante IA por foto y respeta calificación elegida manualmente en vuelo', async () => {
+      vi.spyOn(aiConfig, 'hasGeminiApiKey').mockReturnValue(true);
+
+      let resolverAnalisis!: (
+        val: Awaited<ReturnType<typeof geminiService.analizarFotoBotella>>
+      ) => void;
+      vi.spyOn(geminiService, 'analizarFotoBotella').mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolverAnalisis = resolve;
+          })
+      );
+
+      const existentes: Bebida[] = [
+        {
+          ...bebidaEjemplo,
+          id: 'gin-hermano',
+          nombre: 'Tanqueray London Dry Gin',
+          marca: 'Tanqueray',
+          rating: 4,
+        },
+      ];
+
+      // 1. Herencia automática tras autocompletado IA sin intervención manual previa
+      const { unmount } = render(
+        <BebidaFormModal
+          isOpen={true}
+          bebidasExistentes={existentes}
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+
+      const fileInput1 = screen.getByLabelText(/Cargar foto de botella/i);
+      fireEvent.change(fileInput1, {
+        target: { files: [new File(['img'], 'tanq1.jpg', { type: 'image/jpeg' })] },
+      });
+
+      await waitFor(() => {
+        expect(resolverAnalisis).toBeTypeOf('function');
+      });
+
+      resolverAnalisis({
+        exito: true,
+        datos: {
+          nombre: 'Tanqueray London Dry Gin',
+          marca: 'Tanqueray',
+          categoriaSugerida: 'Destilado',
+        },
+      });
+
+      await waitFor(() => {
+        expect(screen.getByDisplayValue('Tanqueray London Dry Gin')).toBeInTheDocument();
+        expect(screen.getByTestId('form-rating-bebida-star-4')).toHaveAttribute(
+          'aria-pressed',
+          'true'
+        );
+      });
+      unmount();
+
+      // 2. Si el usuario elige manualmente 5 estrellas mientras la IA analiza, no se sobrescribe con el 4 heredado
+      let resolverAnalisisConOverride!: (
+        val: Awaited<ReturnType<typeof geminiService.analizarFotoBotella>>
+      ) => void;
+      vi.spyOn(geminiService, 'analizarFotoBotella').mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolverAnalisisConOverride = resolve;
+          })
+      );
+
+      render(
+        <BebidaFormModal
+          isOpen={true}
+          bebidasExistentes={existentes}
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+
+      const fileInput2 = screen.getByLabelText(/Cargar foto de botella/i);
+      fireEvent.change(fileInput2, {
+        target: { files: [new File(['img'], 'tanq2.jpg', { type: 'image/jpeg' })] },
+      });
+
+      await waitFor(() => {
+        expect(resolverAnalisisConOverride).toBeTypeOf('function');
+      });
+
+      fireEvent.click(screen.getByTestId('form-rating-bebida-star-5'));
+      expect(screen.getByTestId('form-rating-bebida-star-5')).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+
+      resolverAnalisisConOverride({
+        exito: true,
+        datos: {
+          nombre: 'Tanqueray London Dry Gin',
+          marca: 'Tanqueray',
+          categoriaSugerida: 'Destilado',
+        },
+      });
+
+      await waitFor(() => {
+        expect(screen.getByDisplayValue('Tanqueray London Dry Gin')).toBeInTheDocument();
+        expect(screen.getByTestId('form-rating-bebida-star-5')).toHaveAttribute(
+          'aria-pressed',
+          'true'
+        );
+      });
+
+      vi.restoreAllMocks();
     });
   });
 });

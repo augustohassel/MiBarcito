@@ -5,6 +5,7 @@ import {
   calcularPorcentajeRestante,
   validarBebida,
   ajustarVolumenRapido,
+  obtenerClaveProductoBebida,
 } from './bebida';
 
 describe('Dominio Bebida', () => {
@@ -221,6 +222,46 @@ describe('Dominio Bebida', () => {
         notas: 'X'.repeat(501),
       });
       expect(erroresLargo.notas).toBe('Las notas no pueden superar los 500 caracteres');
+    });
+
+    it('acepta rating entero entre 1 y 5 o undefined, y rechaza valores inválidos', () => {
+      for (const puntaje of [undefined, 1, 2, 3, 4, 5]) {
+        const err = validarBebida({
+          nombre: 'Gin',
+          marca: 'Beefeater',
+          categoria: 'destilado',
+          volumenTotalMl: 750,
+          volumenRestanteMl: 750,
+          rating: puntaje,
+        });
+        expect(err.rating).toBeUndefined();
+      }
+
+      for (const invalido of [0, 6, -1, 3.5, Number.NaN]) {
+        const err = validarBebida({
+          nombre: 'Gin',
+          marca: 'Beefeater',
+          categoria: 'destilado',
+          volumenTotalMl: 750,
+          volumenRestanteMl: 750,
+          rating: invalido,
+        });
+        expect(err.rating).toBe('La calificación debe ser un número entero entre 1 y 5 estrellas');
+      }
+    });
+  });
+
+  describe('obtenerClaveProductoBebida', () => {
+    it('normaliza mayúsculas, tildes y espacios repetidos para identificar botellas iguales', () => {
+      const clave1 = obtenerClaveProductoBebida({ marca: 'Catena Zapata', nombre: 'Malbec D.V.' });
+      const clave2 = obtenerClaveProductoBebida({ marca: '  catena   zapata ', nombre: 'málbec   d.v.' });
+      expect(clave1).toBe('catena zapata::malbec d.v.');
+      expect(clave2).toBe(clave1);
+    });
+
+    it('retorna cadena vacía si falta marca o nombre', () => {
+      expect(obtenerClaveProductoBebida({ marca: '', nombre: 'Malbec' })).toBe('');
+      expect(obtenerClaveProductoBebida({ marca: 'Catena', nombre: '   ' })).toBe('');
     });
   });
 

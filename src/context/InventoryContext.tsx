@@ -4,6 +4,7 @@ import { createInventoryRepository } from '../infrastructure/storage/inventory-r
 import { ICategoriaRepository } from '../domain/repositories/categoria-repository.interface';
 import { createCategoriaRepository } from '../infrastructure/storage/categoria-repository-factory';
 import { Categoria, CATEGORIAS_PREDETERMINADAS, puedeEliminarCategoria } from '../domain/models/categoria';
+import { Bebida, obtenerClaveProductoBebida } from '../domain/models/bebida';
 import { IRecetaRepository } from '../domain/repositories/receta-repository.interface';
 import { createRecetaRepository } from '../infrastructure/storage/receta-repository-factory';
 import { Receta, RECETAS_PREDETERMINADAS } from '../domain/models/receta';
@@ -43,6 +44,7 @@ export interface RecetaContextType {
   guardarReceta: (receta: Receta) => Promise<void>;
   eliminarReceta: (id: string) => Promise<{ ok: boolean; motivo?: string }>;
   toggleFavoritoReceta: (id: string) => Promise<void>;
+  actualizarRatingReceta: (id: string, rating?: number) => Promise<void>;
   prepararTrago: (
     receta: Receta,
     descuentos: { botellaId: string; cantidadMl: number }[]
@@ -79,6 +81,7 @@ export interface InventoryContextType
     AlmacenContextType,
     CloudSyncContextType {
   repository: IInventoryRepository;
+  actualizarRatingBebida: (id: string, rating?: number) => Promise<Bebida[]>;
 }
 
 const InventoryContext = createContext<InventoryContextType | null>(null);
@@ -527,6 +530,72 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
     [recetaRepoInstance, recargarRecetas]
   );
 
+  const actualizarRatingReceta = useCallback(
+    async (id: string, rating?: number) => {
+      const recetaPrevia =
+        recetas.find((r) => r.id === id) ?? (await recetaRepoInstance.getById(id));
+      if (!recetaPrevia) {
+        throw new Error('La receta no existe');
+      }
+
+      const actualizada: Receta = {
+        ...recetaPrevia,
+        rating,
+        fechaActualizacion: new Date().toISOString(),
+      };
+      setRecetas((prev) => prev.map((r) => (r.id === id ? actualizada : r)));
+
+      try {
+        await recetaRepoInstance.save(actualizada);
+        await recargarRecetas({ silent: true });
+      } catch (err) {
+        setRecetas((prev) => prev.map((r) => (r.id === id ? recetaPrevia : r)));
+        throw err;
+      }
+    },
+    [recetas, recetaRepoInstance, recargarRecetas]
+  );
+
+  const actualizarRatingBebida = useCallback(
+    async (id: string, rating?: number): Promise<Bebida[]> => {
+      const todas = await repoInstance.getAll();
+      const objetivo = todas.find((b) => b.id === id);
+      if (!objetivo) {
+        throw new Error('La botella no existe en el inventario.');
+      }
+
+      const clave = obtenerClaveProductoBebida(objetivo);
+      const hermanas = clave
+        ? todas.filter((b) => obtenerClaveProductoBebida(b) === clave)
+        : [objetivo];
+      const snapshots = hermanas.map((b) => ({ ...b }));
+      const ahora = new Date().toISOString();
+      const actualizadas: Bebida[] = hermanas.map((h) => ({
+        ...h,
+        rating,
+        fechaActualizacion: ahora,
+      }));
+
+      const guardadasHastaElMomento: Bebida[] = [];
+      try {
+        for (const actualizada of actualizadas) {
+          await repoInstance.save(actualizada);
+          const snapshot = snapshots.find((s) => s.id === actualizada.id);
+          if (snapshot) {
+            guardadasHastaElMomento.push(snapshot);
+          }
+        }
+        return actualizadas;
+      } catch (err) {
+        for (const previa of guardadasHastaElMomento) {
+          await repoInstance.save(previa).catch(() => {});
+        }
+        throw err;
+      }
+    },
+    [repoInstance]
+  );
+
   const guardarInsumo = useCallback(
     async (insumo: InsumoAlmacen) => {
       let insumoPrevio: InsumoAlmacen | undefined;
@@ -686,6 +755,8 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
       guardarReceta,
       eliminarReceta,
       toggleFavoritoReceta,
+      actualizarRatingReceta,
+      actualizarRatingBebida,
       prepararTrago,
       insumos,
       loadingAlmacen,
@@ -719,6 +790,8 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({
       guardarReceta,
       eliminarReceta,
       toggleFavoritoReceta,
+      actualizarRatingReceta,
+      actualizarRatingBebida,
       prepararTrago,
       insumos,
       loadingAlmacen,
@@ -797,8 +870,19 @@ export function useRecetas(): RecetaContextType {
     guardarReceta: context.guardarReceta,
     eliminarReceta: context.eliminarReceta,
     toggleFavoritoReceta: context.toggleFavoritoReceta,
+    actualizarRatingReceta: context.actualizarRatingReceta,
     prepararTrago: context.prepararTrago,
   };
+}
+
+export function useActualizarRatingBebida(): (id: string, rating?: number) => Promise<Bebida[]> {
+  const context = useContext(InventoryContext);
+  if (!context) {
+    throw new Error(
+      'useActualizarRatingBebida debe ser utilizado dentro de un InventoryProvider'
+    );
+  }
+  return context.actualizarRatingBebida;
 }
 
 export function useAlmacen(): AlmacenContextType {

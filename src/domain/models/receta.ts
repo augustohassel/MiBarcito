@@ -50,6 +50,7 @@ export interface Receta {
   pasos: string[];
   esFavorito: boolean;
   esPropia: boolean;
+  rating?: number;
   tiempoMinutos?: number;
   fechaCreacion?: string;
   fechaActualizacion?: string;
@@ -69,6 +70,7 @@ export type ErroresValidacionReceta = {
   metodoPreparacion?: string;
   ingredientes?: string;
   pasos?: string;
+  rating?: string;
   general?: string;
 };
 
@@ -133,6 +135,12 @@ export function validarReceta(datos: Partial<Receta>): ErroresValidacionReceta {
     const algunPasoVacio = datos.pasos.some((p) => !p || p.trim().length === 0);
     if (algunPasoVacio) {
       errores.pasos = 'Los pasos de preparación no pueden estar vacíos';
+    }
+  }
+
+  if (datos.rating !== undefined && datos.rating !== null) {
+    if (!Number.isInteger(datos.rating) || datos.rating < 1 || datos.rating > 5) {
+      errores.rating = 'La calificación debe ser un número entero entre 1 y 5 estrellas';
     }
   }
 
@@ -399,7 +407,7 @@ export const RECETAS_PREDETERMINADAS: Receta[] = [
 /**
  * Función pura que actualiza transparentemente los ingredientes de las recetas predeterminadas
  * del sistema con la taxonomía canónica (categoriaId y subcategoria), preservando preferencias
- * del usuario como `esFavorito`.
+ * del usuario como `esFavorito` y `rating`.
  */
 export function enriquecerRecetaPredeterminada(receta: Receta): Receta {
   if (receta.esPropia) {
